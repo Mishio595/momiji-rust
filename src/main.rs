@@ -1,10 +1,9 @@
-#[macro_use]extern crate log;
+#[macro_use] extern crate log;
 #[macro_use] extern crate serenity;
 extern crate env_logger;
 extern crate kankyo;
 extern crate threadpool;
-
-mod momiji;
+extern crate momiji;
 
 use momiji::framework::*;
 use momiji::framework::command::Command;
