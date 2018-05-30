@@ -1,0 +1,15 @@
+[package]
+name = "momiji"
+version = "0.1.0"
+authors = ["Mishio595 <tenseiken595@gmail.com>"]
+license = "MIT"
+
+[dependencies]
+kankyo = "0.2.0"
+env_logger = "0.5"
+log = "0.4"
+threadpool = "1.7"
+
+[dependencies.serenity]
+git = "https://github.com/serenity-rs/serenity.git"
+features = ["builder", "client", "cache", "framework", "standard_framework", "gateway", "http", "model", "utils", "voice"]
