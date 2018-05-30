@@ -1,19 +1,16 @@
-pub mod command;
-
 use std::collections::HashMap;
 use std::collections::HashSet;
 use serenity::framework::Framework;
 use serenity::model::channel::Message;
-use serenity::prelude::Context;
+use serenity::prelude::*;
 use serenity::model::id::*;
 use threadpool::ThreadPool;
-use self::command::Command;
 
-struct Config {
-    use_mention: bool,
-    prefix: String,
-    owners: HashSet<UserId>,
-}
+pub mod command;
+mod config;
+
+use self::config::Config;
+use self::command::Command;
 
 pub struct MomijiFramework {
     config: Config,
