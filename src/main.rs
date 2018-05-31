@@ -6,7 +6,6 @@ extern crate threadpool;
 extern crate momiji;
 
 use momiji::framework::*;
-use momiji::framework::command::Command;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 use serenity::http;
@@ -40,12 +39,15 @@ fn main() {
 
     //TODO: Make own framework
     client.with_framework(MomijiFramework::new()
-        .use_mention(true)
-        .owners(owners)
-        .command("ping".to_string(), Command::new("ping".to_string(), |message, str| {
-            let _ = message.channel().unwrap().say("Pong!");
+        .configure(|c| c
+           .use_mention(true)
+            .owners(owners)
+            .prefix("!")
+        )
+        .command("ping", |message, str| {
+            let _ = message.channel_id.say("Pong!");
             true
-        }))
+        })
     );
 
     if let Err(why) = client.start_autosharded() {
