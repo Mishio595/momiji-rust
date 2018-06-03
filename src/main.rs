@@ -41,13 +41,13 @@ fn main() {
     client.with_framework(MomijiFramework::new()
         .configure(|c| c
            .use_mention(true)
-            .owners(owners)
-            .prefix("!")
+           .owners(owners)
+           .prefix("!")
         )
-        .command("ping", |message, str| {
+        .command("ping", |message, _| {
             let _ = message.channel_id.say("Pong!");
             true
-        })
+        }, 0, false)
     );
 
     if let Err(why) = client.start_autosharded() {

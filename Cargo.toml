@@ -9,6 +9,8 @@ kankyo = "0.2.0"
 env_logger = "0.5"
 log = "0.4"
 threadpool = "1.7"
+reql = "0.0.16"
+futures = "0.2"
 
 [dependencies.serenity]
 git = "https://github.com/serenity-rs/serenity.git"

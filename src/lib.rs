@@ -1,5 +1,7 @@
 #[macro_use] extern crate serenity;
 extern crate threadpool;
+extern crate reql;
+extern crate futures;
 
 pub mod framework;
 

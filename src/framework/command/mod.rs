@@ -10,8 +10,10 @@ use std::default::Default;
 pub struct Command {
     pub name: String,
     action: (fn(&Message, String) -> bool),
-    owner: bool,
-    server: bool,
+    pub rank: u8,
+    pub server: bool,
+    pub description: String,
+    pub usage: String,
 }
 
 impl Default for Command {
@@ -21,8 +23,10 @@ impl Default for Command {
     fn default() -> Command {
         Command {
             name: String::new(),
+            description: String::new(),
+            usage: String::new(),
             action: |_,_| false,
-            owner: false,
+            rank: 0,
             server: false,
         }
     }
@@ -37,27 +41,24 @@ impl Command {
         Command {
             name: name.into(),
             action,
-            owner: false,
-            server: false,
+            ..Command::default()
         }
     }
 
     /// Run the command!
-    /// Pass in the message structure and any additional arguments as a string
+    /// Pass in the message struct and any additional arguments as a string
     pub fn execute<S: Into<String>>(&self, m: &Message, str: S) -> bool {
         (self.action)(m, str.into())
     }
 
     /// Change the state of restrictions
     /// Will expand to be more flexible in the future
-    pub fn owner_only(mut self, state: bool) -> Command {
-        self.owner = state;
-        self
+    pub fn set_rank(&mut self, level: u8) {
+        self.rank = level;
     }
 
     /// Restrict the command to servers only
-    pub fn server_only(mut self, state: bool) -> Command {
+    pub fn server_only(&mut self, state: bool) {
         self.server = state;
-        self
     }
 }

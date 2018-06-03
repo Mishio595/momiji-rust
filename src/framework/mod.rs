@@ -1,26 +1,30 @@
 //! Provides MomijiFramework which is the core of command handling in Momiji. Each struct uses
 //! simple builder syntax to create a more complex set of commands and options.
+
 // Bunches of dependencies
 // Make sure you do `extern crate serenity;` in your main.rs
 use std::collections::HashMap;
-use std::collections::HashSet;
 use serenity::framework::Framework;
 use serenity::model::channel::Message;
+use serenity::model::user::User;
 use serenity::prelude::*;
-use serenity::model::id::*;
 use threadpool::ThreadPool;
+use reql;
 
 // We use these internally
 pub mod command;
 mod config;
+mod db;
 
 // Bring some shit from our mods into scope for easy access
+use self::db::Database;
 use self::config::Config;
 use self::command::Command;
 
 pub struct MomijiFramework {
     config: Config,
     commands: HashMap<String, Command>,
+    database: Database,
 }
 
 /// Implement serenity's framework trait and the required dispatch method
@@ -29,16 +33,20 @@ impl Framework for MomijiFramework {
     /// Required by Serenity
     /// Called when discord sends a MESSAGE_CREATE event
     // TODO Expand logic
-    fn dispatch(&mut self, ctx: Context, message: Message, threadpool: &ThreadPool) {
+    fn dispatch(&mut self, _ctx: Context, message: Message, _threadpool: &ThreadPool) {
+        // Find the first word or "" if nothing
         let start = &message.content.split_whitespace().next().unwrap_or_else(|| "");
         let mut name = "";
         if !start.is_empty() {
-            name = &start[*&self.config.pre.len()..]; // Fix index out of bounds error
+            // Strip the prefix
+            name = &start[self.config.pre.len()..];
         }
         let default = Command::default();
-        let command = &self.commands.get(name).unwrap_or(&default);
-        if !&command.name.is_empty() {
-            let res = &command.execute(&message, "");
+        let command = self.commands.get(name).unwrap_or(&default);
+        if !command.name.is_empty() {
+            if get_rank(&message.author) >= command.rank {
+                let _ = command.execute(&message, "");
+            }
         }
     }
 }
@@ -50,18 +58,24 @@ impl MomijiFramework {
     pub fn new() -> MomijiFramework {
         let commands: HashMap<String, Command> = HashMap::new();
         let config = Config::new();
+        let mut db_config = reql::Config::default();
+        db_config.db = "momiji";
+        let database = Database::connect(db_config);
 
         MomijiFramework {
             config,
             commands,
+            database,
         }
     }
     
     /// Add a command to the framework. See Command::new() for more details.
-    pub fn command<S>(mut self, name: S, f: (fn(&Message, String) -> bool)) -> MomijiFramework
+    pub fn command<S>(mut self, name: S, f: (fn(&Message, String) -> bool), rank: u8, server: bool) -> MomijiFramework
     where S: Into<String> + Copy
     {
-        let cmd = Command::new(name, f);
+        let mut cmd = Command::new(name, f);
+        cmd.set_rank(rank);
+        cmd.server_only(server);
         self.commands.insert(name.into(), cmd);
         self
     }
@@ -75,4 +89,8 @@ impl MomijiFramework {
         self.config = built;
         self
     }
+}
+
+fn get_rank(member: &User) -> u8 {
+    0
 }
