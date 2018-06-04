@@ -9,15 +9,13 @@ use serenity::model::channel::Message;
 use serenity::model::user::User;
 use serenity::prelude::*;
 use threadpool::ThreadPool;
-use reql;
+use super::db::Database;
 
 // We use these internally
 pub mod command;
 mod config;
-mod db;
 
 // Bring some shit from our mods into scope for easy access
-use self::db::Database;
 use self::config::Config;
 use self::command::Command;
 
@@ -58,9 +56,7 @@ impl MomijiFramework {
     pub fn new() -> MomijiFramework {
         let commands: HashMap<String, Command> = HashMap::new();
         let config = Config::new();
-        let mut db_config = reql::Config::default();
-        db_config.db = "momiji";
-        let database = Database::connect(db_config);
+        let database = Database::connect();
 
         MomijiFramework {
             config,
@@ -68,7 +64,7 @@ impl MomijiFramework {
             database,
         }
     }
-    
+
     /// Add a command to the framework. See Command::new() for more details.
     pub fn command<S>(mut self, name: S, f: (fn(&Message, String) -> bool), rank: u8, server: bool) -> MomijiFramework
     where S: Into<String> + Copy
@@ -79,7 +75,7 @@ impl MomijiFramework {
         self.commands.insert(name.into(), cmd);
         self
     }
-    
+
     /// Build a config for the framework using a function or closure that consumes and returns self
     /// with each step
     pub fn configure<T>(mut self, config: T) -> MomijiFramework

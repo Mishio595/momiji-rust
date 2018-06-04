@@ -34,7 +34,7 @@ impl Default for Command {
 
 impl Command {
     /// Build a new Command given a name and action
-    /// Use other builder functions to configure
+    /// Use other methods to configure
     pub fn new<S>(name: S, action: (fn(&Message, String) -> bool)) -> Command
     where S: Into<String>,
     {
@@ -52,7 +52,6 @@ impl Command {
     }
 
     /// Change the state of restrictions
-    /// Will expand to be more flexible in the future
     pub fn set_rank(&mut self, level: u8) {
         self.rank = level;
     }

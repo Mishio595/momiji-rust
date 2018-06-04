@@ -1,6 +1,6 @@
 #[macro_use] extern crate log;
 #[macro_use] extern crate serenity;
-extern crate env_logger;
+extern crate pretty_env_logger;
 extern crate kankyo;
 extern crate threadpool;
 extern crate momiji;
@@ -22,7 +22,7 @@ impl EventHandler for Handler {
 
 fn main() {
     kankyo::load().expect("Failed to load .env file");
-    env_logger::init();
+    pretty_env_logger::init();
 
     let token = env::var("DISCORD_TOKEN").expect("Expected token in environment");
 
