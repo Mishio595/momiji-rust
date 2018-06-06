@@ -1,4 +1,14 @@
 table! {
+    cases (id, guild_id) {
+        id -> Int8,
+        guild_id -> Int8,
+        casetype -> Text,
+        moderator -> Int8,
+        timestamp -> Timestamptz,
+    }
+}
+
+table! {
     guilds (id) {
         id -> Int8,
         admin_roles -> Array<Int8>,
@@ -21,14 +31,17 @@ table! {
         welcome_message -> Text,
         premium -> Bool,
         premium_tier -> Int2,
+        commands -> Array<Text>,
+        logging -> Array<Text>,
+        hackbans -> Array<Int8>,
     }
 }
 
 table! {
-    notes (id, user_id, guild_id) {
-        id -> Int4,
+    notes (user_id, guild_id) {
         user_id -> Int8,
         guild_id -> Int8,
+        index -> Int4,
         note -> Text,
         moderator -> Int8,
         timestamp -> Timestamptz,
@@ -36,11 +49,20 @@ table! {
 }
 
 table! {
-    roles (role_id, guild_id) {
-        role_id -> Int8,
+    roles (id, guild_id) {
+        id -> Int8,
         guild_id -> Int8,
         category -> Text,
         aliases -> Array<Text>,
+    }
+}
+
+table! {
+    timers (id) {
+        id -> Int4,
+        starttime -> Int4,
+        endtime -> Int4,
+        data -> Text,
     }
 }
 
@@ -50,13 +72,16 @@ table! {
         guild_id -> Int8,
         username -> Text,
         nickname -> Text,
-        roles -> Array<Text>,
+        roles -> Array<Int8>,
+        watchlist -> Bool,
     }
 }
 
 allow_tables_to_appear_in_same_query!(
+    cases,
     guilds,
     notes,
     roles,
+    timers,
     users,
 );
