@@ -1,6 +1,7 @@
 table! {
-    cases (id, guild_id) {
-        id -> Int8,
+    cases (id, user_id, guild_id) {
+        id -> Int4,
+        user_id -> Int8,
         guild_id -> Int8,
         casetype -> Text,
         moderator -> Int8,

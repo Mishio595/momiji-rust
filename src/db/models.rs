@@ -70,7 +70,8 @@ pub struct Timer {
 
 #[derive(Queryable, Identifiable, AsChangeset)]
 pub struct Case<Tz: TimeZone> {
-    pub id: i64,
+    pub id: i32,
+    pub user_id: i64,
     pub guild_id: i64,
     pub casetype: String,
     pub moderator: i64,
@@ -122,7 +123,7 @@ pub struct NewTimer {
 #[derive(Insertable)]
 #[table_name="cases"]
 pub struct NewCase {
-    pub id: i64,
+    pub user_id: i64,
     pub guild_id: i64,
     pub casetype: String,
     pub moderator: i64,
