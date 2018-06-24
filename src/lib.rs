@@ -7,7 +7,6 @@ extern crate threadpool;
 extern crate futures;
 
 pub mod db;
-pub mod framework;
 
 #[cfg(test)]
 mod test {

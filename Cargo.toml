@@ -2,7 +2,7 @@
 name = "momiji"
 version = "0.1.0"
 authors = ["Mishio595 <tenseiken595@gmail.com>"]
-license = "MIT"
+license = "MIT AND ISC"
 
 [dependencies]
 kankyo = "0.2.0"
@@ -11,7 +11,13 @@ pretty_env_logger = "0.2"
 threadpool = "1.7"
 futures = "0.2"
 chrono = "0.4"
-diesel = { version = "1.0.0", features = ["postgres", "chrono", "serde_json"] }
+typemap = "0.3"
+sys-info = "*"
+procinfo = "0.4.2"
+
+[dependencies.diesel]
+version = "1.0.0"
+features = ["postgres", "chrono"]
 
 [dependencies.serenity]
 git = "https://github.com/serenity-rs/serenity.git"
