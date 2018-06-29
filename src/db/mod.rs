@@ -21,7 +21,7 @@ pub struct Database {
 impl Database {
     /// Create a new database with a connection.
     /// Returns a new Database.
-    pub fn connect() -> Database {
+    pub fn connect() -> Self {
         kankyo::load().expect("Failed to load .env");
 
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
