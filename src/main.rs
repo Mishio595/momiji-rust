@@ -1,51 +1,39 @@
 #[macro_use] extern crate log;
 #[macro_use] extern crate serenity;
+#[macro_use] extern crate serde_derive;
+#[macro_use] extern crate diesel;
 extern crate pretty_env_logger;
 extern crate kankyo;
 extern crate threadpool;
 extern crate typemap;
 extern crate chrono;
+extern crate sysinfo;
 extern crate sys_info;
-extern crate procinfo;
 extern crate rand;
 extern crate regex;
 extern crate reqwest;
 extern crate serde;
-#[macro_use] extern crate serde_derive;
 extern crate serde_json;
 
 mod utils;
 mod modules;
+mod preload;
+mod db;
+
 use modules::commands::*;
-use modules::api;
+use preload::api;
+use preload::handler::Handler;
+use preload::model::*;
 
 use serenity::framework::{
     StandardFramework,
 };
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
-use serenity::model::id::UserId;
-use serenity::client::bridge::gateway::ShardManager;
 use serenity::http;
-use std::sync::Arc;
 use std::collections::HashSet;
 use std::env;
-use typemap::Key;
-
-struct Handler;
-
-impl EventHandler for Handler {
-    fn ready(&self, _: Context, ready: Ready) {
-        info!("Logged in as {}", ready.user.name);
-    }
-}
-
-struct Owner;
-impl Key for Owner { type Value = UserId; }
-struct SerenityShardManager;
-impl Key for SerenityShardManager { type Value = Arc<Mutex<ShardManager>>; }
-struct ApiClient;
-impl Key for ApiClient { type Value = api::ApiClient; }
+use std::sync::Arc;
 
 fn main() {
     kankyo::load().expect("Failed to load .env file");
@@ -87,7 +75,6 @@ fn main() {
         })
         .command("ping", |c| c.cmd(ping))
         .command("bi", |c| c.cmd(bot_info))
-        .command("ni", |c| c.cmd(nerdy_info))
         .command("si", |c| c.cmd(server_info))
         .command("ui", |c| c.cmd(user_info))
         .command("ri", |c| c.cmd(role_info))

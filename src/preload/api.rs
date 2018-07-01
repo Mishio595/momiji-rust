@@ -1,6 +1,9 @@
 use reqwest::*;
-use reqwest::header::{Headers, UserAgent, ContentType, Accept, qitem};
+use reqwest::header::{Headers, UserAgent, ContentType, Accept, Authorization, qitem};
 use reqwest::mime::*;
+use std::env;
+
+const UA: &str = "momiji-bot";
 
 // Endpoints
 const DOG: &str = "https://dog.ceo/api/breeds/image/random";
@@ -9,10 +12,7 @@ const URBAN: &str = "https://api.urbandictionary.com/v0/define";
 const DAD_JOKE: &str = "https://icanhazdadjoke.com";
 const FURRY: &str = "https://e621.net/post/index.json";
 const WEATHER: &str = "https://api.openweathermap.org/data/2.5/weather";
-const DANBOORU: &str = "https://danbooru.donmai.us/posts.json";
-const MAL_ANIME: &str = "https://myanimelist.net/api/anime/search.xml";
-const MAL_MANGA: &str = "https://myanimelist.net/api/manga/search.xml";
-const DBOTS: &str = "http://discordbots.org/api/bots/{}/stats";
+const DBOTS: &str = "http://discordbots.org/api/bots";
 
 // Deserialization structs
 #[derive(Deserialize, Debug)]
@@ -104,6 +104,17 @@ impl ApiClient {
         }
     }
 
+    pub fn stats_update(&self, bot_id: u64, server_count: usize) {
+        let mut headers = Headers::new();
+        headers.set(ContentType::json());
+        headers.set(Authorization(env::var("DBOTS_TOKEN").unwrap()));
+
+        let stats = [("server_count", server_count)];
+        let res = self.client.post(format!("{}/{}/stats",DBOTS, bot_id).as_str())
+            .json(&stats)
+            .send();
+    }
+
     pub fn dog(&self) -> Result<Dog> {
         match self.client.get(DOG).send() {
             Ok(mut res) => {
@@ -131,7 +142,7 @@ impl ApiClient {
 
     pub fn joke(&self) -> Result<String> {
         let mut headers = Headers::new();
-        headers.set(UserAgent::new("reqwest"));
+        headers.set(UserAgent::new(UA));
         headers.set(Accept(vec![qitem(mime::TEXT_PLAIN)]));
 
         match self.client.get(DAD_JOKE)
@@ -149,7 +160,7 @@ impl ApiClient {
 
     pub fn urban<S: Into<String>>(&self, input: S) -> Result<Urban> {
         let mut headers = Headers::new();
-        headers.set(UserAgent::new("reqwest"));
+        headers.set(UserAgent::new(UA));
 
         match self.client.get(URBAN)
             .headers(headers)
@@ -167,7 +178,7 @@ impl ApiClient {
 
     pub fn furry<S: Into<String>>(&self, input: S, count: u32) -> Result<Vec<FurPost>> {
         let mut headers = Headers::new();
-        headers.set(UserAgent::new("reqwest"));
+        headers.set(UserAgent::new(UA));
 
         match self.client.get(FURRY)
             .headers(headers)

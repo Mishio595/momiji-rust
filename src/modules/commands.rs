@@ -4,13 +4,15 @@ use serenity::model::channel::*;
 use serenity::model::id::*;
 use serenity::utils::Colour;
 use chrono::offset::Utc;
+use sysinfo;
+use sysinfo::{ProcessorExt, SystemExt, ProcessExt};
 use sys_info;
-use procinfo;
 use rand::prelude::*;
 use ::utils::*;
 
 // Rank 0
 
+//TODO: better info
 command!(bot_info(ctx, message, _args) {
     let mut data = ctx.data.lock();
     let cache = CACHE.read();
@@ -21,17 +23,21 @@ command!(bot_info(ctx, message, _args) {
             0
         },
     };
+    let owner = data.get::<::Owner>().unwrap().get().unwrap();
+    let sys = sysinfo::System::new();
+    let process = sys.get_process(sysinfo::get_current_pid()).unwrap();
+
     if let Err(why) = message.channel_id.send_message(|m| m
         .embed(|e| e
             .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
-            .field("Guilds", cache.guilds.len(), true)
-            .field("Shards", shard_count, true)
-            .field("Owner", data.get::<::Owner>().unwrap().get().unwrap().tag(), true)
-            .field("Support Server", "[Momiji's House](https://discord.gg/YYdpsNc)", true)
-            .field("Invite Me!", "[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)", true)
-            .field("Contribute", "[Github](https://github.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
+            .field("Owner", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
+            .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Github](https://github.com/Mishio595/momiji-rust\n)[Patreon](https://www.patreon.com/momijibot)", true)
+            .field("Counts", format!("Guilds: {}\nShards: {}", cache.guilds.len(), shard_count), true)
+            .field("System Info", format!("OS: {} {}\nUptime: {}",
+                sys_info::os_type().unwrap(),
+                sys_info::os_release().unwrap(),
+                sys.get_uptime()), true)
             .thumbnail(&cache.user.avatar_url().unwrap_or(cache.user.default_avatar_url()))
-            //.timestamp(Utc::now())
             .colour(Colour::new(6138367))
         )
     ) {
@@ -95,19 +101,6 @@ command!(anime(ctx, message, args) {
 });
 
 command!(manga(ctx, message, args) {
-});
-
-command!(nerdy_info(_ctx, message, _args) {
-    if let Err(why) = message.channel_id.send_message(|m| m
-        .embed(|e| e
-            .title("Nerdy  Info")
-            .colour(Colour::new(6138367))
-            .field("OS", format!("{} {}", sys_info::os_type().unwrap(), sys_info::os_release().unwrap()), false)
-            .field("CPU", format!("**Cores**: {}\n**Speed**: {} MHz", sys_info::cpu_num().unwrap(), sys_info::cpu_speed().unwrap()), false)
-            .field("Memory", format!("{} KiB", procinfo::pid::statm_self().unwrap().size), false)
-    )) {
-        error!("Failed to send message: {:?}", why);
-    };
 });
 
 command!(now(_ctx, message, args) {
