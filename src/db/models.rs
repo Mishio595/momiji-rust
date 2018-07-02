@@ -3,7 +3,7 @@ use super::schema::*;
 
 // QUERYABLES
 
-#[derive(Queryable, Identifiable, AsChangeset)]
+#[derive(Queryable, Identifiable, AsChangeset, Debug)]
 pub struct Guild {
     pub id: i64,
     pub admin_roles: Vec<i64>,
@@ -31,7 +31,7 @@ pub struct Guild {
     pub hackbans: Vec<i64>,
 }
 
-#[derive(Queryable, Identifiable, AsChangeset)]
+#[derive(Queryable, Identifiable, AsChangeset, Debug)]
 pub struct User {
     pub id: i64,
     pub guild_id: i64,
@@ -41,18 +41,18 @@ pub struct User {
     pub watchlist: bool,
 }
 
-#[derive(Queryable, Identifiable, AsChangeset)]
-#[primary_key(user_id)]
+#[derive(Queryable, Identifiable, AsChangeset, Debug)]
+#[primary_key(index)]
 pub struct Note<Tz: TimeZone> {
+    pub index: i32,
     pub user_id: i64,
     pub guild_id: i64,
-    index: i32,
     pub note: String,
     pub moderator: i64,
     pub timestamp: DateTime<Tz>,
 }
 
-#[derive(Queryable, Identifiable, AsChangeset)]
+#[derive(Queryable, Identifiable, AsChangeset, Debug)]
 pub struct Role {
     pub id: i64,
     pub guild_id: i64,
@@ -60,7 +60,7 @@ pub struct Role {
     pub aliases: Vec<String>,
 }
 
-#[derive(Queryable, Identifiable, AsChangeset)]
+#[derive(Queryable, Identifiable, AsChangeset, Debug)]
 pub struct Timer {
     pub id: i32,
     pub starttime: i32,
@@ -68,7 +68,7 @@ pub struct Timer {
     pub data: String,
 }
 
-#[derive(Queryable, Identifiable, AsChangeset)]
+#[derive(Queryable, Identifiable, AsChangeset, Debug)]
 pub struct Case<Tz: TimeZone> {
     pub id: i32,
     pub user_id: i64,

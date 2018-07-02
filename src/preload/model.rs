@@ -23,5 +23,5 @@ impl Key for ApiClient {
 
 pub struct DB;
 impl Key for DB {
-    type Value = Database;
+    type Value = Arc<Mutex<Database>>;
 }

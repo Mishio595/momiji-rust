@@ -9,6 +9,7 @@ use serenity::model::{
     gateway::{Ready, Game}
 };
 use std::sync::Arc;
+use ::preload::model::*;
 
 pub struct Handler;
 
@@ -20,7 +21,12 @@ impl EventHandler for Handler {
     fn cached(&self, ctx: Context, guilds: Vec<GuildId>) {
         let mut data = ctx.data.lock();
         let cache = CACHE.read();
-        let api = data.get::<::ApiClient>().unwrap();
+        let db = data.get::<DB>().unwrap().lock();
+        for guild_id in guilds.iter() {
+            db.new_guild(guild_id.0 as i64).ok();
+        }
+
+        let api = data.get::<ApiClient>().unwrap();
         let guild_count = guilds.len();
         api.stats_update(cache.user.id.0, guild_count);
         ctx.set_game(Game::listening(&format!("{} guilds | m!help", guild_count)));

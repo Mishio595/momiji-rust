@@ -9,6 +9,7 @@ use sysinfo::{ProcessorExt, SystemExt, ProcessExt};
 use sys_info;
 use rand::prelude::*;
 use ::utils::*;
+use ::preload::model::*;
 
 // Rank 0
 
@@ -16,14 +17,14 @@ use ::utils::*;
 command!(bot_info(ctx, message, _args) {
     let mut data = ctx.data.lock();
     let cache = CACHE.read();
-    let shard_count = match data.get::<::SerenityShardManager>() {
+    let shard_count = match data.get::<SerenityShardManager>() {
         Some(s) => s.lock().shards_instantiated().len(),
         None => {
             error!("Unable to get the shard manager!");
             0
         },
     };
-    let owner = data.get::<::Owner>().unwrap().get().unwrap();
+    let owner = data.get::<Owner>().unwrap().get().unwrap();
     let sys = sysinfo::System::new();
     let process = sys.get_process(sysinfo::get_current_pid()).unwrap();
 
@@ -47,7 +48,7 @@ command!(bot_info(ctx, message, _args) {
 
 command!(cat(ctx, message, _args) {
     let mut data = ctx.data.lock();
-    if let Ok(res) = data.get::<::ApiClient>().unwrap().cat() {
+    if let Ok(res) = data.get::<ApiClient>().unwrap().cat() {
         message.channel_id.send_message(|m| m
             .embed(|e| e
                 .image(res.file)));
@@ -62,7 +63,7 @@ command!(danbooru(ctx, message, args) {
 
 command!(dog(ctx, message, _args) {
     let mut data = ctx.data.lock();
-    if let Ok(res) = data.get::<::ApiClient>().unwrap().dog() {
+    if let Ok(res) = data.get::<ApiClient>().unwrap().dog() {
         message.channel_id.send_message(|m| m
             .embed(|e| e
                 .image(res.message)));
@@ -71,14 +72,14 @@ command!(dog(ctx, message, _args) {
 
 command!(dad_joke(ctx, message, _args) {
     let mut data = ctx.data.lock();
-    if let Ok(res) = data.get::<::ApiClient>().unwrap().joke() {
+    if let Ok(res) = data.get::<ApiClient>().unwrap().joke() {
         message.channel_id.say(res);
     };
 });
 
 command!(e621(ctx, message, args) {
     let mut data = ctx.data.lock();
-    match data.get::<::ApiClient>().unwrap().furry(args.full(), 1) {
+    match data.get::<ApiClient>().unwrap().furry(args.full(), 1) {
         Ok(res) => {
         let post = &res[0];
         let o = message.channel_id.send_message(|m| m
@@ -133,7 +134,11 @@ command!(ping(_ctx, message, _args) {
     };
 });
 
-command!(prefix(ctx, message, args) {
+command!(prefix(ctx, message, _args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let settings = db.get_guild(message.guild_id().unwrap().0 as i64).unwrap();
+    message.channel_id.say(format!("The prefix for this guild is `{}`", settings.prefix));
 });
 
 command!(remind(ctx, message, args) {
@@ -167,12 +172,13 @@ command!(role_info(_ctx, message, args) {
     };
 });
 
+//TODO parse expr without a d
 command!(roll(_ctx, message, args) {
     let expr = args.single::<String>().unwrap_or(String::new());
     let mut iter = expr.split(|c| c == 'd' || c == 'D');
     let count: u32 = iter.next().unwrap_or("0").parse().unwrap();
-    let sides: u32 = iter.next().unwrap_or("0").parse().unwrap();
-    if count>0 && sides>0 {
+    let sides: u32 = iter.next().unwrap_or("6").parse().unwrap();
+    if count>0 {
         let mut total = 0;
         for _ in 1..&count+1 {
             let r = thread_rng().gen_range(1,&sides+1);
@@ -249,7 +255,7 @@ command!(tag(ctx, message, args) {
 command!(urban(ctx, message, args) {
     let mut data = ctx.data.lock();
     let term = args.single_quoted::<String>().unwrap_or(String::new());
-    if let Ok(mut res) = data.get::<::ApiClient>().unwrap().urban(term.as_str()) {
+    if let Ok(mut res) = data.get::<ApiClient>().unwrap().urban(term.as_str()) {
         if !res.list.is_empty() {
             let count = args.single::<u32>().unwrap_or(1);
             res.tags.dedup();
@@ -322,7 +328,34 @@ command!(mute(ctx, message, args) {
 command!(unmute(ctx, message, args) {
 });
 
-command!(notes(ctx, message, args) {
+command!(note_add(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let user = parse_user(args.single::<String>().unwrap()).unwrap();
+    let note = String::from(args.rest());
+    match db.new_note(user.0 as i64, message.guild_id().unwrap().0 as i64, note, message.author.id.0 as i64) {
+        Ok(data) => { message.channel_id.say(format!("Added note `{}`.", data.note)); },
+        Err(why) => { error!("{:?}", why) },
+    }
+});
+
+command!(note_del(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let user = parse_user(args.single::<String>().unwrap()).unwrap();
+    let index = args.single::<i32>().unwrap_or(0);
+    match db.del_note(index, user.0 as i64, message.guild_id().unwrap().0 as i64) {
+        Ok(data) => { message.channel_id.say(format!("Deleted note `{}`.", data)); },
+        Err(why) => { error!("{:?}", why); },
+    }
+});
+
+//TODO legible output
+command!(note_list(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let notes = db.get_notes(message.author.id.0 as i64, message.guild_id().unwrap().0 as i64).unwrap();
+    message.channel_id.say(format!("{:?}", notes));
 });
 
 command!(register(ctx, message, args) {

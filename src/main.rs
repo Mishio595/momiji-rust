@@ -20,15 +20,11 @@ mod modules;
 mod preload;
 mod db;
 
-use modules::commands::*;
 use preload::api;
 use preload::handler::Handler;
 use preload::model::*;
+use preload::framework;
 
-use serenity::framework::{
-    StandardFramework,
-};
-use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 use serenity::http;
 use std::collections::HashSet;
@@ -47,6 +43,8 @@ fn main() {
         data.insert::<SerenityShardManager>(Arc::clone(&client.shard_manager));
         let api_client = api::ApiClient::new();
         data.insert::<ApiClient>(api_client);
+        let db = db::Database::connect();
+        data.insert::<DB>(Arc::new(Mutex::new(db)));
     }
 
     let owners = match http::get_current_application_info() {
@@ -60,32 +58,7 @@ fn main() {
         Err(why) => panic!("Couldn't get the application info: {:?}", why),
     };
 
-    client.with_framework(StandardFramework::new()
-        .configure(|c| c
-            .allow_whitespace(true)
-            .on_mention(true)
-            .prefix("!")
-            .delimiters(vec!(",", ", ", " "))
-            .owners(owners))
-        .before(|_ctx, msg, command_name| {
-            println!("Got command {} by user {}",
-                command_name,
-                msg.author.name);
-            true
-        })
-        .command("ping", |c| c.cmd(ping))
-        .command("bi", |c| c.cmd(bot_info))
-        .command("si", |c| c.cmd(server_info))
-        .command("ui", |c| c.cmd(user_info))
-        .command("ri", |c| c.cmd(role_info))
-        .command("roll", |c| c.cmd(roll))
-        .command("now", |c| c.cmd(now))
-        .command("cat", |c| c.cmd(cat))
-        .command("dog", |c| c.cmd(dog))
-        .command("joke", |c| c.cmd(dad_joke))
-        .command("ud", |c| c.cmd(urban))
-        .command("e621", |c| c.cmd(e621))
-    );
+    client.with_framework(framework::new(owners));
 
     if let Err(why) = client.start_autosharded() {
         error!("Client error: {:?}", why);

@@ -39,10 +39,10 @@ table! {
 }
 
 table! {
-    notes (user_id, guild_id) {
+    notes (index) {
+        index -> Int4,
         user_id -> Int8,
         guild_id -> Int8,
-        index -> Int4,
         note -> Text,
         moderator -> Int8,
         timestamp -> Timestamptz,
