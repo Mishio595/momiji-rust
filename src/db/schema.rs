@@ -75,6 +75,8 @@ table! {
         nickname -> Text,
         roles -> Array<Int8>,
         watchlist -> Bool,
+        xp -> Int8,
+        last_message -> Timestamptz,
     }
 }
 

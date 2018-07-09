@@ -1,15 +1,15 @@
+use std::collections::HashMap;
 use serenity::CACHE;
 use serenity::prelude::*;
-use serenity::model::channel::*;
 use serenity::model::id::*;
-use serenity::utils::Colour;
-use chrono::offset::Utc;
+use serenity::client::bridge::gateway::ShardId;
 use sysinfo;
-use sysinfo::{ProcessorExt, SystemExt, ProcessExt};
+use sysinfo::SystemExt;
 use sys_info;
 use rand::prelude::*;
-use ::utils::*;
-use ::preload::model::*;
+use ::core::utils::*;
+use ::core::model::*;
+use ::core::consts::*;
 
 // Rank 0
 
@@ -17,33 +17,24 @@ use ::preload::model::*;
 command!(bot_info(ctx, message, _args) {
     let mut data = ctx.data.lock();
     let cache = CACHE.read();
-    let shard_count = match data.get::<SerenityShardManager>() {
-        Some(s) => s.lock().shards_instantiated().len(),
-        None => {
-            error!("Unable to get the shard manager!");
-            0
-        },
-    };
+    let shard_count = cache.shard_count;
     let owner = data.get::<Owner>().unwrap().get().unwrap();
     let sys = sysinfo::System::new();
     let process = sys.get_process(sysinfo::get_current_pid()).unwrap();
 
-    if let Err(why) = message.channel_id.send_message(|m| m
+    message.channel_id.send_message(|m| m
         .embed(|e| e
             .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
             .field("Owner", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
-            .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Github](https://github.com/Mishio595/momiji-rust\n)[Patreon](https://www.patreon.com/momijibot)", true)
+            .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Github](https://github.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
             .field("Counts", format!("Guilds: {}\nShards: {}", cache.guilds.len(), shard_count), true)
             .field("System Info", format!("OS: {} {}\nUptime: {}",
                 sys_info::os_type().unwrap(),
                 sys_info::os_release().unwrap(),
-                sys.get_uptime()), true)
+                seconds_to_hrtime(sys.get_uptime() as usize)), false)
             .thumbnail(&cache.user.avatar_url().unwrap_or(cache.user.default_avatar_url()))
-            .colour(Colour::new(6138367))
-        )
-    ) {
-        error!("Failed to send message: {:?}", why);
-    };
+            .colour(Colours::Main.val())
+        )).expect("Failed to send message");
 });
 
 command!(cat(ctx, message, _args) {
@@ -51,7 +42,7 @@ command!(cat(ctx, message, _args) {
     if let Ok(res) = data.get::<ApiClient>().unwrap().cat() {
         message.channel_id.send_message(|m| m
             .embed(|e| e
-                .image(res.file)));
+                .image(res.file))).expect("Failed to send message");
     };
 });
 
@@ -66,14 +57,14 @@ command!(dog(ctx, message, _args) {
     if let Ok(res) = data.get::<ApiClient>().unwrap().dog() {
         message.channel_id.send_message(|m| m
             .embed(|e| e
-                .image(res.message)));
+                .image(res.message))).expect("Failed to send message");
     };
 });
 
 command!(dad_joke(ctx, message, _args) {
     let mut data = ctx.data.lock();
     if let Ok(res) = data.get::<ApiClient>().unwrap().joke() {
-        message.channel_id.say(res);
+        message.channel_id.say(res).expect("Failed to send message");
     };
 });
 
@@ -82,7 +73,7 @@ command!(e621(ctx, message, args) {
     match data.get::<ApiClient>().unwrap().furry(args.full(), 1) {
         Ok(res) => {
         let post = &res[0];
-        let o = message.channel_id.send_message(|m| m
+        message.channel_id.send_message(|m| m
             .embed(|e| e
                 .image(&post.file_url)
                 .description(format!("**Tags:** {}\n**Post:** [{}]({})\n**Artist:** {}\n**Score:** {}",
@@ -92,7 +83,7 @@ command!(e621(ctx, message, args) {
                     &post.artist[0],
                     &post.score
                 ))
-            ));
+            )).expect("Failed to send message");
         },
         Err(why) => { error!("{:?}", why); },
     }
@@ -122,15 +113,25 @@ command!(now(_ctx, message, args) {
     let date = datetime.format("%A %e %B %Y").to_string();
     message.channel_id.send_message(|m| m
         .embed(|e| e
-            .colour(Colour::new(6138367))
+            .colour(Colours::Main.val())
             .description(format!("**Time:** {}\n**Date:** {}\n**Timezone:** UTC{}", time, date, datetime.timezone())))
-    );
+    ).expect("Failed to send message");
 });
 
-command!(ping(_ctx, message, _args) {
-    if let Ok(mut m) = message.channel_id.say("Pong!") {
+command!(ping(ctx, message, _args) {
+    let data = ctx.data.lock();
+    let sm = data.get::<SerenityShardManager>().unwrap().lock();
+    let lat = match sm.runners.lock().get(&ShardId(ctx.shard_id)).expect("Failed to get shard runner").latency {
+        Some(la) => { la.as_secs() as u32 + la.subsec_millis() },
+        None => 0,
+    };
+    if let Ok(mut m) = message.channel_id.send_message(|m| m.embed(|e| e.title("Pong!"))) {
         let t = m.timestamp.timestamp_millis() - message.timestamp.timestamp_millis();
-        let _ = m.edit(|m| m.content(format!("Pong! `{} ms`", t)));
+        let _ = m.edit(|m| m.embed(|e| e
+            .title("Pong!")
+            .description(format!("**Shard Latency:** {}\n**Response Time:** {} ms", if lat==0 { String::from("Failed to retrieve") } else { format!("{} ms", lat) }, t))
+            .colour(Colours::Main.val())
+        )).expect("Failed to edit message");
     };
 });
 
@@ -138,25 +139,141 @@ command!(prefix(ctx, message, _args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
     let settings = db.get_guild(message.guild_id().unwrap().0 as i64).unwrap();
-    message.channel_id.say(format!("The prefix for this guild is `{}`", settings.prefix));
+    message.channel_id.say(format!("The prefix for this guild is `{}`", settings.prefix)).expect("Failed to send message");
 });
 
 command!(remind(ctx, message, args) {
+    let data = ctx.data.lock();
+    let tc = data.get::<TC>().unwrap().lock();
+    let guild_id = message.guild_id().unwrap();
+    let user_id = message.author.id;
+    let reminder = args.single::<String>().unwrap();
+    let switches = get_switches(args.rest().to_string());
+    let time = switches.get("t").unwrap();
+    tc.request(format!("REMINDER||{}||{}||{}||{}", guild_id.0, user_id.0, time, reminder), time.parse::<u64>().unwrap());
 });
 
 command!(asr(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id().unwrap();
+    let mut member = message.member().unwrap();
+    let roles = db.get_roles(guild_id.0 as i64).unwrap();
+    let list = args.rest().split(",").map(|s| s.trim().to_string());
+    let mut to_add = Vec::new();
+    let mut failed = Vec::new();
+    let role_names = roles.iter().map(|r| RoleId(r.id as u64).find().unwrap().name.to_lowercase()).collect::<Vec<String>>();
+    for r1 in list {
+        if let Some((s,_)) = parse_role(r1.clone(), guild_id) {
+            to_add.push(s);
+        } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
+            to_add.push(RoleId(roles[i].id as u64));
+        } else if let Some(i) = role_names.iter().position(|r| r.contains(&r1.to_lowercase())) {
+            to_add.push(RoleId(roles[i].id as u64));
+        } else {
+            failed.push(format!("Could not locate {}", r1));
+        }
+    }
+    for (i, role_id) in to_add.clone().iter().enumerate() {
+        if member.roles.contains(role_id) {
+            to_add.remove(i);
+            failed.push(format!("You already have {}", role_id.find().unwrap().name));
+        }
+        if let Err(_) = member.add_role(*role_id) {
+            to_add.remove(i);
+            failed.push(format!("Failed to add {}", role_id.find().unwrap().name));
+        };
+    }
+    let mut fields = Vec::new();
+    if !to_add.is_empty() {
+        fields.push(("Added Roles", format!("{}", to_add.iter().map(|r| r.find().unwrap().name).collect::<Vec<String>>().join("\n")), false));
+    }
+    if !failed.is_empty() {
+        fields.push(("Failed to Add", format!("{}", failed.join("\n")), false));
+    }
+    message.channel_id.send_message(|m| m
+        .embed(|e| e
+            .title("Add Self Role Summary")
+            .fields(fields)
+            .colour(member.colour().unwrap()))).expect("Failed to send message");
 });
 
 command!(rsr(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id().unwrap();
+    let mut member = message.member().unwrap();
+    let roles = db.get_roles(guild_id.0 as i64).unwrap();
+    let list = args.rest().split(",").map(|s| s.trim().to_string());
+    let mut to_remove = Vec::new();
+    let mut failed = Vec::new();
+    let role_names = roles.iter().map(|r| RoleId(r.id as u64).find().unwrap().name.to_lowercase()).collect::<Vec<String>>();
+    for r1 in list {
+        if let Some((s,_)) = parse_role(r1.clone(), guild_id) {
+            to_remove.push(s);
+        } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
+            to_remove.push(RoleId(roles[i].id as u64));
+        } else if let Some(i) = role_names.iter().position(|r| r.contains(&r1.to_lowercase())) {
+            to_remove.push(RoleId(roles[i].id as u64));
+        } else {
+            failed.push(format!("Could not locate {}", r1));
+        }
+    }
+    for (i, role_id) in to_remove.clone().iter().enumerate() {
+        if !member.roles.contains(role_id) {
+            to_remove.remove(i);
+            failed.push(format!("You don't have {}", role_id.find().unwrap().name));
+        }
+        if let Err(_) = member.remove_role(*role_id) {
+            to_remove.remove(i);
+            failed.push(format!("Failed to remove {}", role_id.find().unwrap().name));
+        };
+    }
+    let mut fields = Vec::new();
+    if !to_remove.is_empty() {
+        fields.push(("Removed Roles", format!("{}", to_remove.iter().map(|r| r.find().unwrap().name).collect::<Vec<String>>().join("\n")), false));
+    }
+    if !failed.is_empty() {
+        fields.push(("Failed to Remove", format!("{}", failed.join("\n")), false));
+    }
+    message.channel_id.send_message(|m| m
+        .embed(|e| e
+            .title("Remove Self Role Summary")
+            .fields(fields)
+            .colour(member.colour().unwrap()))).expect("Failed to send message");
 });
 
 command!(lsr(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id().unwrap();
+    let roles = db.get_roles(guild_id.0 as i64).unwrap();
+    let mut map: HashMap<String, Vec<i64>> = HashMap::new();
+    for role in roles.iter() {
+        if map.contains_key(&role.category) {
+            if let Some(v) = map.get_mut(&role.category) {
+                v.push(role.id);
+            };
+        } else {
+            map.insert(role.category.clone(), vec![role.id]);
+        }
+    }
+    let mut fields = Vec::new();
+    for (key, val) in map.iter() {
+        fields.push((key, val.iter().map(|c| RoleId(*c as u64).find().unwrap().name).collect::<Vec<String>>().join("\n"), true));
+    }
+    message.channel_id.send_message(|m| m
+        .embed(|e| e
+            .title("Self Roles")
+            .fields(fields)
+            .colour(Colours::Main.val())
+        )).expect("Failed to send message");
 });
 
 command!(role_info(_ctx, message, args) {
-    if let Some(id) = parse_role(args.single::<String>().unwrap()) {
-        let role = id.find().unwrap(); //unsafe, needs error checked
-        if let Err(why) = message.channel_id.send_message(|m| m
+    let guild_id = message.guild_id().unwrap();
+    if let Some((id, role)) = parse_role(args.rest().to_string(), guild_id) {
+        message.channel_id.send_message(|m| m
             .embed(|e| e
                 .thumbnail(format!("https://www.colorhexa.com/{}.png", role.colour.hex().to_lowercase()))
                 .colour(role.colour)
@@ -166,9 +283,7 @@ command!(role_info(_ctx, message, args) {
                 .field("Hoisted", { if role.hoist { "Yes" } else { "No" } }, true)
                 .field("Mentionable", { if role.mentionable { "Yes" } else { "No" } }, true)
                 .field("Position", role.position, true)
-        )) {
-
-        };
+        )).expect("Failed to send message");
     };
 });
 
@@ -186,9 +301,9 @@ command!(roll(_ctx, message, args) {
         }
         message.channel_id.send_message(|m| m
             .embed(|e| e
-                .colour(Colour::new(6138367))
+                .colour(Colours::Main.val())
                 .field(format!("{} 🎲 [1-{}]", count, sides), format!("You rolled {}", total), true)
-        ));
+        )).expect("Failed to send message");
     }
 });
 
@@ -230,10 +345,10 @@ command!(server_info(_ctx, message, _args) {
                 Online => { members.2 += 1; },
             }
         }
-        if let Err(why) = message.channel_id.send_message(|m| m
+        message.channel_id.send_message(|m| m
             .embed(|e| e
                 .thumbnail(guild.icon_url().unwrap())
-                .color(Colour::new(6138367))
+                .color(Colours::Main.val())
                 .field("ID", guild.id, true)
                 .field("Name", &guild.name, true)
                 .field("Owner", guild.owner_id.mention(), true)
@@ -243,9 +358,7 @@ command!(server_info(_ctx, message, _args) {
                 .field("Roles", guild.roles.len(), true)
                 .field("Emojis", guild.emojis.len(), true)
                 .title(guild.name)
-        )) {
-            error!("Unable to send message: {:?}", why);
-        };
+        )).expect("Failed to send message");
     }
 });
 
@@ -262,13 +375,13 @@ command!(urban(ctx, message, args) {
             if count == 1 {
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
-                        .colour(Colour::new(6138367))
+                        .colour(Colours::Main.val())
                         .field(format!(r#"Definition of "{}" by {}"#, res.list[0].word, res.list[0].author), &res.list[0].permalink, false)
                         .field("Thumbs Up", &res.list[0].thumbs_up, true)
                         .field("Thumbs Down", &res.list[0].thumbs_down, true)
                         .field("Definition", &res.list[0].definition, false)
                         .field("Example", &res.list[0].example, false)
-                        .field("Tags", res.tags.iter().map(|t| { String::from("#")+t }).collect::<Vec<String>>().join(", "), false)));
+                        .field("Tags", res.tags.iter().map(|t| { String::from("#")+t }).collect::<Vec<String>>().join(", "), false))).expect("Failed to send message");
             } else {
                 res.list.truncate(count as usize);
                 let list = res.list.iter()
@@ -279,8 +392,8 @@ command!(urban(ctx, message, args) {
                     .embed(|e| e
                         .title(format!("Top {} results for {}", count, term))
                         .description(list)
-                        .colour(Colour::new(6138367))
-                    ));
+                        .colour(Colours::Main.val())
+                    )).expect("Failed to send message");
             }
         }
     };
@@ -289,16 +402,12 @@ command!(urban(ctx, message, args) {
 command!(user_info(_ctx, message, args) {
     if let Some(guild_lock) = message.guild() {
         let guild = guild_lock.read();
-        let user = match parse_user(args.single::<String>().unwrap_or(String::new())) {
-            Some(id) => id.get().unwrap(),
-            None => message.author.clone(),
-        };
-        let member = match guild.member(user.id) {
-            Ok(member) => member,
-            Err(_) => message.member().unwrap(),
+        let (user, member) = match parse_user(args.single::<String>().unwrap_or(String::new()), guild.id) {
+            Some((id, member)) => (id.get().unwrap(), member),
+            None => (message.author.clone(), message.member().unwrap().clone()),
         };
         let roles = member.roles.iter().map(|c| c.find().unwrap().name).collect::<Vec<String>>().join(", ");
-        if let Err(why) = message.channel_id.send_message(|m| m
+        message.channel_id.send_message(|m| m
             .embed(|e| e
                 .colour(member.colour().unwrap())
                 .thumbnail(user.face())
@@ -308,9 +417,7 @@ command!(user_info(_ctx, message, args) {
                 .field("Nickname", member.nick.unwrap_or(user.name.clone()), true)
                 .field("Dates", format!("Created: {}\nJoined: {}", user.created_at(), member.joined_at.unwrap()), false)
                 .field(format!("Roles [{}]", member.roles.len()), roles, false)
-        )) {
-            error!("Unable to send message: {:?}", why);
-        };
+        )).expect("Failed to send message");
     };
 });
 
@@ -319,7 +426,20 @@ command!(weather(ctx, message, args) {
 
 // Rank 1
 
+//TODO obtain data safely
 command!(mod_info(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id().unwrap();
+    let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
+    let user = db.get_user(user_id.0 as i64, guild_id.0 as i64).unwrap();
+    let cases = db.get_cases(user_id.0 as i64, guild_id.0 as i64).unwrap();
+    let case_fmt = cases.iter().map(|c| format!("Type: {}\nModerator: {}\nTimestamp: {}", c.casetype, c.moderator, c.timestamp)).collect::<Vec<String>>().join("\n");
+    message.channel_id.send_message(|m| m
+        .embed(|e| e
+            .title("Moderator info")
+            .field("Watchlist", { if user.watchlist { "Yes" } else { "No" } }, false)
+            .field("Cases", case_fmt, false))).expect("Failed to send message");
 });
 
 command!(mute(ctx, message, args) {
@@ -331,22 +451,24 @@ command!(unmute(ctx, message, args) {
 command!(note_add(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let user = parse_user(args.single::<String>().unwrap()).unwrap();
+    let guild_id = message.guild_id().unwrap();
+    let (user,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let note = String::from(args.rest());
     match db.new_note(user.0 as i64, message.guild_id().unwrap().0 as i64, note, message.author.id.0 as i64) {
-        Ok(data) => { message.channel_id.say(format!("Added note `{}`.", data.note)); },
-        Err(why) => { error!("{:?}", why) },
+        Ok(data) => { message.channel_id.say(format!("Added note `{}`.", data.note)).expect("Failed to send message"); },
+        Err(why) => { message.channel_id.say(format!("Failed to add note. Reason: {:?}", why)).expect("Failed to send message"); },
     }
 });
 
 command!(note_del(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let user = parse_user(args.single::<String>().unwrap()).unwrap();
+    let guild_id = message.guild_id().unwrap();
+    let (user,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let index = args.single::<i32>().unwrap_or(0);
     match db.del_note(index, user.0 as i64, message.guild_id().unwrap().0 as i64) {
-        Ok(data) => { message.channel_id.say(format!("Deleted note `{}`.", data)); },
-        Err(why) => { error!("{:?}", why); },
+        Ok(data) => { message.channel_id.say(format!("Deleted note `{}`.", data)).expect("Failed to send message"); },
+        Err(why) => { message.channel_id.say(format!("Failed to delete note. Reason: {:?}", why)).expect("Failed to send message"); },
     }
 });
 
@@ -354,23 +476,133 @@ command!(note_del(ctx, message, args) {
 command!(note_list(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let notes = db.get_notes(message.author.id.0 as i64, message.guild_id().unwrap().0 as i64).unwrap();
-    message.channel_id.say(format!("{:?}", notes));
+    let guild_id = message.guild_id().unwrap();
+    let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
+    let user = user_id.get().unwrap();
+    let notes = db.get_notes(user_id.0 as i64, message.guild_id().unwrap().0 as i64).unwrap();
+    let notes_fmt = notes.iter().map(|n| format!("`{}` by {} at {}", n.note, n.moderator, n.timestamp)).collect::<Vec<String>>().join("\n");
+    message.channel_id.send_message(|m| m
+        .embed(|e| e
+            .colour(Colours::Main.val())
+            .title(format!("Notes for {}", user.tag()))
+            .description(notes_fmt))).expect("Failed to send message");
 });
 
 command!(register(ctx, message, args) {
 });
 
-command!(ar(ctx, message, args) {
+command!(ar(_ctx, message, args) {
+    let guild_id = message.guild_id().unwrap();
+    let mut member = message.member().unwrap();
+    let list = args.rest().split(",").map(|s| s.trim().to_string());
+    let mut to_add = Vec::new();
+    let mut failed = Vec::new();
+    for r1 in list {
+        if let Some((s,_)) = parse_role(r1.clone(), guild_id) {
+            to_add.push(s);
+        } else {
+            failed.push(format!("Could not locate {}", r1));
+        }
+    }
+    for (i, role_id) in to_add.clone().iter().enumerate() {
+        if member.roles.contains(role_id) {
+            to_add.remove(i);
+            failed.push(format!("You already have {}", role_id.find().unwrap().name));
+        }
+        if let Err(_) = member.add_role(*role_id) {
+            to_add.remove(i);
+            failed.push(format!("Failed to add {}", role_id.find().unwrap().name));
+        };
+    }
+    let mut fields = Vec::new();
+    if !to_add.is_empty() {
+        fields.push(("Added Roles", format!("{}", to_add.iter().map(|r| r.find().unwrap().name).collect::<Vec<String>>().join("\n")), false));
+    }
+    if !failed.is_empty() {
+        fields.push(("Failed to Add", format!("{}", failed.join("\n")), false));
+    }
+    message.channel_id.send_message(|m| m
+        .embed(|e| e
+            .title("Add Role Summary")
+            .fields(fields)
+            .colour(member.colour().unwrap()))).expect("Failed to send message");
 });
 
 command!(rr(ctx, message, args) {
+    let guild_id = message.guild_id().unwrap();
+    let mut member = message.member().unwrap();
+    let list = args.rest().split(",").map(|s| s.trim().to_string());
+    let mut to_remove = Vec::new();
+    let mut failed = Vec::new();
+    for r1 in list {
+        if let Some((s,_)) = parse_role(r1.clone(), guild_id) {
+            to_remove.push(s);
+        } else {
+            failed.push(format!("Could not locate {}", r1));
+        }
+    }
+    for (i, role_id) in to_remove.clone().iter().enumerate() {
+        if !member.roles.contains(role_id) {
+            to_remove.remove(i);
+            failed.push(format!("You don't have {}", role_id.find().unwrap().name));
+        }
+        if let Err(_) = member.remove_role(*role_id) {
+            to_remove.remove(i);
+            failed.push(format!("Failed to remove {}", role_id.find().unwrap().name));
+        };
+    }
+    let mut fields = Vec::new();
+    if !to_remove.is_empty() {
+        fields.push(("Removed Roles", format!("{}", to_remove.iter().map(|r| r.find().unwrap().name).collect::<Vec<String>>().join("\n")), false));
+    }
+    if !failed.is_empty() {
+        fields.push(("Failed to Remove", format!("{}", failed.join("\n")), false));
+    }
+    message.channel_id.send_message(|m| m
+        .embed(|e| e
+            .title("Remove Role Summary")
+            .fields(fields)
+            .colour(member.colour().unwrap()))).expect("Failed to send message");
 });
 
-command!(role_colour(ctx, message, args) {
+//TODO make not shit
+command!(role_colour(_ctx, message, args) {
+    let guild_id = message.guild_id().unwrap();
+    let (role_id, mut role) = parse_role(args.single::<String>().unwrap(), guild_id).unwrap();
+    let colour_as_hex = args.single::<String>().unwrap();
+    let colour = u64::from_str_radix(colour_as_hex.as_str(), 16).unwrap();
+    if let Ok(_) = role.edit(|r| r.colour(colour)) {
+        message.channel_id.say("Colour changed successfully.").expect("Failed to send message");
+    }
 });
 
-command!(watchlist(ctx, message, args) {
+command!(watchlist_add(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id().unwrap();
+    let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
+    //TODO: Add update user method
+});
+
+command!(watchlist_del(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id().unwrap();
+    let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
+    //TODO: Add update user method
+});
+
+command!(watchlist_list(ctx, message, _args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id().unwrap();
+    let users = db.get_users(guild_id.0 as i64).unwrap_or(Vec::new());
+    let user_map = users.iter().map(|u| UserId(u.id as u64).get().unwrap()).map(|u| u.tag()).collect::<Vec<String>>().join("\n");
+    message.channel_id.send_message(|m| m
+        .embed(|e| e
+            .title("Watchlist")
+            .description(user_map)
+            .colour(Colours::Main.val()))).expect("Failed to send message");
 });
 
 // Rank 2
@@ -384,10 +616,52 @@ command!(hackban(ctx, message, args) {
 command!(ignore(ctx, message, args) {
 });
 
+// TODO make these actually do shit, also handle your goddamn results
 command!(csr(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id().unwrap();
+    let (role_id, role) = parse_role(args.single_quoted::<String>().unwrap(), guild_id).unwrap();
+    let switches = get_switches(args.rest().to_string());
+    let category = match switches.get("c") {
+        Some(s) => Some( s.clone()),
+        None => None,
+    };
+    let aliases = match switches.get("a") {
+        Some(s) => Some(s.split(",").map(|c| c.trim().to_string().to_lowercase()).collect::<Vec<String>>()),
+        None => None,
+    };
+    match db.new_role(role_id.0 as i64, guild_id.0 as i64, category, aliases) {
+        Ok(data) => {
+            message.channel_id.say(format!("Successfully added role {} to category {} {}",
+                data.id,
+                data.category,
+                if !data.aliases.is_empty() {
+                    format!("with aliases {}", data.aliases.join(","))
+                } else {
+                    String::new()
+                }
+            )).expect("Failed to send message");
+        },
+        Err(why) => {
+            message.channel_id.say(format!("Failed to add role: {:?}", why)).expect("Failed to send message");
+        },
+    };
 });
 
 command!(dsr(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id().unwrap();
+    let (role_id, role) = parse_role(args.single_quoted::<String>().unwrap(), guild_id).unwrap();
+    match db.del_role(role_id.0 as i64, guild_id.0 as i64) {
+        Ok(data) => {
+            message.channel_id.say(format!("Successfully deleted role {}", data)).expect("Failed to send message");
+        },
+        Err(why) => {
+            message.channel_id.say(format!("Failed to delete role: {:?}", why)).expect("Failed to send message");
+        },
+    };
 });
 
 command!(prune(ctx, message, args) {

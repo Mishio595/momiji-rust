@@ -1,6 +1,5 @@
 use reqwest::*;
 use reqwest::header::{Headers, UserAgent, ContentType, Accept, Authorization, qitem};
-use reqwest::mime::*;
 use std::env;
 
 const UA: &str = "momiji-bot";
@@ -110,7 +109,7 @@ impl ApiClient {
         headers.set(Authorization(env::var("DBOTS_TOKEN").unwrap()));
 
         let stats = [("server_count", server_count)];
-        let res = self.client.post(format!("{}/{}/stats",DBOTS, bot_id).as_str())
+        let _ = self.client.post(format!("{}/{}/stats",DBOTS, bot_id).as_str())
             .json(&stats)
             .send();
     }

@@ -32,13 +32,15 @@ pub struct Guild {
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
-pub struct User {
+pub struct User<Tz: TimeZone> {
     pub id: i64,
     pub guild_id: i64,
     pub username: String,
     pub nickname: String,
     pub roles: Vec<i64>,
     pub watchlist: bool,
+    pub xp: i64,
+    pub last_message: DateTime<Tz>
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]

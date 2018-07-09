@@ -15,15 +15,17 @@ extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
 
-mod utils;
 mod modules;
-mod preload;
+mod core;
 mod db;
 
-use preload::api;
-use preload::handler::Handler;
-use preload::model::*;
-use preload::framework;
+use core::{
+    api,
+    handler::Handler,
+    model::*,
+    framework,
+    timers,
+};
 
 use serenity::prelude::*;
 use serenity::http;
@@ -40,11 +42,13 @@ fn main() {
     let mut client = Client::new(&token, Handler).expect("Unable to initialize client");
     {
         let mut data = client.data.lock();
-        data.insert::<SerenityShardManager>(Arc::clone(&client.shard_manager));
         let api_client = api::ApiClient::new();
-        data.insert::<ApiClient>(api_client);
         let db = db::Database::connect();
+        let tc = timers::TimerClient::new();
+        data.insert::<SerenityShardManager>(Arc::clone(&client.shard_manager));
+        data.insert::<ApiClient>(api_client);
         data.insert::<DB>(Arc::new(Mutex::new(db)));
+        data.insert::<TC>(Arc::new(Mutex::new(tc)));
     }
 
     let owners = match http::get_current_application_info() {

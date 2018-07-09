@@ -2,14 +2,13 @@ use serenity::prelude::*;
 use serenity::CACHE;
 use serenity::model::{
     id::*,
-    channel::*,
     guild::*,
     user::*,
     event::*,
     gateway::{Ready, Game}
 };
 use std::sync::Arc;
-use ::preload::model::*;
+use core::model::*;
 
 pub struct Handler;
 

@@ -1,7 +1,8 @@
 use serenity::prelude::Mutex;
 use typemap::Key;
-use ::db::Database;
-use ::api;
+use db::Database;
+use core::api;
+use core::timers::TimerClient;
 use serenity::client::bridge::gateway::ShardManager;
 use serenity::model::id::UserId;
 use std::sync::Arc;
@@ -24,4 +25,9 @@ impl Key for ApiClient {
 pub struct DB;
 impl Key for DB {
     type Value = Arc<Mutex<Database>>;
+}
+
+pub struct TC;
+impl Key for TC {
+    type Value = Arc<Mutex<TimerClient>>;
 }

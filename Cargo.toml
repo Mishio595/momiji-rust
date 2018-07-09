@@ -4,6 +4,12 @@ version = "0.1.0"
 authors = ["Mishio595 <tenseiken595@gmail.com>"]
 license = "MIT AND ISC"
 
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
+
 [dependencies]
 kankyo = "0.2.0"
 log = "0.4"

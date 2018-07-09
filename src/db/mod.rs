@@ -11,10 +11,34 @@ use std::env;
 use self::models::*;
 use self::schema::*;
 
+//TODO fill and use cache
+pub struct Cache {
+    pub guilds: Vec<Guild>,
+    pub users: Vec<User<Utc>>,
+    pub notes: Vec<Note<Utc>>,
+    pub roles: Vec<Role>,
+    pub timers: Vec<Timer>,
+    pub cases: Vec<Case<Utc>>,
+}
+
+impl Cache {
+    fn new() -> Self {
+        Cache {
+            guilds: Vec::new(),
+            users: Vec::new(),
+            notes: Vec::new(),
+            roles: Vec::new(),
+            timers: Vec::new(),
+            cases: Vec::new(),
+        }
+    }
+}
+
 /// While the struct itself and the connection are public, Database cannot be manually
 /// instantiated. Use Database::connect() to start it.
 pub struct Database {
     pub conn: PgConnection,
+    pub cache: Cache,
     hidden: (),
 }
 
@@ -27,9 +51,11 @@ impl Database {
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
         let conn = PgConnection::establish(&database_url)
             .expect(&format!("Error connection to {}", database_url));
+        let cache = Cache::new();
 
         Database {
             conn,
+            cache,
             hidden: (),
         }
     }
@@ -67,7 +93,7 @@ impl Database {
     // User Tools
     /// Add a user with a given user ID and guild ID.
     /// Returns the User on success.
-    pub fn new_user(&self, id: i64, guild_id: i64) -> QueryResult<User> {
+    pub fn new_user(&self, id: i64, guild_id: i64) -> QueryResult<User<Utc>> {
         let user = NewUser {
            id,
            guild_id,
@@ -89,11 +115,18 @@ impl Database {
     }
     /// Select a user
     /// Returns the user on success
-    pub fn get_user(&self, u_id: i64, g_id: i64) -> QueryResult<User> {
+    pub fn get_user(&self, u_id: i64, g_id: i64) -> QueryResult<User<Utc>> {
         use db::schema::users::dsl::*;
         users.filter(id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
             .first(&self.conn)
+    }
+    /// Select all users in a guild
+    /// Returns a vector of users on success
+    pub fn get_users(&self, g_id: i64) -> QueryResult<Vec<User<Utc>>> {
+        use db::schema::users::dsl::*;
+        users.filter(guild_id.eq(&g_id))
+            .get_results(&self.conn)
     }
 
     // Role Tools
@@ -112,24 +145,30 @@ impl Database {
     }
     /// Delete a role by role ID and guild ID.
     /// Returns the ID on success.
-    pub fn del_role(&self, id: i64, g_id: i64) -> QueryResult<i64> {
+    pub fn del_role(&self, r_id: i64, g_id: i64) -> QueryResult<i64> {
         use db::schema::roles::dsl::*;
         use db::schema::roles::columns;
         diesel::delete(roles)
-            .filter(id.eq(&id))
+            .filter(id.eq(&r_id))
             .filter(guild_id.eq(&g_id))
             .returning(columns::id)
             .get_result(&self.conn)
     }
     /// Select a role
     /// Returns the role on success
-    pub fn get_role(&self, id: i64, g_id: i64) -> QueryResult<Role> {
+    pub fn get_role(&self, r_id: i64, g_id: i64) -> QueryResult<Role> {
         use db::schema::roles::dsl::*;
-        roles.filter(id.eq(&id))
+        roles.filter(id.eq(&r_id))
             .filter(guild_id.eq(&g_id))
             .first(&self.conn)
     }
-    // TODO add get all roles by guild id
+    /// Select all roles by guild id
+    /// Returns a vector of roles on success
+    pub fn get_roles(&self, g_id: i64) -> QueryResult<Vec<Role>> {
+        use db::schema::roles::dsl::*;
+        roles.filter(guild_id.eq(&g_id))
+            .get_results(&self.conn)
+    }
 
     // Note Tools
     /// Add a note to the given user in the given guild by a given moderator
@@ -224,7 +263,6 @@ impl Database {
     /// Returns the case on success.
     pub fn del_case(&self, c_id: i32, u_id: i64, g_id: i64) -> QueryResult<Case<Utc>> {
         use db::schema::cases::dsl::*;
-        use db::schema::cases::columns;
         diesel::delete(cases)
             .filter(id.eq(&c_id))
             .filter(user_id.eq(&u_id))
@@ -240,5 +278,12 @@ impl Database {
             .filter(guild_id.eq(&g_id))
             .first(&self.conn)
     }
-    // TODO add get all cases by user and guild id
+    /// Select all cases for a user
+    /// Returns a vector of cases on success
+    pub fn get_cases(&self, u_id: i64, g_id: i64) -> QueryResult<Vec<Case<Utc>>> {
+        use db::schema::cases::dsl::*;
+        cases.filter(user_id.eq(&u_id))
+            .filter(guild_id.eq(&g_id))
+            .get_results(&self.conn)
+    }
 }

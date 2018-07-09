@@ -1,8 +1,7 @@
 use serenity::framework::{StandardFramework, standard::help_commands};
-use serenity::http;
 use serenity::model::id::UserId;
-use ::modules::commands::*;
-use ::preload::model::DB;
+use modules::commands::*;
+use core::model::DB;
 use std::collections::HashSet;
 
 pub fn new(owners: HashSet<UserId>) -> StandardFramework {
@@ -13,7 +12,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .on_mention(true)
             .ignore_bots(true)
             .case_insensitivity(true)
-            .delimiters(vec!(",", ", ", " "))
+            .delimiters(vec![","," "])
             .owners(owners)
             .dynamic_prefix(|ctx, msg|
                 if msg.is_private() {
@@ -72,13 +71,15 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .example("@example role")
             .guild_only(true)
             .help_available(true)
-            .batch_known_as(vec!["ri", "rinfo"]))
+            .batch_known_as(vec!["ri", "rinfo"])
+            .min_args(1))
         .command("roll", |c| c
             .cmd(roll)
             .desc("Roll some dice. Defaults to 6-sided.")
             .usage("<Nd>[X]")
             .example("2d10")
-            .help_available(true))
+            .help_available(true)
+            .min_args(1))
         .command("now", |c| c
             .cmd(now)
             .desc("Current time. Optionally provide an amount of hours to offset by.")
@@ -104,7 +105,8 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .usage(r#"<"term"> [count]"#)
             .example(r#""boku no pico" 5"#)
             .help_available(true)
-            .batch_known_as(vec!["ud", "urbandict"]))
+            .batch_known_as(vec!["ud", "urbandict"])
+            .min_args(1))
         .command("e621", |c| c
             .cmd(e621)
             .desc("Random image from e621.net. Provide your own tags like you would on the website.")
@@ -116,7 +118,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 if msg.channel_id.get().unwrap().is_nsfw() {
                     true
                 } else {
-                    msg.channel_id.say("Command only available in NSFW channels.");
+                    msg.channel_id.say("Command only available in NSFW channels.").expect("Failed to send message");
                     false
                 }}))
         .group("Notes", |g| g
@@ -128,17 +130,81 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .desc("Add a note to a user.")
                 .usage("<user_resolvable> <note>")
                 .example("@Adelyn test note")
-                .help_available(true))
+                .min_args(2))
             .command("del", |c| c
                 .cmd(note_del)
                 .desc("Delete a note from a user.")
                 .usage("<user_resolvable> <index>")
                 .example("@Adelyn 3")
-                .help_available(true))
+                .min_args(2))
             .command("list", |c| c
                 .cmd(note_list)
                 .desc("List all notes for a user.")
                 .usage("<user_resolvable>")
                 .example("@Adelyn")
-                .help_available(true)))
+                .min_args(1)))
+        .group("Watchlist", |g| g
+            .prefix("wl")
+            .guild_only(true)
+            .help_available(true)
+            .command("add", |c| c
+                .cmd(watchlist_add)
+                .desc("Add a user to the watchlist.")
+                .usage("<user_resolvable>")
+                .example("@Adelyn")
+                .min_args(1))
+            .command("del", |c| c
+                .cmd(watchlist_del)
+                .desc("Remove a user from the watchlist.")
+                .usage("<user_resolvable>")
+                .example("@Adelyn")
+                .min_args(1))
+            .command("list", |c| c
+                .cmd(watchlist_list)
+                .desc("List users on the watchlist.")
+                .usage("")))
+        .command("modinfo", |c| c
+            .cmd(mod_info)
+            .desc("View some useful information on a user.")
+            .usage("<user_resolvable>")
+            .example("@Adelyn")
+            .guild_only(true)
+            .help_available(true)
+            .batch_known_as(vec!["mi", "minfo"])
+            .min_args(1))
+        .command("rolecolour", |c| c
+            .cmd(role_colour)
+            .desc("Change the colour of a role.")
+            .usage("<role_resolvable> <colour>")
+            .example("418130449089691658 00ff00")
+            .guild_only(true)
+            .help_available(true)
+            .batch_known_as(vec!["rc", "rolecolor"])
+            .min_args(2))
+        .group("Self Role Management", |g| g
+            .help_available(true)
+            .guild_only(true)
+            .command("csr", |c| c
+                .cmd(csr)
+                .min_args(1))
+            .command("dsr", |c| c
+                .cmd(dsr)
+                .min_args(1)))
+        .group("Self Roles", |g| g
+            .help_available(true)
+            .guild_only(true)
+            .command("asr", |c| c
+                .cmd(asr)
+                .min_args(1)
+                .known_as("role"))
+            .command("rsr", |c| c
+                .cmd(rsr)
+                .min_args(1)
+                .known_as("derole"))
+            .command("lsr", |c| c
+                .cmd(lsr)
+                .known_as("roles")))
+        .command("remind", |c| c
+            .cmd(remind)
+            .help_available(true))
 }
