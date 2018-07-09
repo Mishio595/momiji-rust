@@ -217,7 +217,7 @@ impl Database {
     // Timer Tools
     /// Add a timer
     /// Returns the timer on success.
-    pub fn new_timer(&self, starttime: i32, endtime: i32, data: String) -> QueryResult<Timer> {
+    pub fn new_timer(&self, starttime: i64, endtime: i64, data: String) -> QueryResult<Timer> {
         let timer = NewTimer {
             starttime,
             endtime,

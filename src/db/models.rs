@@ -65,8 +65,8 @@ pub struct Role {
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
 pub struct Timer {
     pub id: i32,
-    pub starttime: i32,
-    pub endtime: i32,
+    pub starttime: i64,
+    pub endtime: i64,
     pub data: String,
 }
 
@@ -117,8 +117,8 @@ pub struct NewRole {
 #[derive(Insertable)]
 #[table_name="timers"]
 pub struct NewTimer {
-    pub starttime: i32,
-    pub endtime: i32,
+    pub starttime: i64,
+    pub endtime: i64,
     pub data: String,
 }
 

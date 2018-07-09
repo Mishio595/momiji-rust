@@ -61,8 +61,8 @@ table! {
 table! {
     timers (id) {
         id -> Int4,
-        starttime -> Int4,
-        endtime -> Int4,
+        starttime -> Int8,
+        endtime -> Int8,
         data -> Text,
     }
 }

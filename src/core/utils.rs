@@ -88,12 +88,33 @@ pub fn parse_guild(input: String) -> Option<GuildId> {
 }
 
 pub fn get_switches(input: String) -> HashMap<String, String> {
+    let re_rest = Regex::new(r"^[^/]+").unwrap();
     let re = Regex::new(r"/\s*?(\S+)([^/]+)").unwrap();
     let mut map: HashMap<String, String> = HashMap::new();
+    if let Some(s) = re_rest.captures(input.as_str()) {
+        map.insert("rest".to_string(), s[0].trim().to_string());
+    };
     for s in re.captures_iter(input.as_str()) {
         map.insert(s[1].to_string(), s[2].trim().to_string());
     }
     map
+}
+
+pub fn hrtime_to_seconds(mut time: String) -> i64 {
+    let re = Regex::new(r"(\d+)\s*?(\w)").unwrap();
+    let mut secs: usize = 0;
+    for s in re.captures_iter(time.as_str()) {
+        let count = s[1].parse::<usize>().unwrap();
+        match &s[2] {
+            "w" => { secs += count*WEEK },
+            "d" => { secs += count*DAY },
+            "h" => { secs += count*HOUR },
+            "m" => { secs += count*MIN },
+            "s" => { secs += count },
+            _ => {},
+        }
+    }
+    secs as i64
 }
 
 pub fn seconds_to_hrtime(mut secs: usize) -> String {

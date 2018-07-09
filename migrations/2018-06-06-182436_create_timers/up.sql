@@ -1,6 +1,6 @@
 CREATE TABLE timers (
 	id SERIAL PRIMARY KEY,
-	starttime INT NOT NULL,
-	endtime INT NOT NULL,
+	starttime BIGINT NOT NULL,
+	endtime BIGINT NOT NULL,
 	data TEXT NOT NULL
 )

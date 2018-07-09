@@ -10,6 +10,7 @@ use rand::prelude::*;
 use ::core::utils::*;
 use ::core::model::*;
 use ::core::consts::*;
+use chrono::Utc;
 
 // Rank 0
 
@@ -96,7 +97,7 @@ command!(manga(ctx, message, args) {
 });
 
 command!(now(_ctx, message, args) {
-    use chrono::offset::{FixedOffset, Utc};
+    use chrono::offset::FixedOffset;
     let utc = Utc::now();
     let datetime = match args.single::<i32>() {
         Ok(data) => {
@@ -145,12 +146,30 @@ command!(prefix(ctx, message, _args) {
 command!(remind(ctx, message, args) {
     let data = ctx.data.lock();
     let tc = data.get::<TC>().unwrap().lock();
+    let db = data.get::<DB>().unwrap().lock();
+
     let guild_id = message.guild_id().unwrap();
     let user_id = message.author.id;
-    let reminder = args.single::<String>().unwrap();
+
     let switches = get_switches(args.rest().to_string());
-    let time = switches.get("t").unwrap();
-    tc.request(format!("REMINDER||{}||{}||{}||{}", guild_id.0, user_id.0, time, reminder), time.parse::<u64>().unwrap());
+    let reminder = switches.get("rest").unwrap();
+
+    let start_time = Utc::now().timestamp();
+    let dur = hrtime_to_seconds(switches.get("t").unwrap().to_string());
+    let end_time = start_time + dur;
+    let mut reminder_fmt = format!("REMINDER||{}||{}||{}||{}", guild_id.0, user_id.0, dur, reminder);
+
+    match db.new_timer(start_time, end_time, reminder_fmt.clone()) {
+        Ok(timer) => {
+            reminder_fmt.push_str(format!("||{}", timer.id).as_str());
+            tc.request(reminder_fmt, dur as u64);
+            message.channel_id.say(format!("Got it! I'll remind you to {} in {}",
+                reminder,
+                seconds_to_hrtime(dur as usize)))
+                .expect("Failed to send message");
+        },
+        Err(why) => {},
+    }
 });
 
 command!(asr(ctx, message, args) {

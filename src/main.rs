@@ -43,11 +43,11 @@ fn main() {
     {
         let mut data = client.data.lock();
         let api_client = api::ApiClient::new();
-        let db = db::Database::connect();
-        let tc = timers::TimerClient::new();
+        let db = Arc::new(Mutex::new(db::Database::connect()));
+        let tc = timers::TimerClient::new(Arc::clone(&db));
         data.insert::<SerenityShardManager>(Arc::clone(&client.shard_manager));
         data.insert::<ApiClient>(api_client);
-        data.insert::<DB>(Arc::new(Mutex::new(db)));
+        data.insert::<DB>(Arc::clone(&db));
         data.insert::<TC>(Arc::new(Mutex::new(tc)));
     }
 
