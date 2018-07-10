@@ -8,6 +8,8 @@ use serenity::model::{
     gateway::{Ready, Game}
 };
 use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 use chrono::Utc;
 use core::model::*;
 use core::consts::*;
@@ -184,7 +186,7 @@ impl EventHandler for Handler {
         db.update_user(user.id.0 as i64, guild_id.0 as i64, user_data).expect("Failed to update user");
     }
 
-    // Leave log
+    // Leave and kick log
     fn guild_member_removal(&self, ctx: Context, guild_id: GuildId, user: User, _: Option<Member>) {
         let data = ctx.data.lock();
         let db = data.get::<DB>().unwrap().lock();
@@ -194,13 +196,34 @@ impl EventHandler for Handler {
             audit_channel.send_message(|m| m
                 .embed(|e| e
                     .title("Member Left")
-                    .colour(Colours::Green.val())
+                    .colour(Colours::Red.val())
                     .thumbnail(user.face())
                     .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
                     .description(format!("<@{}>\n{}\n{}", user.id, user.tag(), user.id))
             )).expect("Failed to send message");
         }
         db.del_user(user.id.0 as i64, guild_id.0 as i64).expect("Failed to delete user entry");
+        thread::sleep(Duration::from_secs(3));
+        if let Ok(audits) = guild_id.audit_logs(Some(20), None, None, Some(1)) {
+            let (audit_id, audit) = audits.entries.iter().next().unwrap();
+            if guild_data.modlog && audit.target_id == user.id.0 && (Utc::now().timestamp()-audit_id.created_at().timestamp())<5 {
+                let modlog_channel = ChannelId(guild_data.modlog_channel as u64);
+                modlog_channel.send_message(|m| m
+                    .embed(|e| e
+                        .title("Member Kicked")
+                        .colour(Colours::Red.val())
+                        .thumbnail(user.face())
+                        .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                        .description(format!("**Member:** {} ({}) - {}\n**Responsible Moderator:** {}\n**Reason:** {}",
+                            user.tag(),
+                            user.id.0,
+                            user.mention(),
+                            audit.user_id.get().unwrap().tag(),
+                            audit.reason.clone().unwrap_or("None".to_string())
+                        ))
+                )).expect("Failed to send message");
+            }
+        };
     }
 
     // Nickname and Role changes
@@ -256,10 +279,55 @@ impl EventHandler for Handler {
     }
 
     fn guild_ban_addition(&self, ctx: Context, guild_id: GuildId, user: User) {
-
+        thread::sleep(Duration::from_secs(3));
+        let data = ctx.data.lock();
+        let db = data.get::<DB>().unwrap().lock();
+        if let Ok(audits) = guild_id.audit_logs(Some(22), None, None, Some(1)) {
+            let audit = audits.entries.values().next().unwrap();
+            let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+            if guild_data.modlog && audit.target_id == user.id.0 {
+                let modlog_channel = ChannelId(guild_data.modlog_channel as u64);
+                modlog_channel.send_message(|m| m
+                    .embed(|e| e
+                        .title("Member Banned")
+                        .colour(Colours::Red.val())
+                        .thumbnail(user.face())
+                        .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                        .description(format!("**Member:** {} ({}) - {}\n**Responsible Moderator:** {}\n**Reason:** {}",
+                            user.tag(),
+                            user.id.0,
+                            user.mention(),
+                            audit.user_id.get().unwrap().tag(),
+                            audit.reason.clone().unwrap_or("None".to_string())
+                        ))
+                )).expect("Failed to send message");
+            }
+        };
     }
 
     fn guild_ban_removal(&self, ctx: Context, guild_id: GuildId, user: User) {
-
+        thread::sleep(Duration::from_secs(3));
+        let data = ctx.data.lock();
+        let db = data.get::<DB>().unwrap().lock();
+        if let Ok(audits) = guild_id.audit_logs(Some(23), None, None, Some(1)) {
+            let audit = audits.entries.values().next().unwrap();
+            let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+            if guild_data.modlog && audit.target_id == user.id.0 {
+                let modlog_channel = ChannelId(guild_data.modlog_channel as u64);
+                modlog_channel.send_message(|m| m
+                    .embed(|e| e
+                        .title("Member Unbanned")
+                        .colour(Colours::Green.val())
+                        .thumbnail(user.face())
+                        .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                        .description(format!("**Member:** {} ({}) - {}\n**Responsible Moderator:** {}",
+                            user.tag(),
+                            user.id.0,
+                            user.mention(),
+                            audit.user_id.get().unwrap().tag()
+                        ))
+                )).expect("Failed to send message");
+            }
+        };
     }
 }
