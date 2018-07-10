@@ -24,11 +24,15 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                     Some(settings.prefix)
                 }
             ))
-        .before(|_ctx, msg, command_name| {
+        .before(|ctx, message, command_name| {
             println!("Got command {} by user {}",
                 command_name,
-                msg.author.name);
-            true
+                message.author.name);
+            let data = ctx.data.lock();
+            let db = data.get::<DB>().unwrap().lock();
+            let guild_id = message.guild_id().unwrap();
+            let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+            !guild_data.ignored_channels.contains(&(message.channel_id.0 as i64))
         })
         .customised_help(help_commands::with_embeds, |c| c)
         .command("ping", |c| c
@@ -207,4 +211,28 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
         .command("remind", |c| c
             .cmd(remind)
             .help_available(true))
+        .command("ignore", |c| c
+            .cmd(ignore)
+            .help_available(true)
+            .guild_only(true))
+        .group("Config", |g| g
+            .help_available(true)
+            .guild_only(true)
+            .prefix("config")
+            .command("prefix", |c| c
+                .cmd(config_prefix))
+            .command("autorole", |c| c
+                .cmd(config_autorole))
+            .command("admin", |c| c
+                .cmd(config_admin))
+            .command("mod", |c| c
+                .cmd(config_mod))
+            .command("audit", |c| c
+                .cmd(config_audit))
+            .command("modlog", |c| c
+                .cmd(config_modlog))
+            .command("welcome", |c| c
+                .cmd(config_welcome))
+            .command("introduction", |c| c
+                .cmd(config_introduction)))
 }

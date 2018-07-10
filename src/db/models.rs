@@ -12,6 +12,7 @@ pub struct Guild {
     pub audit_threshold: i16,
     pub autorole: bool,
     pub autoroles: Vec<i64>,
+    pub ignored_channels: Vec<i64>,
     pub ignore_level: i16,
     pub introduction: bool,
     pub introduction_channel: i64,

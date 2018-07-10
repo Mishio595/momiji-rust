@@ -89,6 +89,15 @@ impl Database {
         guilds.filter(id.eq(&g_id))
             .first(&self.conn)
     }
+    /// Update a guild
+    /// Returns the new guild on success
+    pub fn update_guild(&self, g_id: i64, guild: Guild) -> QueryResult<Guild> {
+        use db::schema::guilds::dsl::*;
+        let target = guilds.filter(id.eq(&g_id));
+        diesel::update(target)
+            .set(&guild)
+            .get_result(&self.conn)
+    }
 
     // User Tools
     /// Add a user with a given user ID and guild ID.

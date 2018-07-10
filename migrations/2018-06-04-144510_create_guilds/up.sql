@@ -6,6 +6,7 @@ CREATE TABLE guilds (
 	audit_threshold SMALLINT NOT NULL DEFAULT 0,
 	autorole BOOL NOT NULL DEFAULT 'f',
 	autoroles BIGINT [] NOT NULL DEFAULT array[]::bigint[],
+	ignored_channels BIGINT [] NOT NULL DEFAULT array[]::bigint[],
 	ignore_level SMALLINT NOT NULL DEFAULT 3,
 	introduction BOOL NOT NULL DEFAULT 'f',
 	introduction_channel BIGINT NOT NULL DEFAULT 0,

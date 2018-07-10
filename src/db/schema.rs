@@ -18,6 +18,7 @@ table! {
         audit_threshold -> Int2,
         autorole -> Bool,
         autoroles -> Array<Int8>,
+        ignored_channels -> Array<Int8>,
         ignore_level -> Int2,
         introduction -> Bool,
         introduction_channel -> Int8,
