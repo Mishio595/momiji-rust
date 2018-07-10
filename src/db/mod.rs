@@ -19,6 +19,7 @@ pub struct Cache {
     pub roles: Vec<Role>,
     pub timers: Vec<Timer>,
     pub cases: Vec<Case<Utc>>,
+    pub tags: Vec<Tag>,
 }
 
 impl Cache {
@@ -30,6 +31,7 @@ impl Cache {
             roles: Vec::new(),
             timers: Vec::new(),
             cases: Vec::new(),
+            tags: Vec::new(),
         }
     }
 }
@@ -39,7 +41,7 @@ impl Cache {
 pub struct Database {
     pub conn: PgConnection,
     pub cache: Cache,
-    hidden: (),
+    _hidden: (),
 }
 
 impl Database {
@@ -56,7 +58,7 @@ impl Database {
         Database {
             conn,
             cache,
-            hidden: (),
+            _hidden: (),
         }
     }
 
@@ -137,6 +139,16 @@ impl Database {
         users.filter(guild_id.eq(&g_id))
             .get_results(&self.conn)
     }
+    /// Update a user
+    /// Returns the new user on success
+    pub fn update_user(&self, u_id: i64, g_id: i64, user: User<Utc>) -> QueryResult<User<Utc>> {
+        use db::schema::users::dsl::*;
+        let target = users.filter(id.eq(&u_id))
+            .filter(guild_id.eq(&g_id));
+        diesel::update(target)
+            .set(&user)
+            .get_result(&self.conn)
+    }
 
     // Role Tools
     /// Add a role with the given role ID, guild ID, and optionally a category and aliases.
@@ -207,9 +219,9 @@ impl Database {
     }
     /// Select a note
     /// Returns the note on success
-    pub fn get_note(&self, index: i64, u_id: i64, g_id: i64) -> QueryResult<Note<Utc>> {
+    pub fn get_note(&self, ind: i32, u_id: i64, g_id: i64) -> QueryResult<Note<Utc>> {
         use db::schema::notes::dsl::*;
-        notes.filter(index.eq(&index))
+        notes.filter(index.eq(&ind))
             .filter(user_id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
             .first(&self.conn)

@@ -7,7 +7,7 @@ pub const DAY: usize = 60*60*24;
 pub const HOUR: usize = 60*60;
 pub const MIN: usize = 60;
 
-pub const MESSAGE_CACHE: u32 = 500;
+pub const MESSAGE_CACHE: usize = 100;
 
 pub const ERROR_LOG: ChannelId = ChannelId(376422808852627457);
 pub const COMMAND_LOG: ChannelId = ChannelId(376422940570419200);

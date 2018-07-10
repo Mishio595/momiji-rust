@@ -1,5 +1,7 @@
 use chrono::{DateTime, TimeZone};
 use super::schema::*;
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use serenity::model::id::RoleId;
 
 // QUERYABLES
 
@@ -81,6 +83,15 @@ pub struct Case<Tz: TimeZone> {
     pub timestamp: DateTime<Tz>
 }
 
+#[derive(Queryable, Identifiable, AsChangeset, Debug)]
+pub struct Tag {
+    pub id: i32,
+    pub author: i64,
+    pub guild_id: i64,
+    pub name: String,
+    pub data: String,
+}
+
 // END QUERYABLES
 // INSERTABLES
 
@@ -132,4 +143,41 @@ pub struct NewCase {
     pub moderator: i64,
 }
 
+#[derive(Insertable)]
+#[table_name="tags"]
+pub struct NewTag {
+    pub author: i64,
+    pub guild_id: i64,
+    pub name: String,
+    pub data: String,
+}
+
 // END INSERTABLES
+
+impl Display for Guild {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "**Admin Roles:** {}\n**Audit:** {}\n**Audit Channel:** {}\n**Audit Threshold:** {}\n**Autorole:** {}\n**Autoroles:** {}\n**Ignored Channels:** {}\n**Ignore Level:** {}\n**Introduction:** {}\n**Introduction Channel:** {}\n**Introduction Message:** {}\n**Mod Roles: ** {}\n**Modlog:** {}\n**Modlog Channel:** {}\n**Mute Setup:** {}\n**Prefix:** {}\n**Welcome:** {}\n**Welcome Channel:** {}\n**Welcome Message:** {}\n**Disabled Commands:** {}\n**Disabled Log Types:** {}\n**Hackbans:** {}",
+            self.admin_roles.iter().map(|e| RoleId(*e as u64).find().unwrap().name).collect::<Vec<String>>().join(", "),
+            self.audit,
+            format!("<#{}>", self.audit_channel),
+            self.audit_threshold,
+            self.autorole,
+            self.autoroles.iter().map(|e| RoleId(*e as u64).find().unwrap().name).collect::<Vec<String>>().join(", "),
+            self.ignored_channels.iter().map(|e| format!("<#{}>", e)).collect::<Vec<String>>().join(", "),
+            self.ignore_level,
+            self.introduction,
+            format!("<#{}>", self.introduction_channel),
+            self.introduction_message,
+            self.mod_roles.iter().map(|e| RoleId(*e as u64).find().unwrap().name).collect::<Vec<String>>().join(", "),
+            self.modlog,
+            format!("<#{}>", self.modlog_channel),
+            self.mute_setup,
+            self.prefix,
+            self.welcome,
+            format!("<#{}>", self.welcome_channel),
+            self.welcome_message,
+            self.commands.join(", "),
+            self.logging.join(", "),
+            self.hackbans.iter().map(|e| format!("{}", e)).collect::<Vec<String>>().join(", "))
+    }
+}

@@ -22,7 +22,7 @@ command!(bot_info(ctx, message, _args) {
     let shard_count = cache.shard_count;
     let owner = data.get::<Owner>().unwrap().get().unwrap();
     let sys = sysinfo::System::new();
-    let process = sys.get_process(sysinfo::get_current_pid()).unwrap();
+    //let process = sys.get_process(sysinfo::get_current_pid()).unwrap();
 
     message.channel_id.send_message(|m| m
         .embed(|e| e
@@ -140,7 +140,7 @@ command!(ping(ctx, message, _args) {
 command!(prefix(ctx, message, _args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let settings = db.get_guild(message.guild_id().unwrap().0 as i64).unwrap();
+    let settings = db.get_guild(message.guild_id.unwrap().0 as i64).unwrap();
     message.channel_id.say(format!("The prefix for this guild is `{}`", settings.prefix)).expect("Failed to send message");
 });
 
@@ -149,7 +149,7 @@ command!(remind(ctx, message, args) {
     let tc = data.get::<TC>().unwrap().lock();
     let db = data.get::<DB>().unwrap().lock();
 
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let user_id = message.author.id;
 
     let switches = get_switches(args.rest().to_string());
@@ -178,7 +178,7 @@ command!(remind(ctx, message, args) {
 command!(asr(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut member = message.member().unwrap();
     let roles = db.get_roles(guild_id.0 as i64).unwrap();
     let list = args.rest().split(",").map(|s| s.trim().to_string());
@@ -223,7 +223,7 @@ command!(asr(ctx, message, args) {
 command!(rsr(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut member = message.member().unwrap();
     let roles = db.get_roles(guild_id.0 as i64).unwrap();
     let list = args.rest().split(",").map(|s| s.trim().to_string());
@@ -265,10 +265,10 @@ command!(rsr(ctx, message, args) {
             .colour(member.colour().unwrap()))).expect("Failed to send message");
 });
 
-command!(lsr(ctx, message, args) {
+command!(lsr(ctx, message, _args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let roles = db.get_roles(guild_id.0 as i64).unwrap();
     let mut map: HashMap<String, Vec<i64>> = HashMap::new();
     for role in roles.iter() {
@@ -293,8 +293,8 @@ command!(lsr(ctx, message, args) {
 });
 
 command!(role_info(_ctx, message, args) {
-    let guild_id = message.guild_id().unwrap();
-    if let Some((id, role)) = parse_role(args.rest().to_string(), guild_id) {
+    let guild_id = message.guild_id.unwrap();
+    if let Some((_, role)) = parse_role(args.rest().to_string(), guild_id) {
         message.channel_id.send_message(|m| m
             .embed(|e| e
                 .thumbnail(format!("https://www.colorhexa.com/{}.png", role.colour.hex().to_lowercase()))
@@ -355,7 +355,7 @@ command!(server_info(_ctx, message, _args) {
                         members.0 += 1;
                     }
                 },
-                Err(why) => {},
+                Err(_) => {},
             }
         }
         for (_, presence) in guild.presences.iter() {
@@ -452,7 +452,7 @@ command!(weather(ctx, message, args) {
 command!(mod_info(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let user = db.get_user(user_id.0 as i64, guild_id.0 as i64).unwrap();
     let cases = db.get_cases(user_id.0 as i64, guild_id.0 as i64).unwrap();
@@ -473,10 +473,10 @@ command!(unmute(ctx, message, args) {
 command!(note_add(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let (user,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let note = String::from(args.rest());
-    match db.new_note(user.0 as i64, message.guild_id().unwrap().0 as i64, note, message.author.id.0 as i64) {
+    match db.new_note(user.0 as i64, message.guild_id.unwrap().0 as i64, note, message.author.id.0 as i64) {
         Ok(data) => { message.channel_id.say(format!("Added note `{}`.", data.note)).expect("Failed to send message"); },
         Err(why) => { message.channel_id.say(format!("Failed to add note. Reason: {:?}", why)).expect("Failed to send message"); },
     }
@@ -485,10 +485,10 @@ command!(note_add(ctx, message, args) {
 command!(note_del(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let (user,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let index = args.single::<i32>().unwrap_or(0);
-    match db.del_note(index, user.0 as i64, message.guild_id().unwrap().0 as i64) {
+    match db.del_note(index, user.0 as i64, message.guild_id.unwrap().0 as i64) {
         Ok(data) => { message.channel_id.say(format!("Deleted note `{}`.", data)).expect("Failed to send message"); },
         Err(why) => { message.channel_id.say(format!("Failed to delete note. Reason: {:?}", why)).expect("Failed to send message"); },
     }
@@ -498,10 +498,10 @@ command!(note_del(ctx, message, args) {
 command!(note_list(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let user = user_id.get().unwrap();
-    let notes = db.get_notes(user_id.0 as i64, message.guild_id().unwrap().0 as i64).unwrap();
+    let notes = db.get_notes(user_id.0 as i64, message.guild_id.unwrap().0 as i64).unwrap();
     let notes_fmt = notes.iter().map(|n| format!("`{}` by {} at {}", n.note, n.moderator, n.timestamp)).collect::<Vec<String>>().join("\n");
     message.channel_id.send_message(|m| m
         .embed(|e| e
@@ -514,7 +514,7 @@ command!(register(ctx, message, args) {
 });
 
 command!(ar(_ctx, message, args) {
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut member = message.member().unwrap();
     let list = args.rest().split(",").map(|s| s.trim().to_string());
     let mut to_add = Vec::new();
@@ -550,8 +550,8 @@ command!(ar(_ctx, message, args) {
             .colour(member.colour().unwrap()))).expect("Failed to send message");
 });
 
-command!(rr(ctx, message, args) {
-    let guild_id = message.guild_id().unwrap();
+command!(rr(_ctx, message, args) {
+    let guild_id = message.guild_id.unwrap();
     let mut member = message.member().unwrap();
     let list = args.rest().split(",").map(|s| s.trim().to_string());
     let mut to_remove = Vec::new();
@@ -589,8 +589,8 @@ command!(rr(ctx, message, args) {
 
 //TODO make not shit
 command!(role_colour(_ctx, message, args) {
-    let guild_id = message.guild_id().unwrap();
-    let (role_id, mut role) = parse_role(args.single::<String>().unwrap(), guild_id).unwrap();
+    let guild_id = message.guild_id.unwrap();
+    let (_, mut role) = parse_role(args.single::<String>().unwrap(), guild_id).unwrap();
     let colour_as_hex = args.single::<String>().unwrap();
     let colour = u64::from_str_radix(colour_as_hex.as_str(), 16).unwrap();
     if let Ok(_) = role.edit(|r| r.colour(colour)) {
@@ -601,23 +601,27 @@ command!(role_colour(_ctx, message, args) {
 command!(watchlist_add(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
-    //TODO: Add update user method
+    let mut user_data = db.get_user(user_id.0 as i64, guild_id.0 as i64).unwrap();
+    user_data.watchlist = true;
+    db.update_user(user_id.0 as i64, guild_id.0 as i64, user_data).expect("Failed to update user");
 });
 
 command!(watchlist_del(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
-    //TODO: Add update user method
+    let mut user_data = db.get_user(user_id.0 as i64, guild_id.0 as i64).unwrap();
+    user_data.watchlist = true;
+    db.update_user(user_id.0 as i64, guild_id.0 as i64, user_data).expect("Failed to update user");
 });
 
 command!(watchlist_list(ctx, message, _args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let users = db.get_users(guild_id.0 as i64).unwrap_or(Vec::new());
     let user_map = users.iter().map(|u| UserId(u.id as u64).get().unwrap()).map(|u| u.tag()).collect::<Vec<String>>().join("\n");
     message.channel_id.send_message(|m| m
@@ -629,10 +633,22 @@ command!(watchlist_list(ctx, message, _args) {
 
 // Rank 2
 
+command!(config_list(ctx, message, _args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id.unwrap();
+    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+    message.channel_id.send_message(|m| m
+        .embed(|e| e
+            .colour(Colours::Main.val())
+            .description(format!("{}", guild_data))
+    )).expect("Failed to send message");
+});
+
 command!(config_prefix(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     let pre = args.single::<String>().unwrap();
     guild_data.prefix = pre;
@@ -640,7 +656,7 @@ command!(config_prefix(ctx, message, args) {
         Ok(guild) => {
             message.channel_id.say(format!("Set prefix to {}", guild.prefix)).expect("Failed to send message");
         },
-        Err(why) => {
+        Err(_) => {
             message.channel_id.say("Failed to change prefix").expect("Failed to send message");
         },
     };
@@ -649,17 +665,17 @@ command!(config_prefix(ctx, message, args) {
 command!(config_autorole(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     let op = args.single::<String>().unwrap();
     let val = args.rest();
     match op.to_lowercase().as_str() {
         "add" => {
-            let (role_id, role) = parse_role(val.to_string(), guild_id).unwrap();
+            let (role_id, _) = parse_role(val.to_string(), guild_id).unwrap();
             guild_data.autoroles.push(role_id.0 as i64);
         },
         "remove" => {
-            let (role_id, role) = parse_role(val.to_string(), guild_id).unwrap();
+            let (role_id, _) = parse_role(val.to_string(), guild_id).unwrap();
             guild_data.autoroles.retain(|e| *e != role_id.0 as i64);
         },
         "enable" => {
@@ -689,7 +705,7 @@ command!(config_autorole(ctx, message, args) {
 command!(config_admin(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     let op = args.single::<String>().unwrap();
     let val = args.rest();
@@ -723,7 +739,7 @@ command!(config_admin(ctx, message, args) {
 command!(config_mod(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     let op = args.single::<String>().unwrap();
     let val = args.rest();
@@ -757,7 +773,7 @@ command!(config_mod(ctx, message, args) {
 command!(config_audit(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     let op = args.single::<String>().unwrap();
     let val = args.rest();
@@ -797,7 +813,7 @@ command!(config_audit(ctx, message, args) {
 command!(config_modlog(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     let op = args.single::<String>().unwrap();
     let val = args.rest();
@@ -833,7 +849,7 @@ command!(config_modlog(ctx, message, args) {
 command!(config_welcome(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     let op = args.single::<String>().unwrap();
     let val = args.rest();
@@ -872,7 +888,7 @@ command!(config_welcome(ctx, message, args) {
 command!(config_introduction(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     let op = args.single::<String>().unwrap();
     let val = args.rest();
@@ -912,7 +928,7 @@ command!(config_introduction(ctx, message, args) {
 command!(hackban(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     let user_id = match UserId::from_str(args.full()) {
         Ok(id) => id,
@@ -953,7 +969,7 @@ command!(hackban(ctx, message, args) {
 command!(ignore(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     let (channel_id, channel) = parse_channel(args.full().to_string(), guild_id).unwrap();
     if !guild_data.ignored_channels.contains(&(channel_id.0 as i64)) {
@@ -988,7 +1004,7 @@ command!(ignore(ctx, message, args) {
 command!(csr(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let (role_id, role) = parse_role(args.single_quoted::<String>().unwrap(), guild_id).unwrap();
     let switches = get_switches(args.rest().to_string());
     let category = match switches.get("c") {
@@ -1020,7 +1036,7 @@ command!(csr(ctx, message, args) {
 command!(dsr(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let guild_id = message.guild_id().unwrap();
+    let guild_id = message.guild_id.unwrap();
     let (role_id, role) = parse_role(args.single_quoted::<String>().unwrap(), guild_id).unwrap();
     match db.del_role(role_id.0 as i64, guild_id.0 as i64) {
         Ok(data) => {

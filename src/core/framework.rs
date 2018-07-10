@@ -20,7 +20,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 } else {
                     let mut data = ctx.data.lock();
                     let db = data.get::<DB>().unwrap().lock();
-                    let settings = db.get_guild(msg.guild_id().unwrap().0 as i64).unwrap();
+                    let settings = db.get_guild(msg.guild_id.unwrap().0 as i64).unwrap();
                     Some(settings.prefix)
                 }
             ))
@@ -30,7 +30,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 message.author.name);
             let data = ctx.data.lock();
             let db = data.get::<DB>().unwrap().lock();
-            let guild_id = message.guild_id().unwrap();
+            let guild_id = message.guild_id.unwrap();
             let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
             !guild_data.ignored_channels.contains(&(message.channel_id.0 as i64))
         })
@@ -176,63 +176,125 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .help_available(true)
             .batch_known_as(vec!["mi", "minfo"])
             .min_args(1))
-        .command("rolecolour", |c| c
-            .cmd(role_colour)
-            .desc("Change the colour of a role.")
-            .usage("<role_resolvable> <colour>")
-            .example("418130449089691658 00ff00")
-            .guild_only(true)
+        .group("Role Management", |g| g
             .help_available(true)
-            .batch_known_as(vec!["rc", "rolecolor"])
-            .min_args(2))
+            .guild_only(true)
+            .command("ar", |c| c
+                .cmd(ar)
+                .desc("Add role(s) to a user.")
+                .usage("<user_resolvable> <role_resolvables as CSV>")
+                .example("@Adelyn red, green")
+                .min_args(2)
+                .known_as("addrole"))
+            .command("rr", |c| c
+                .cmd(rr)
+                .desc("Remove role(s) from a user.")
+                .usage("<user_resolvable> <role_resolvables as CSV>")
+                .example("@Adelyn red, green")
+                .min_args(2)
+                .known_as("removerole"))
+            .command("rolecolour", |c| c
+                .cmd(role_colour)
+                .desc("Change the colour of a role.")
+                .usage("<role_resolvable> <colour>")
+                .example("418130449089691658 00ff00")
+                .batch_known_as(vec!["rc", "rolecolor"])
+                .min_args(2)))
         .group("Self Role Management", |g| g
             .help_available(true)
             .guild_only(true)
             .command("csr", |c| c
                 .cmd(csr)
+                .desc("Create a self role from a discord role. Also optionally takes a category and/or aliases.")
+                .usage("<role_resolvable> [/c category] [/a aliases as CSV]")
+                .example("NSFW /c Opt-in /a porn, lewd")
                 .min_args(1))
             .command("dsr", |c| c
                 .cmd(dsr)
+                .desc("Delete a self role.")
+                .usage("<role_resolvable>")
+                .example("NSFW")
                 .min_args(1)))
         .group("Self Roles", |g| g
             .help_available(true)
             .guild_only(true)
             .command("asr", |c| c
                 .cmd(asr)
+                .desc("Add self roles.")
+                .usage("<role_resolvables as CSV>")
+                .example("red, green")
                 .min_args(1)
                 .known_as("role"))
             .command("rsr", |c| c
                 .cmd(rsr)
+                .desc("Remove self role(s).")
+                .usage("<role_resolvables as CSV>")
+                .example("red, green")
                 .min_args(1)
                 .known_as("derole"))
             .command("lsr", |c| c
                 .cmd(lsr)
+                .desc("List self roles")
+                .usage("")
                 .known_as("roles")))
         .command("remind", |c| c
             .cmd(remind)
+            .desc("Set a reminder.")
+            .usage("<reminder text> </t time_resolvable>")
+            .example("do the thing /t 1 day 10 min 25 s")
             .help_available(true))
         .command("ignore", |c| c
             .cmd(ignore)
+            .desc("Tell the bot to ignore a channel, or being listening to one that was previously ignored.")
+            .usage("<channel_resolvable>")
+            .example("#general")
             .help_available(true)
             .guild_only(true))
         .group("Config", |g| g
             .help_available(true)
             .guild_only(true)
             .prefix("config")
+            .command("list", |c| c
+                .cmd(config_list)
+                .desc("Lists current configuration."))
             .command("prefix", |c| c
-                .cmd(config_prefix))
+                .cmd(config_prefix)
+                .desc("Set a new prefix")
+                .usage("<prefix>")
+                .example("!!"))
             .command("autorole", |c| c
-                .cmd(config_autorole))
+                .cmd(config_autorole)
+                .desc("Change autorole settings. A role must be provided for add or remove.")
+                .usage("<add|remove|enable|disable> <role_resolvable|_>")
+                .example("add member"))
             .command("admin", |c| c
-                .cmd(config_admin))
+                .cmd(config_admin)
+                .desc("Add or remove roles from the bot's admin list.")
+                .usage("<add|remove> <role_resolvable>")
+                .example("add admin"))
             .command("mod", |c| c
-                .cmd(config_mod))
+                .cmd(config_mod)
+                .desc("Add or remove roles from the bot's admin list.")
+                .usage("<add|remove> <role_resolvable>")
+                .example("add staff"))
             .command("audit", |c| c
-                .cmd(config_audit))
+                .cmd(config_audit)
+                .desc("Change audit log settings. A channel must be provided for channel.")
+                .usage("<enable|disable|channel> <channel_resolvable>")
+                .example("channel #audit-logs"))
             .command("modlog", |c| c
-                .cmd(config_modlog))
+                .cmd(config_modlog)
+                .desc("Change moderation log settings. A channel must be provided for channel.")
+                .usage("<enable|disable|channel> <channel_resolvable>")
+                .example("channel #mod-logs"))
             .command("welcome", |c| c
-                .cmd(config_welcome))
+                .cmd(config_welcome)
+                .desc("Change welcome message settings. A channel must be provided for channel, while a message resolvable must be provided for message.")
+                .usage("<enable|disable|channel|message> <channel_resolvable|message_resolvable>")
+                .example("message Welcome to {guild}, {user}!"))
             .command("introduction", |c| c
-                .cmd(config_introduction)))
+                .cmd(config_introduction)
+                .desc("Change introduction message settings. A channel must be provided for channel, while a message resolvable must be provided for message. This is a premium only feature related to the Register command.")
+                .usage("<enable|disable|channel|message> <channel_resolvable|message_resolvable>")
+                .example("message Hey there {user}, mind introducting yourself?")))
 }

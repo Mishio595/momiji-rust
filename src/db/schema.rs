@@ -60,6 +60,16 @@ table! {
 }
 
 table! {
+    tags (id) {
+        id -> Int4,
+        author -> Int8,
+        guild_id -> Int8,
+        name -> Text,
+        data -> Text,
+    }
+}
+
+table! {
     timers (id) {
         id -> Int4,
         starttime -> Int8,
@@ -86,6 +96,7 @@ allow_tables_to_appear_in_same_query!(
     guilds,
     notes,
     roles,
+    tags,
     timers,
     users,
 );

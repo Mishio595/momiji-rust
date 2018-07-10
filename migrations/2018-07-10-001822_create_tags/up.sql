@@ -1,0 +1,7 @@
+CREATE TABLE tags (
+	id SERIAL PRIMARY KEY,
+	author BIGINT NOT NULL,
+	guild_id BIGINT NOT NULL,
+	name TEXT NOT NULL,
+	data TEXT NOT NULL
+)

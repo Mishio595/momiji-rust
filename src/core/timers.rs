@@ -13,7 +13,6 @@ pub struct TimerClient {
     pub recv: Arc<Mutex<Receiver<String>>>,
     pub sender: Arc<Mutex<Sender<String>>>,
     pub pool: ThreadPool,
-    db: Arc<Mutex<::db::Database>>,
 }
 
 impl TimerClient {
@@ -23,7 +22,6 @@ impl TimerClient {
             recv: Arc::new(Mutex::new(rx)),
             sender: Arc::new(Mutex::new(tx)),
             pool: ThreadPool::new(5),
-            db: Arc::clone(&db),
         };
         let rec = Arc::clone(&tc.recv);
         tc.pool.execute(move || {
@@ -40,12 +38,12 @@ impl TimerClient {
                                     .colour(Colours::Main.val())
                                     .description(&parts[4])))
                                 .expect("Failed to DM user");
-                        db.lock().del_timer(parts[5].parse::<i32>().unwrap());
+                        db.lock().del_timer(parts[5].parse::<i32>().unwrap()).expect("Failed to delete timer");
                         } else if parts[0] == "UNMUTE" {
                             // TODO write unmute
                         }
                     },
-                    Err(why) => {},
+                    Err(_) => {},
                 }
             }
         });
