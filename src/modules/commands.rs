@@ -3,7 +3,9 @@ use std::str::FromStr;
 use serenity::CACHE;
 use serenity::prelude::*;
 use serenity::model::id::*;
+use serenity::model::channel::Message;
 use serenity::client::bridge::gateway::ShardId;
+use serenity::builder::GetMessages;
 use sysinfo;
 use sysinfo::SystemExt;
 use sys_info;
@@ -157,21 +159,23 @@ command!(remind(ctx, message, args) {
 
     let start_time = Utc::now().timestamp();
     let dur = hrtime_to_seconds(switches.get("t").unwrap().to_string());
-    let end_time = start_time + dur;
-    let mut reminder_fmt = format!("REMINDER||{}||{}||{}||{}", guild_id.0, user_id.0, dur, reminder);
+    if dur>0 {
+        let end_time = start_time + dur;
+        let mut reminder_fmt = format!("REMINDER||{}||{}||{}||{}", guild_id.0, user_id.0, dur, reminder);
 
-    match db.new_timer(start_time, end_time, reminder_fmt.clone()) {
-        Ok(timer) => {
-            reminder_fmt.push_str(format!("||{}", timer.id).as_str());
-            tc.request(reminder_fmt, dur as u64);
-            message.channel_id.say(format!("Got it! I'll remind you to {} in {}",
-                reminder,
-                seconds_to_hrtime(dur as usize)))
-                .expect("Failed to send message");
-        },
-        Err(why) => {
-            message.channel_id.say(format!("Sorry, I couldn't make the reminder. Here's why: {:?}", why)).expect("Failed to send message");
-        },
+        match db.new_timer(start_time, end_time, reminder_fmt.clone()) {
+            Ok(timer) => {
+                reminder_fmt.push_str(format!("||{}", timer.id).as_str());
+                tc.request(reminder_fmt, dur as u64);
+                message.channel_id.say(format!("Got it! I'll remind you to {} in {}",
+                    reminder,
+                    seconds_to_hrtime(dur as usize)))
+                    .expect("Failed to send message");
+            },
+            Err(why) => {
+                message.channel_id.say(format!("Sorry, I couldn't make the reminder. Here's why: {:?}", why)).expect("Failed to send message");
+            },
+        }
     }
 });
 
@@ -265,6 +269,7 @@ command!(rsr(ctx, message, args) {
             .colour(member.colour().unwrap()))).expect("Failed to send message");
 });
 
+// TODO sort list
 command!(lsr(ctx, message, _args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
@@ -1049,6 +1054,66 @@ command!(dsr(ctx, message, args) {
 });
 
 command!(prune(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id.unwrap();
+    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+    let mut count = args.single::<usize>().unwrap();
+    let fsel = args.single::<String>().unwrap_or(String::new());
+    let mut filter = get_filter(fsel, guild_id);
+    let mut deletions = message.channel_id.messages(|_| re_retriever(100)).unwrap();
+    let mut next_deletions;
+    let mut num_del = 0;
+    message.delete();
+    if count<1000 {
+        while count>0 {
+            deletions.retain(|m| filter(m));
+            let mut len = deletions.len();
+            if len>count {
+                deletions.truncate(count);
+                len = count;
+            }
+            count -= len;
+            if count>0 {
+                next_deletions = match message.channel_id.messages(|_| be_retriever(deletions.first().unwrap().id, 100)) {
+                    Ok(msgs) => Some(msgs),
+                    Err(_) => None,
+                }
+            } else {
+                next_deletions = None;
+            }
+            match message.channel_id.delete_messages(deletions) {
+                Ok(_) => {
+                    num_del += len;
+                    deletions = match next_deletions {
+                        Some(s) => s,
+                        None => { break; },
+                    }
+                },
+                Err(why) => {
+                    error!("{:?}", why);
+                    break;
+                },
+            }
+        }
+        if guild_data.modlog {
+            let channel_lock = message.channel_id.get().unwrap().guild().unwrap();
+            let channel = channel_lock.read();
+            ChannelId(guild_data.modlog_channel as u64).send_message(|m| m
+                .embed(|e| e
+                    .title("Messages Pruned")
+                    .description(format!("**Count:** {}\n**Moderator:** {} ({})\n**Channel:** {} ({})",
+                        num_del,
+                        message.author.mention(),
+                        message.author.tag(),
+                        channel.mention(),
+                        channel.name))
+                    .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+            )).expect("Failed to send message");
+        } else {
+            message.channel_id.say(format!("Pruned {} message!", num_del)).expect("Failed to send message");
+        }
+    }
 });
 
 command!(test(ctx, message, args) {
@@ -1069,3 +1134,34 @@ command!(log(ctx, message, args) {
 
 command!(restart(ctx, message, args) {
 });
+
+// Helper functions for commands::prune
+fn re_retriever(limit: u64) -> GetMessages {
+    GetMessages::default()
+        .limit(limit)
+}
+
+fn be_retriever(id: MessageId, limit: u64) -> GetMessages {
+    GetMessages::default()
+        .before(id)
+        .limit(limit)
+}
+
+fn get_filter(input: String, guild_id: GuildId) -> Box<FnMut(&Message) -> bool> {
+    match input.as_str() {
+        "bot" => Box::new(|m| m.author.bot),
+        "mention" => Box::new(|m| !m.mentions.is_empty() && m.mention_everyone),
+        "attachment" => Box::new(|m| !m.attachments.is_empty()),
+        "!pin" => Box::new(|m| !m.pinned),
+        _ => {
+            match parse_user(input.to_string(), guild_id) {
+                Some((user_id, _)) => {
+                    Box::new(move |m| m.author.id == user_id)
+                },
+                None => {
+                    Box::new(|m| true)
+                },
+            }
+        },
+    }
+}

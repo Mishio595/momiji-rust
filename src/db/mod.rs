@@ -265,6 +265,12 @@ impl Database {
         timers.filter(id.eq(&t_id))
             .first(&self.conn)
     }
+    /// Select all timers
+    /// Returns a vec of timers on success
+    pub fn get_timers(&self) -> QueryResult<Vec<Timer>> {
+        use db::schema::timers::dsl::*;
+        timers.get_results(&self.conn)
+    }
 
     // Case Tools
     /// Add a Case

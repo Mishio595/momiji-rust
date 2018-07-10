@@ -297,4 +297,11 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .desc("Change introduction message settings. A channel must be provided for channel, while a message resolvable must be provided for message. This is a premium only feature related to the Register command.")
                 .usage("<enable|disable|channel|message> <channel_resolvable|message_resolvable>")
                 .example("message Hey there {user}, mind introducting yourself?")))
+        .command("prune", |c| c
+            .cmd(prune)
+            .desc("Bulk delete messages.")
+            .usage("<count> [filter]")
+            .example("20 bot")
+            .guild_only(true)
+            .help_available(true))
 }

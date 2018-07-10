@@ -17,8 +17,11 @@ use core::consts::*;
 pub struct Handler;
 
 impl EventHandler for Handler {
-    fn ready(&self, _: Context, ready: Ready) {
+    fn ready(&self, ctx: Context, ready: Ready) {
         CACHE.write().settings_mut().max_messages(MESSAGE_CACHE);
+        let data = ctx.data.lock();
+        let tc = data.get::<TC>().unwrap().lock();
+        tc.load();
         info!("Logged in as {}", ready.user.name);
     }
 
@@ -48,6 +51,7 @@ impl EventHandler for Handler {
             let audit_channel = ChannelId(guild_data.audit_channel as u64);
             if let Some(messages) = cache.messages.get(&channel_id) {
                 if let Some(message) = messages.get(&message_id) {
+                    if message.author.bot { return; }
                     audit_channel.send_message(|m| m
                         .embed(|e| e
                             .title("Message Deleted")
@@ -61,7 +65,7 @@ impl EventHandler for Handler {
                                 channel.id.0,
                                 channel.mention(),
                                 message.content_safe()))
-                            .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                            .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
                     )).expect("Failed to send message");
                 } else {
                     audit_channel.send_message(|m| m
@@ -73,19 +77,51 @@ impl EventHandler for Handler {
                                 channel.name,
                                 channel.id.0,
                                 channel.mention()))
-                            .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                            .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
                     )).expect("Failed to send message");
                 };
             };
         };
     }
 
-    fn message_delete_bulk(&self, ctx: Context, channel_id: ChannelId, ids: Vec<MessageId>) {
+    // Leaving this commented out until I decide if I want to use it
+    /*fn message_delete_bulk(&self, ctx: Context, channel_id: ChannelId, ids: Vec<MessageId>) {
+    }*/
 
-    }
-
+    // Edit logs
     fn message_update(&self, ctx: Context, event: MessageUpdateEvent) {
-
+        // Doesn't work until I can obtain the old content of the message
+        return;
+        if let Some(channel) = event.channel_id.get().unwrap().guild() {
+            let data = ctx.data.lock();
+            let db = data.get::<DB>().unwrap().lock();
+            let cache = CACHE.read();
+            let channel = channel.read();
+            let guild_id = channel.guild_id;
+            let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+            let audit_channel = ChannelId(guild_data.audit_channel as u64);
+            if let Some(messages) = cache.messages.get(&channel.id) {
+                if let Some(message) = messages.get(&event.id) {
+                    if message.author.bot { return; }
+                    audit_channel.send_message(|m| m
+                        .embed(|e| e
+                            .title("Message Edited")
+                            .colour(Colours::Main.val())
+                            .footer(|f| f.text(format!("ID: {}", message.id.0)))
+                            .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - {}\n**Old Content:**\n{}\n**New Content:**\n{}",
+                                message.author.tag(),
+                                message.author.id.0,
+                                message.author.mention(),
+                                channel.name,
+                                channel.id.0,
+                                channel.mention(),
+                                message.content_safe(),
+                                event.content.unwrap()))
+                            .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                    )).expect("Failed to send message");
+                };
+            };
+        };
     }
 
     // Username changes and Now Live! role
@@ -127,7 +163,7 @@ impl EventHandler for Handler {
             GUILD_LOG.send_message(|m| m
                 .embed(|e| e
                     .title("Joined Guild")
-                    .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                    .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
                     .colour(Colours::Green.val())
                     .description(format!("**Name:** {}\n**ID:** {}\n**Owner:** {} ({})",
                         guild.name,
@@ -146,7 +182,7 @@ impl EventHandler for Handler {
         GUILD_LOG.send_message(|m| m
             .embed(|e| e
                 .title("Left Guild")
-                .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
                 .colour(Colours::Red.val())
                 .description(format!("**Name:** {}\n**ID:** {}\n**Owner:** {} ({})",
                     partial_guild.name,
@@ -170,7 +206,7 @@ impl EventHandler for Handler {
                     .title("Member Joined")
                     .colour(Colours::Green.val())
                     .thumbnail(user.face())
-                    .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                    .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
                     .description(format!("<@{}>\n{}\n{}", user.id, user.tag(), user.id))
             )).expect("Failed to send message");
         }
@@ -198,7 +234,7 @@ impl EventHandler for Handler {
                     .title("Member Left")
                     .colour(Colours::Red.val())
                     .thumbnail(user.face())
-                    .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                    .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
                     .description(format!("<@{}>\n{}\n{}", user.id, user.tag(), user.id))
             )).expect("Failed to send message");
         }
@@ -213,7 +249,7 @@ impl EventHandler for Handler {
                         .title("Member Kicked")
                         .colour(Colours::Red.val())
                         .thumbnail(user.face())
-                        .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                        .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
                         .description(format!("**Member:** {} ({}) - {}\n**Responsible Moderator:** {}\n**Reason:** {}",
                             user.tag(),
                             user.id.0,
@@ -292,7 +328,7 @@ impl EventHandler for Handler {
                         .title("Member Banned")
                         .colour(Colours::Red.val())
                         .thumbnail(user.face())
-                        .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                        .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
                         .description(format!("**Member:** {} ({}) - {}\n**Responsible Moderator:** {}\n**Reason:** {}",
                             user.tag(),
                             user.id.0,
@@ -319,7 +355,7 @@ impl EventHandler for Handler {
                         .title("Member Unbanned")
                         .colour(Colours::Green.val())
                         .thumbnail(user.face())
-                        .timestamp(format!("{}", Utc::now().format("%Y-%m-%dT%H:%M:%S")))
+                        .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
                         .description(format!("**Member:** {} ({}) - {}\n**Responsible Moderator:** {}",
                             user.tag(),
                             user.id.0,
