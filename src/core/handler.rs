@@ -5,7 +5,8 @@ use serenity::model::{
     guild::*,
     user::*,
     event::*,
-    gateway::{Ready, Game}
+    gateway::{Ready, Game},
+    channel::Message,
 };
 use std::sync::Arc;
 use std::thread;
@@ -13,6 +14,7 @@ use std::time::Duration;
 use chrono::Utc;
 use core::model::*;
 use core::consts::*;
+use db::models::UserUpdate;
 
 pub struct Handler;
 
@@ -25,13 +27,34 @@ impl EventHandler for Handler {
         info!("Logged in as {}", ready.user.name);
     }
 
-    // TODO create/update users on launch
     fn cached(&self, ctx: Context, guilds: Vec<GuildId>) {
         let mut data = ctx.data.lock();
         let cache = CACHE.read();
         let db = data.get::<DB>().unwrap().lock();
         for guild_id in guilds.iter() {
             db.new_guild(guild_id.0 as i64).ok();
+            let members = &cache.guilds.get(&guild_id).unwrap().read().members;
+            for (_, member) in members.iter() {
+                let u = member.user.read();
+                match db.get_user(u.id.0 as i64, guild_id.0 as i64) {
+                    Ok(mut user) => {
+                        user.roles = member.roles.iter().map(|e| e.0 as i64).collect::<Vec<i64>>();
+                        user.nickname = member.display_name().into_owned();
+                        user.username = u.tag();
+                        db.update_user(u.id.0 as i64, guild_id.0 as i64, user).ok();
+                    },
+                    Err(_) => {
+                        let user = UserUpdate {
+                            id: u.id.0 as i64,
+                            guild_id: guild_id.0 as i64,
+                            roles: member.roles.iter().map(|e| e.0 as i64).collect::<Vec<i64>>(),
+                            nickname: member.display_name().into_owned(),
+                            username: u.tag()
+                        };
+                        db.upsert_user(user).unwrap();
+                    }
+                }
+            }
         }
 
         let api = data.get::<ApiClient>().unwrap();
@@ -84,43 +107,33 @@ impl EventHandler for Handler {
         };
     }
 
-    // Leaving this commented out until I decide if I want to use it
-    /*fn message_delete_bulk(&self, ctx: Context, channel_id: ChannelId, ids: Vec<MessageId>) {
-    }*/
-
     // Edit logs
-    fn message_update(&self, ctx: Context, event: MessageUpdateEvent) {
-        // Doesn't work until I can obtain the old content of the message
-        return;
-        if let Some(channel) = event.channel_id.get().unwrap().guild() {
+    fn message_update(&self, ctx: Context, event: MessageUpdateEvent, message: Option<Message>) {
+        if let Some(channel_lock) = event.channel_id.get().unwrap().guild() {
             let data = ctx.data.lock();
             let db = data.get::<DB>().unwrap().lock();
-            let cache = CACHE.read();
-            let channel = channel.read();
+            let channel = channel_lock.read();
             let guild_id = channel.guild_id;
             let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
             let audit_channel = ChannelId(guild_data.audit_channel as u64);
-            if let Some(messages) = cache.messages.get(&channel.id) {
-                if let Some(message) = messages.get(&event.id) {
-                    if message.author.bot { return; }
-                    audit_channel.send_message(|m| m
-                        .embed(|e| e
-                            .title("Message Edited")
-                            .colour(Colours::Main.val())
-                            .footer(|f| f.text(format!("ID: {}", message.id.0)))
-                            .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - {}\n**Old Content:**\n{}\n**New Content:**\n{}",
-                                message.author.tag(),
-                                message.author.id.0,
-                                message.author.mention(),
-                                channel.name,
-                                channel.id.0,
-                                channel.mention(),
-                                message.content_safe(),
-                                event.content.unwrap()))
-                            .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
-                    )).expect("Failed to send message");
-                };
-            };
+            let message = message.unwrap();
+            if message.author.bot { return; }
+            audit_channel.send_message(|m| m
+                .embed(|e| e
+                    .title("Message Edited")
+                    .colour(Colours::Main.val())
+                    .footer(|f| f.text(format!("ID: {}", message.id.0)))
+                    .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - {}\n**Old Content:**\n{}\n**New Content:**\n{}",
+                        message.author.tag(),
+                        message.author.id.0,
+                        message.author.mention(),
+                        channel.name,
+                        channel.id.0,
+                        channel.mention(),
+                        message.content_safe(),
+                        event.content.unwrap()))
+                    .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+            )).expect("Failed to send message");
         };
     }
 

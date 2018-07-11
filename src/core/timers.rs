@@ -7,6 +7,7 @@ use std::str::FromStr;
 use chrono::Utc;
 use serenity::prelude::Mutex;
 use serenity::model::id::*;
+use serenity::model::channel::Channel;
 use core::utils::*;
 use core::consts::Colours;
 
@@ -31,16 +32,24 @@ impl TimerClient {
             loop {
                 match rec.lock().recv() {
                     Ok(data) => {
-                        // type, guild_id, user_id, dur, reminder, id
+                        // type, channel_id, user_id, dur, reminder, id
                         let parts = data.split("||").map(|s| s.to_string()).collect::<Vec<String>>();
                         if parts[0] == "REMINDER" {
-                            let user = UserId::from_str(parts[2].as_str()).expect("Failed to build UserId from string").get().expect("Failed to find user");
-                            user.dm(|m| m
+                            let channel_id = ChannelId::from_str(parts[1].as_str()).expect("Failed to build ChannelId from string");
+                            let check = match channel_id.get() {
+                                Ok(ch) => { match ch {
+                                    Channel::Private(_) => true,
+                                    _ => false,
+                                }}
+                                _ => false,
+                            };
+                            channel_id.send_message(|m| m
+                                .content(if !check { format!("<@{}>", parts[2]) } else { String::new() })
                                 .embed(|e| e
                                     .title(format!("Reminder from {} ago", seconds_to_hrtime(parts[3].parse::<usize>().unwrap())))
                                     .colour(Colours::Main.val())
                                     .description(&parts[4])))
-                                .expect("Failed to DM user");
+                                .expect("Failed to send message");
                         db.lock().del_timer(parts[5].parse::<i32>().unwrap()).expect("Failed to delete timer");
                         } else if parts[0] == "UNMUTE" {
                             // TODO write unmute

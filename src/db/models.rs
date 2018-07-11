@@ -153,6 +153,17 @@ pub struct NewTag {
 }
 
 // END INSERTABLES
+// OTHER STUFF
+
+#[derive(Insertable, AsChangeset, Debug)]
+#[table_name="users"]
+pub struct UserUpdate {
+    pub id: i64,
+    pub guild_id: i64,
+    pub username: String,
+    pub nickname: String,
+    pub roles: Vec<i64>,
+}
 
 impl Display for Guild {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {

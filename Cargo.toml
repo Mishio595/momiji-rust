@@ -33,4 +33,5 @@ features = ["postgres", "chrono"]
 
 [dependencies.serenity]
 git = "https://github.com/Mishio595/serenity.git"
+#path = "/home/lynn/builds/serenity"
 features = ["builder", "client", "cache", "framework", "standard_framework", "gateway", "http", "model", "utils", "voice"]

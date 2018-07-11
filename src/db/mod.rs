@@ -1,5 +1,5 @@
 //! A set of abstractions for manipulating a PgSQL database relevant to Momiji's stored data.
-mod models;
+pub mod models;
 mod schema;
 
 use kankyo;
@@ -146,6 +146,17 @@ impl Database {
         let target = users.filter(id.eq(&u_id))
             .filter(guild_id.eq(&g_id));
         diesel::update(target)
+            .set(&user)
+            .get_result(&self.conn)
+    }
+    /// Upsert a user
+    /// Returns the new user on success
+    pub fn upsert_user(&self, user: UserUpdate) -> QueryResult<User<Utc>> {
+        use db::schema::users::columns;
+        diesel::insert_into(users::table)
+            .values(&user)
+            .on_conflict((columns::id, columns::guild_id))
+            .do_update()
             .set(&user)
             .get_result(&self.conn)
     }
