@@ -100,7 +100,7 @@ pub fn get_switches(input: String) -> HashMap<String, String> {
     map
 }
 
-pub fn hrtime_to_seconds(mut time: String) -> i64 {
+pub fn hrtime_to_seconds(time: String) -> i64 {
     let re = Regex::new(r"(\d+)\s*?(\w)").unwrap();
     let mut secs: usize = 0;
     for s in re.captures_iter(time.as_str()) {

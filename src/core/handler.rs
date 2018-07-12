@@ -28,7 +28,7 @@ impl EventHandler for Handler {
     }
 
     fn cached(&self, ctx: Context, guilds: Vec<GuildId>) {
-        let mut data = ctx.data.lock();
+        let data = ctx.data.lock();
         let cache = CACHE.read();
         let db = data.get::<DB>().unwrap().lock();
         for guild_id in guilds.iter() {

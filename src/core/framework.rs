@@ -23,7 +23,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 if message.is_private() {
                     Some(String::new())
                 } else {
-                    let mut data = ctx.data.lock();
+                    let data = ctx.data.lock();
                     let db = data.get::<DB>().expect("Failed to get DB").lock();
                     let settings = db.get_guild(message.guild_id.unwrap().0 as i64).unwrap();
                     Some(settings.prefix)
@@ -187,20 +187,19 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .desc("List self roles")
                 .usage("")
                 .known_as("roles")))
-        // Needs check for rank
         .group("Mod+", |g| g
             .guild_only(true)
             .help_available(true)
+            .check(|ctx, message, _, _| {
+                let data = ctx.data.lock();
+                let db = data.get::<DB>().expect("Failed to get DB").lock();
+                let guild_id = message.guild_id.unwrap();
+                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+                let member = guild_id.member(message.author.id.clone()).unwrap();
+                check_rank(guild_data.mod_roles, member.roles)
+            })
             .command("modinfo", |c| c
                 .cmd(mod_info)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.mod_roles, member.roles)
-                })
                 .desc("View some useful information on a user.")
                 .usage("<user_resolvable>")
                 .example("@Adelyn")
@@ -209,16 +208,16 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
         .group("Role Management", |g| g
             .help_available(true)
             .guild_only(true)
+            .check(|ctx, message, _, _| {
+                let data = ctx.data.lock();
+                let db = data.get::<DB>().expect("Failed to get DB").lock();
+                let guild_id = message.guild_id.unwrap();
+                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+                let member = guild_id.member(message.author.id.clone()).unwrap();
+                check_rank(guild_data.mod_roles, member.roles)
+            })
             .command("ar", |c| c
                 .cmd(ar)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.mod_roles, member.roles)
-                })
                 .desc("Add role(s) to a user.")
                 .usage("<user_resolvable> <role_resolvables as CSV>")
                 .example("@Adelyn red, green")
@@ -226,14 +225,6 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .known_as("addrole"))
             .command("rr", |c| c
                 .cmd(rr)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.mod_roles, member.roles)
-                })
                 .desc("Remove role(s) from a user.")
                 .usage("<user_resolvable> <role_resolvables as CSV>")
                 .example("@Adelyn red, green")
@@ -241,14 +232,6 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .known_as("removerole"))
             .command("rolecolour", |c| c
                 .cmd(role_colour)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.mod_roles, member.roles)
-                })
                 .desc("Change the colour of a role.")
                 .usage("<role_resolvable> <colour>")
                 .example("418130449089691658 00ff00")
@@ -258,75 +241,50 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .prefix("note")
             .guild_only(true)
             .help_available(true)
+            .check(|ctx, message, _, _| {
+                let data = ctx.data.lock();
+                let db = data.get::<DB>().expect("Failed to get DB").lock();
+                let guild_id = message.guild_id.unwrap();
+                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+                let member = guild_id.member(message.author.id.clone()).unwrap();
+                check_rank(guild_data.mod_roles, member.roles)
+            })
             .command("add", |c| c
                 .cmd(note_add)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.mod_roles, member.roles)
-                })
                 .desc("Add a note to a user.")
                 .usage("<user_resolvable> <note>")
                 .example("@Adelyn test note")
                 .min_args(2))
             .command("del", |c| c
                 .cmd(note_del)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.mod_roles, member.roles)
-                })
                 .desc("Delete a note from a user.")
                 .usage("<user_resolvable> <index>")
                 .example("@Adelyn 3")
                 .min_args(2))
             .command("list", |c| c
                 .cmd(note_list)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.mod_roles, member.roles)
-                })
                 .desc("List all notes for a user.")
                 .usage("<user_resolvable>")
                 .example("@Adelyn")
                 .min_args(1)))
-        // Needs check for rank
         .group("Admin+", |g| g
             .guild_only(true)
             .help_available(true)
+            .check(|ctx, message, _, _| {
+                let data = ctx.data.lock();
+                let db = data.get::<DB>().expect("Failed to get DB").lock();
+                let guild_id = message.guild_id.unwrap();
+                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+                let member = guild_id.member(message.author.id.clone()).unwrap();
+                check_rank(guild_data.admin_roles, member.roles)
+            })
             .command("ignore", |c| c
                 .cmd(ignore)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Tell the bot to ignore a channel, or being listening to one that was previously ignored.")
                 .usage("<channel_resolvable>")
                 .example("#general"))
             .command("prune", |c| c
                 .cmd(prune)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Bulk delete messages.")
                 .usage("<count> [filter]")
                 .example("20 bot")))
@@ -334,73 +292,49 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .prefix("wl")
             .guild_only(true)
             .help_available(true)
+            .check(|ctx, message, _, _| {
+                let data = ctx.data.lock();
+                let db = data.get::<DB>().expect("Failed to get DB").lock();
+                let guild_id = message.guild_id.unwrap();
+                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+                let member = guild_id.member(message.author.id.clone()).unwrap();
+                check_rank(guild_data.admin_roles, member.roles)
+            })
             .command("add", |c| c
                 .cmd(watchlist_add)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Add a user to the watchlist.")
                 .usage("<user_resolvable>")
                 .example("@Adelyn")
                 .min_args(1))
             .command("del", |c| c
                 .cmd(watchlist_del)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Remove a user from the watchlist.")
                 .usage("<user_resolvable>")
                 .example("@Adelyn")
                 .min_args(1))
             .command("list", |c| c
                 .cmd(watchlist_list)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("List users on the watchlist.")
                 .usage("")))
         .group("Self Role Management", |g| g
             .help_available(true)
             .guild_only(true)
+            .check(|ctx, message, _, _| {
+                let data = ctx.data.lock();
+                let db = data.get::<DB>().expect("Failed to get DB").lock();
+                let guild_id = message.guild_id.unwrap();
+                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+                let member = guild_id.member(message.author.id.clone()).unwrap();
+                check_rank(guild_data.admin_roles, member.roles)
+            })
             .command("csr", |c| c
                 .cmd(csr)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Create a self role from a discord role. Also optionally takes a category and/or aliases.")
                 .usage("<role_resolvable> [/c category] [/a aliases as CSV]")
                 .example("NSFW /c Opt-in /a porn, lewd")
                 .min_args(1))
             .command("dsr", |c| c
                 .cmd(dsr)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Delete a self role.")
                 .usage("<role_resolvable>")
                 .example("NSFW")
@@ -409,129 +343,57 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .help_available(true)
             .guild_only(true)
             .prefix("config")
+            .check(|ctx, message, _, _| {
+                let data = ctx.data.lock();
+                let db = data.get::<DB>().expect("Failed to get DB").lock();
+                let guild_id = message.guild_id.unwrap();
+                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+                let member = guild_id.member(message.author.id.clone()).unwrap();
+                check_rank(guild_data.admin_roles, member.roles)
+            })
             .command("raw", |c| c
                 .cmd(config_raw)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Lists current configuration as raw output."))
             .command("list", |c| c
                 .cmd(config_list)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Lists current configuration."))
             .command("prefix", |c| c
                 .cmd(config_prefix)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Set a new prefix")
                 .usage("<prefix>")
                 .example("!!"))
             .command("autorole", |c| c
                 .cmd(config_autorole)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Change autorole settings. A role must be provided for add or remove.")
                 .usage("<add|remove|enable|disable> <role_resolvable|_>")
                 .example("add member"))
             .command("admin", |c| c
                 .cmd(config_admin)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Add or remove roles from the bot's admin list.")
                 .usage("<add|remove> <role_resolvable>")
                 .example("add admin"))
             .command("mod", |c| c
                 .cmd(config_mod)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Add or remove roles from the bot's admin list.")
                 .usage("<add|remove> <role_resolvable>")
                 .example("add staff"))
             .command("audit", |c| c
                 .cmd(config_audit)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Change audit log settings. A channel must be provided for channel.")
                 .usage("<enable|disable|channel> <channel_resolvable>")
                 .example("channel #audit-logs"))
             .command("modlog", |c| c
                 .cmd(config_modlog)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Change moderation log settings. A channel must be provided for channel.")
                 .usage("<enable|disable|channel> <channel_resolvable>")
                 .example("channel #mod-logs"))
             .command("welcome", |c| c
                 .cmd(config_welcome)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Change welcome message settings. A channel must be provided for channel, while a message resolvable must be provided for message.")
                 .usage("<enable|disable|channel|message> <channel_resolvable|message_resolvable>")
                 .example("message Welcome to {guild}, {user}!"))
             .command("introduction", |c| c
                 .cmd(config_introduction)
-                .check(|ctx, message, _, _| {
-                    let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let guild_id = message.guild_id.unwrap();
-                    let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                    let member = guild_id.member(message.author.id.clone()).unwrap();
-                    check_rank(guild_data.admin_roles, member.roles)
-                })
                 .desc("Change introduction message settings. A channel must be provided for channel, while a message resolvable must be provided for message. This is a premium only feature related to the Register command.")
                 .usage("<enable|disable|channel|message> <channel_resolvable|message_resolvable>")
                 .example("message Hey there {user}, mind introducting yourself?")))
