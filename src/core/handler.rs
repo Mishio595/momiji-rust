@@ -10,11 +10,14 @@ use serenity::model::{
 };
 use std::sync::Arc;
 use std::thread;
+use rand::prelude::*;
 use std::time::Duration;
 use chrono::Utc;
 use core::model::*;
 use core::consts::*;
+use core::utils::*;
 use db::models::UserUpdate;
+use levenshtein::levenshtein;
 
 pub struct Handler;
 
@@ -63,6 +66,20 @@ impl EventHandler for Handler {
         ctx.set_game(Game::listening(&format!("{} guilds | m!help", guild_count)));
     }
 
+    // Handle XP and last_message
+    fn message(&self, ctx: Context, message: Message) {
+        // These are only relevant in a guild context
+        if message.author.bot { return; }
+        if let Some(guild_id) = message.guild_id {
+            let data = ctx.data.lock();
+            let db = data.get::<DB>().unwrap().lock();
+            let mut user_data = db.get_user(message.author.id.0 as i64, guild_id.0 as i64).unwrap();
+            user_data.last_message = message.timestamp.with_timezone(&Utc);
+            user_data.xp += 1;
+            db.update_user(message.author.id.0 as i64, guild_id.0 as i64, user_data).unwrap();
+        }
+    }
+
     fn message_delete(&self, ctx: Context, channel_id: ChannelId, message_id: MessageId) {
         let data = ctx.data.lock();
         let db = data.get::<DB>().unwrap().lock();
@@ -72,69 +89,76 @@ impl EventHandler for Handler {
             let guild_id = channel.guild_id;
             let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
             let audit_channel = ChannelId(guild_data.audit_channel as u64);
-            if let Some(messages) = cache.messages.get(&channel_id) {
-                if let Some(message) = messages.get(&message_id) {
-                    if message.author.bot { return; }
+            if guild_data.audit && audit_channel.0 > 0 {
+                if let Some(messages) = cache.messages.get(&channel_id) {
+                    if let Some(message) = messages.get(&message_id) {
+                        if message.author.bot { return; }
+                        audit_channel.send_message(|m| m
+                            .embed(|e| e
+                                .title("Message Deleted")
+                                .colour(Colours::Red.val())
+                                .footer(|f| f.text(format!("ID: {}", message_id.0)))
+                                .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - {}\n**Content:**\n{}",
+                                    message.author.tag(),
+                                    message.author.id.0,
+                                    message.author.mention(),
+                                    channel.name,
+                                    channel.id.0,
+                                    channel.mention(),
+                                    message.content_safe()))
+                                .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                        )).expect("Failed to send message");
+                    } else {
+                        audit_channel.send_message(|m| m
+                            .embed(|e| e
+                                .title("Uncached Message Deleted")
+                                .colour(Colours::Red.val())
+                                .footer(|f| f.text(format!("ID: {}", message_id.0)))
+                                .description(format!("**Channel:** {} ({}) - {}",
+                                    channel.name,
+                                    channel.id.0,
+                                    channel.mention()))
+                                .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                        )).expect("Failed to send message");
+                    }
+                }
+            }
+        }
+    }
+
+    // Edit logs
+    fn message_update(&self, ctx: Context, event: MessageUpdateEvent, message: Option<Message>) {
+        if let Some(content) = event.content {
+            let message = message.unwrap();
+            if message.author.bot { return; }
+            if let Some(channel_lock) = event.channel_id.get().unwrap().guild() {
+                let data = ctx.data.lock();
+                let db = data.get::<DB>().unwrap().lock();
+                let channel = channel_lock.read();
+                let guild_id = channel.guild_id;
+                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+                let audit_channel = ChannelId(guild_data.audit_channel as u64);
+                let distance = levenshtein(message.content.as_str(), content.as_str());
+                if guild_data.audit && audit_channel.0 > 0 && distance >= guild_data.audit_threshold as usize {
                     audit_channel.send_message(|m| m
                         .embed(|e| e
-                            .title("Message Deleted")
-                            .colour(Colours::Red.val())
-                            .footer(|f| f.text(format!("ID: {}", message_id.0)))
-                            .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - {}\n**Content:**\n{}",
+                            .title("Message Edited")
+                            .colour(Colours::Main.val())
+                            .footer(|f| f.text(format!("ID: {}", message.id.0)))
+                            .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - {}\n**Old Content:**\n{}\n**New Content:**\n{}",
                                 message.author.tag(),
                                 message.author.id.0,
                                 message.author.mention(),
                                 channel.name,
                                 channel.id.0,
                                 channel.mention(),
-                                message.content_safe()))
+                                message.content_safe(),
+                                content))
                             .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
                     )).expect("Failed to send message");
-                } else {
-                    audit_channel.send_message(|m| m
-                        .embed(|e| e
-                            .title("Uncached Message Deleted")
-                            .colour(Colours::Red.val())
-                            .footer(|f| f.text(format!("ID: {}", message_id.0)))
-                            .description(format!("**Channel:** {} ({}) - {}",
-                                channel.name,
-                                channel.id.0,
-                                channel.mention()))
-                            .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
-                    )).expect("Failed to send message");
-                };
-            };
-        };
-    }
-
-    // Edit logs
-    fn message_update(&self, ctx: Context, event: MessageUpdateEvent, message: Option<Message>) {
-        if let Some(channel_lock) = event.channel_id.get().unwrap().guild() {
-            let data = ctx.data.lock();
-            let db = data.get::<DB>().unwrap().lock();
-            let channel = channel_lock.read();
-            let guild_id = channel.guild_id;
-            let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-            let audit_channel = ChannelId(guild_data.audit_channel as u64);
-            let message = message.unwrap();
-            if message.author.bot { return; }
-            audit_channel.send_message(|m| m
-                .embed(|e| e
-                    .title("Message Edited")
-                    .colour(Colours::Main.val())
-                    .footer(|f| f.text(format!("ID: {}", message.id.0)))
-                    .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - {}\n**Old Content:**\n{}\n**New Content:**\n{}",
-                        message.author.tag(),
-                        message.author.id.0,
-                        message.author.mention(),
-                        channel.name,
-                        channel.id.0,
-                        channel.mention(),
-                        message.content_safe(),
-                        event.content.unwrap()))
-                    .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
-            )).expect("Failed to send message");
-        };
+                }
+            }
+        }
     }
 
     // Username changes and Now Live! role
@@ -149,7 +173,7 @@ impl EventHandler for Handler {
                 let mut user_data = db.get_user(event.presence.user_id.0 as i64, guild_id.0 as i64).unwrap_or_else(|_| {
                     db.new_user(event.presence.user_id.0 as i64, guild_id.0 as i64).unwrap()
                 });
-                if guild_data.audit {
+                if guild_data.audit && guild_data.audit_channel > 0 {
                     let audit_channel = ChannelId(guild_data.audit_channel as u64);
                     if user.tag() != user_data.username {
                         audit_channel.send_message(|m| m
@@ -212,7 +236,7 @@ impl EventHandler for Handler {
         let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
         let user = member.user.read();
         let mut user_data = db.new_user(user.id.0 as i64, guild_id.0 as i64).unwrap();
-        if guild_data.audit {
+        if guild_data.audit && guild_data.audit_channel > 0 {
             let audit_channel = ChannelId(guild_data.audit_channel as u64);
             audit_channel.send_message(|m| m
                 .embed(|e| e
@@ -223,11 +247,13 @@ impl EventHandler for Handler {
                     .description(format!("<@{}>\n{}\n{}", user.id, user.tag(), user.id))
             )).expect("Failed to send message");
         }
-        if guild_data.welcome {
-            let welcome_channel = ChannelId(guild_data.welcome_channel as u64);
-            welcome_channel.send_message(|m| m
-                .content(guild_data.welcome_message)
-            ).expect("Failed to send message");
+        if guild_data.welcome && guild_data.welcome_channel > 0 {
+            let channel = ChannelId(guild_data.welcome_channel as u64);
+            if guild_data.welcome_type.as_str() == "embed" {
+                send_welcome_embed(guild_data.welcome_message, &member, channel).unwrap();
+            } else {
+                channel.say(parse_welcome_items(guild_data.welcome_message, &member)).unwrap();
+            }
         }
         user_data.username = user.tag();
         user_data.nickname = member.display_name().into_owned();
@@ -240,7 +266,7 @@ impl EventHandler for Handler {
         let data = ctx.data.lock();
         let db = data.get::<DB>().unwrap().lock();
         let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-        if guild_data.audit {
+        if guild_data.audit && guild_data.audit_channel > 0 {
             let audit_channel = ChannelId(guild_data.audit_channel as u64);
             audit_channel.send_message(|m| m
                 .embed(|e| e
@@ -255,7 +281,7 @@ impl EventHandler for Handler {
         thread::sleep(Duration::from_secs(3));
         if let Ok(audits) = guild_id.audit_logs(Some(20), None, None, Some(1)) {
             let (audit_id, audit) = audits.entries.iter().next().unwrap();
-            if guild_data.modlog && audit.target_id == user.id.0 && (Utc::now().timestamp()-audit_id.created_at().timestamp())<5 {
+            if guild_data.modlog && guild_data.modlog_channel > 0 && audit.target_id == user.id.0 && (Utc::now().timestamp()-audit_id.created_at().timestamp())<5 {
                 let modlog_channel = ChannelId(guild_data.modlog_channel as u64);
                 modlog_channel.send_message(|m| m
                     .embed(|e| e
@@ -285,7 +311,7 @@ impl EventHandler for Handler {
         let mut user_data = db.get_user(user.id.0 as i64, guild_id.0 as i64).unwrap_or_else(|_| {
             db.new_user(user.id.0 as i64, guild_id.0 as i64).unwrap()
         });
-        if guild_data.audit {
+        if guild_data.audit && guild_data.audit_channel > 0 {
             let audit_channel = ChannelId(guild_data.audit_channel as u64);
             if let Some(nick) = new.nick {
                 if nick != user_data.nickname {
@@ -334,7 +360,7 @@ impl EventHandler for Handler {
         if let Ok(audits) = guild_id.audit_logs(Some(22), None, None, Some(1)) {
             let audit = audits.entries.values().next().unwrap();
             let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-            if guild_data.modlog && audit.target_id == user.id.0 {
+            if guild_data.modlog && guild_data.modlog_channel > 0 && audit.target_id == user.id.0 {
                 let modlog_channel = ChannelId(guild_data.modlog_channel as u64);
                 modlog_channel.send_message(|m| m
                     .embed(|e| e
@@ -361,7 +387,7 @@ impl EventHandler for Handler {
         if let Ok(audits) = guild_id.audit_logs(Some(23), None, None, Some(1)) {
             let audit = audits.entries.values().next().unwrap();
             let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-            if guild_data.modlog && audit.target_id == user.id.0 {
+            if guild_data.modlog && guild_data.modlog_channel > 0 && audit.target_id == user.id.0 {
                 let modlog_channel = ChannelId(guild_data.modlog_channel as u64);
                 modlog_channel.send_message(|m| m
                     .embed(|e| e

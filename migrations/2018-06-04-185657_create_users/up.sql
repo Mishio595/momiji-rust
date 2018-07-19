@@ -7,5 +7,6 @@ CREATE TABLE users (
 	watchlist BOOL NOT NULL DEFAULT 'f',
 	xp BIGINT NOT NULL DEFAULT 0,
 	last_message TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+	registered TIMESTAMP WITH TIME ZONE,
 	PRIMARY KEY(id, guild_id)
 )

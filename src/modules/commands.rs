@@ -2,40 +2,46 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use serenity::CACHE;
 use serenity::prelude::*;
+use serenity::model::Permissions;
 use serenity::model::id::*;
-use serenity::model::channel::Message;
+use serenity::model::guild::Role;
+use serenity::model::channel::{Message, PermissionOverwrite, PermissionOverwriteType};
 use serenity::client::bridge::gateway::ShardId;
 use serenity::builder::GetMessages;
 use sysinfo;
-use sysinfo::SystemExt;
+use sysinfo::{ProcessExt, SystemExt};
 use sys_info;
 use rand::prelude::*;
 use ::core::utils::*;
 use ::core::model::*;
 use ::core::consts::*;
 use chrono::Utc;
+use regex::Regex;
 
 // Rank 0
 
-// TODO: better info
 command!(bot_info(ctx, message, _args) {
     let mut data = ctx.data.lock();
     let cache = CACHE.read();
     let shard_count = cache.shard_count;
     let owner = data.get::<Owner>().expect("Failed to get owner").get()?;
     let sys = sysinfo::System::new();
-    //let process = sys.get_process(sysinfo::get_current_pid()).unwrap();
+    let process = sys.get_process(sysinfo::get_current_pid()).unwrap();
 
     message.channel_id.send_message(|m| m
         .embed(|e| e
             .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
             .field("Owner", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
             .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Github](https://github.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
-            .field("Counts", format!("Guilds: {}\nShards: {}", cache.guilds.len(), shard_count), true)
+            .field("Counts", format!("Guilds: {}\nShards: {}", cache.guilds.len(), shard_count), false)
             .field("System Info", format!("OS: {} {}\nUptime: {}",
                 sys_info::os_type().unwrap(),
                 sys_info::os_release().unwrap(),
-                seconds_to_hrtime(sys.get_uptime() as usize)), false)
+                seconds_to_hrtime(sys.get_uptime() as usize)), true)
+            .field("Process Info", format!("Memory Usage: {} mB\nCPU Usage {}%\nUptime: {}",
+                process.memory()/1000, // convert to mB
+                (process.cpu_usage()*100.0).round()/100.0, // round to 2 decimals
+                seconds_to_hrtime((sys.get_uptime() - process.start_time()) as usize)), true)
             .thumbnail(&cache.user.avatar_url().unwrap_or(cache.user.default_avatar_url()))
             .colour(Colours::Main.val())
         ))?;
@@ -276,7 +282,6 @@ command!(rsr(ctx, message, args) {
             .colour(member.colour().unwrap())))?;
 });
 
-// TODO sort list
 command!(lsr(ctx, message, _args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
@@ -294,7 +299,9 @@ command!(lsr(ctx, message, _args) {
     }
     let mut fields = Vec::new();
     for (key, val) in map.iter() {
-        fields.push((key, val.iter().map(|c| RoleId(*c as u64).find().unwrap().name).collect::<Vec<String>>().join("\n"), true));
+        let mut des = val.iter().map(|c| RoleId(*c as u64).find().unwrap().name).collect::<Vec<String>>();
+        des.sort();
+        fields.push((key, des.join("\n"), true));
     }
     message.channel_id.send_message(|m| m
         .embed(|e| e
@@ -304,29 +311,49 @@ command!(lsr(ctx, message, _args) {
     ))?;
 });
 
-command!(role_info(_ctx, message, args) {
+command!(role_info(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
     let guild_id = message.guild_id.unwrap();
-    if let Some((_, role)) = parse_role(args.rest().to_string(), guild_id) {
+    if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id) {
+        let role_data = match db.get_role(role_id.0 as i64, guild_id.0 as i64) {
+            Ok(r) => Some(r),
+            _ => None,
+        };
+        let mut fields = vec![
+            ("Name", role.name.clone(), true),
+            ("ID", format!("{}", role_id.0), true),
+            ("Hex", format!("#{}", role.colour.hex()), true),
+            ("Hoisted", String::from(if role.hoist { "Yes" } else { "No" }), true),
+            ("Mentionable", String::from(if role.mentionable { "Yes" } else { "No" }), true),
+            ("Position", format!("{}", role.position), true),
+        ];
+        match role_data {
+            Some(r) => {
+                fields.push(("Self Assignable", String::from("Yes"), true));
+                if !r.aliases.is_empty() {
+                    fields.push(("Self Role Aliases", r.aliases.join(", "), true));
+                }
+            },
+            None => {
+                fields.push(("Self Assignable", String::from("No"), true));
+            }
+        }
         message.channel_id.send_message(|m| m
             .embed(|e| e
                 .thumbnail(format!("https://www.colorhexa.com/{}.png", role.colour.hex().to_lowercase()))
                 .colour(role.colour)
-                .field("Name", role.name, true)
-                .field("ID", role.id, true)
-                .field("Hex", format!("#{}", role.colour.hex()), true)
-                .field("Hoisted", { if role.hoist { "Yes" } else { "No" } }, true)
-                .field("Mentionable", { if role.mentionable { "Yes" } else { "No" } }, true)
-                .field("Position", role.position, true)
+                .fields(fields)
         ))?;
     };
 });
 
-//TODO parse expr without a d
 command!(roll(_ctx, message, args) {
+    let re = Regex::new(r"(?P<count>\d{0,2})d?(?P<sides>\d{0,2})").unwrap();
     let expr = args.single::<String>().unwrap_or(String::new());
-    let mut iter = expr.split(|c| c == 'd' || c == 'D');
-    let count: u32 = iter.next().unwrap_or("0").parse().unwrap_or(0);
-    let sides: u32 = iter.next().unwrap_or("6").parse().unwrap_or(6);
+    let caps = re.captures(expr.as_str()).unwrap();
+    let count: u32 = caps["count"].parse().unwrap_or(1);
+    let sides: u32 = caps["sides"].parse().unwrap_or(6);
     if count>0 {
         let mut total = 0;
         for _ in 1..&count+1 {
@@ -341,66 +368,143 @@ command!(roll(_ctx, message, args) {
     }
 });
 
-command!(server_info(_ctx, message, _args) {
+command!(server_info(_ctx, message, args) {
     use serenity::model::channel::ChannelType::*;
     use serenity::model::user::OnlineStatus::*;
-    if let Some(guild_lock) = message.guild() {
+
+    let switches = get_switches(args.full().to_string());
+    let g = match switches.get("rest") {
+        Some(s) => {
+            let (id, lock) = parse_guild(s.to_string()).unwrap_or((message.guild_id.unwrap(), message.guild().unwrap()));
+            Some(lock)
+        },
+        None => message.guild(),
+    };
+    if let Some(guild_lock) = g {
         let guild = guild_lock.read().clone();
-        let mut channels = (0,0,0);
-        for (_, channel_lock) in guild.channels.iter() {
-            let mut channel = channel_lock.read();
-            match channel.kind {
-                Text => { channels.0 += 1; },
-                Voice => { channels.1 += 1; },
-                Category => { channels.2 += 1; },
-                Group => {},
-                Private => {},
-            }
-        }
-        let mut members = (0,0,0);
-        for (user_id, _) in guild.members.iter() {
-            match user_id.get() {
-                Ok(u) => {
-                    if u.bot {
-                        members.1 += 1;
-                    } else {
-                        members.0 += 1;
+        match switches.get("roles") {
+            None => {
+                let mut channels = (0,0,0);
+                for (_, channel_lock) in guild.channels.iter() {
+                    let mut channel = channel_lock.read();
+                    match channel.kind {
+                        Text => { channels.0 += 1; },
+                        Voice => { channels.1 += 1; },
+                        Category => { channels.2 += 1; },
+                        Group => {},
+                        Private => {},
                     }
-                },
-                Err(_) => {},
-            }
+                }
+                let mut members = (0,0,0);
+                for (user_id, _) in guild.members.iter() {
+                    match user_id.get() {
+                        Ok(u) => {
+                            if u.bot {
+                                members.1 += 1;
+                            } else {
+                                members.0 += 1;
+                            }
+                        },
+                        Err(_) => {},
+                    }
+                }
+                for (_, presence) in guild.presences.iter() {
+                    match presence.status {
+                        DoNotDisturb => { members.2 += 1; },
+                        Idle => { members.2 += 1; },
+                        Invisible => {},
+                        Offline => {},
+                        Online => { members.2 += 1; },
+                    }
+                }
+                message.channel_id.send_message(|m| m
+                    .embed(|e| e
+                        .thumbnail(guild.icon_url().unwrap_or("https://cdn.discordapp.com/embed/avatars/0.png".to_string()))
+                        .color(Colours::Main.val())
+                        .field("ID", guild.id, true)
+                        .field("Name", &guild.name, true)
+                        .field("Owner", guild.owner_id.mention(), true)
+                        .field("Region", guild.region, true)
+                        .field(format!("Channels [{}]", guild.channels.len()), format!("Categories: {}\nText: {}\nVoice: {}", channels.2, channels.0, channels.1), true)
+                        .field(format!("Members [{}/{}]", members.2, guild.members.len()), format!("Humans: {}\nBots: {}", members.0, members.1), true)
+                        .field("Created", guild.id.created_at().format("%a, %d %h %Y @ %H:%M:%S").to_string(), false)
+                        .field("Roles", guild.roles.len(), true)
+                        .field("Emojis", guild.emojis.len(), true)
+                        .title(guild.name)
+                ))?;
+            },
+            Some(_) => {
+                let mut roles_raw = guild.roles.values().collect::<Vec<&Role>>();
+                roles_raw.sort_by(|a, b| b.position.cmp(&a.position));
+                let roles = roles_raw.iter().map(|e| e.name.clone()).collect::<Vec<String>>();
+                message.channel_id.send_message(|m| m
+                    .embed(|e| e
+                        .title(format!("Roles for {}. Count: {}", guild.name, roles.len()))
+                        .description(roles.join("\n"))
+                        .colour(Colours::Blue.val())
+                ))?;
+            },
         }
-        for (_, presence) in guild.presences.iter() {
-            match presence.status {
-                DoNotDisturb => { members.2 += 1; },
-                Idle => { members.2 += 1; },
-                Invisible => {},
-                Offline => {},
-                Online => { members.2 += 1; },
-            }
-        }
-        message.channel_id.send_message(|m| m
-            .embed(|e| e
-                .thumbnail(guild.icon_url().unwrap())
-                .color(Colours::Main.val())
-                .field("ID", guild.id, true)
-                .field("Name", &guild.name, true)
-                .field("Owner", guild.owner_id.mention(), true)
-                .field("Region", guild.region, true)
-                .field(format!("Channels [{}]", guild.channels.len()), format!("Categories: {}\nText: {}\nVoice: {}", channels.2, channels.0, channels.1), true)
-                .field(format!("Members [{}/{}]", members.2, guild.members.len()), format!("Humans: {}\nBots: {}", members.0, members.1), true)
-                .field("Roles", guild.roles.len(), true)
-                .field("Emojis", guild.emojis.len(), true)
-                .title(guild.name)
-        ))?;
     }
 });
 
-command!(tag(ctx, message, args) {
+// TODO add fuzzy matching
+command!(tag_single(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id.unwrap();
+    let tag_input = args.rest().to_string();
+    match db.get_tag(guild_id.0 as i64, tag_input.clone()) {
+        Ok(tag) => { message.channel_id.say(tag.data)?; },
+        Err(why) => { message.channel_id.say("No tag by that name")?; },
+    }
+});
+
+command!(tag_add(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id.unwrap();
+    let tag_input = args.single_quoted::<String>().unwrap();
+    let value = args.rest().to_string();
+    match db.new_tag(message.author.id.0 as i64, guild_id.0 as i64, tag_input.clone(), value) {
+        Ok(tag) => { message.channel_id.say(format!("Successfully created tag `{}`", tag.name))?; },
+        Err(why) => { message.channel_id.say(format!("Failed to create tag `{}`. Here's why: {:?}", tag_input, why))?; },
+    }
+});
+
+// TODO add mod/admin checks and ownership check
+command!(tag_del(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id.unwrap();
+    let tag_input = args.single_quoted::<String>().unwrap();
+    match db.del_tag(guild_id.0 as i64, tag_input.clone()) {
+        Ok(tag) => { message.channel_id.say(format!("Successfully deleted tag `{}`", tag.name))?; },
+        Err(why) => { message.channel_id.say(format!("Failed to create tag `{}`. Here's why: {:?}", tag_input, why))?; },
+    }
+});
+
+// TODO add mod/admin check
+command!(tag_edit(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id.unwrap();
+    let tag_input = args.single_quoted::<String>().unwrap();
+    let value = args.rest().to_string();
+    let mut tag = db.get_tag(guild_id.0 as i64, tag_input.clone())?;
+    if message.author.id.0 as i64 == tag.author {
+        tag.data = value.clone();
+        match db.update_tag(guild_id.0 as i64, tag_input.clone(), tag) {
+            Ok(t) => { message.channel_id.say(format!("Successfully edited tag `{}`", t.name))?; },
+            Err(why) => { message.channel_id.say(format!("Failed to edit tag `{}`. Here's why: {:?}", tag_input, why))?; },
+        }
+    } else {
+        message.channel_id.say("You do not own this tag and do not have permissions to edit it")?;
+    }
 });
 
 command!(urban(ctx, message, args) {
-    let mut data = ctx.data.lock();
+    let data = ctx.data.lock();
     let term = args.single_quoted::<String>().unwrap_or(String::new());
     if let Ok(mut res) = data.get::<ApiClient>().expect("Failed to get API Client").urban(term.as_str()) {
         if !res.list.is_empty() {
@@ -434,14 +538,28 @@ command!(urban(ctx, message, args) {
     };
 });
 
-command!(user_info(_ctx, message, args) {
+command!(user_info(ctx, message, args) {
     if let Some(guild_lock) = message.guild() {
+        let data = ctx.data.lock();
+        let db = data.get::<DB>().unwrap().lock();
         let guild = guild_lock.read();
+        let guild_data = db.get_guild(guild.id.0 as i64)?;
         let (user, member) = match parse_user(args.single::<String>().unwrap_or(String::new()), guild.id) {
             Some((id, member)) => (id.get().unwrap(), member),
             None => (message.author.clone(), message.member().unwrap().clone()),
         };
-        let roles = member.roles.iter().map(|c| c.find().unwrap().name).collect::<Vec<String>>().join(", ");
+        let user_data = db.get_user(user.id.0 as i64, guild.id.0 as i64)?;
+        let mut roles = member.roles.iter().map(|c| c.find().unwrap().name).collect::<Vec<String>>();
+        roles.sort();
+        let dates = format!("Created: {}\nJoined: {}{}",
+            user.created_at().format("%a, %d %h %Y @ %H:%M:%S").to_string(),
+            member.joined_at.unwrap().format("%a, %d %h %Y @ %H:%M:%S").to_string(),
+            if guild_data.premium {
+                let r = user_data.registered;
+                if r.is_some() { format!("\nRegistered: {}", r.unwrap().format("%a, %d %h %Y @ %H:%M:%S").to_string()) }
+                else { String::new() }}
+            else { String::new() }
+        );
         message.channel_id.send_message(|m| m
             .embed(|e| e
                 .colour(member.colour().unwrap())
@@ -450,13 +568,21 @@ command!(user_info(_ctx, message, args) {
                 .field("ID", user.id, true)
                 .field("Mention", user.mention(), true)
                 .field("Nickname", member.display_name().into_owned(), true)
-                .field("Dates", format!("Created: {}\nJoined: {}", user.created_at(), member.joined_at.unwrap()), false)
-                .field(format!("Roles [{}]", member.roles.len()), roles, false)
+                .field("Dates", dates, false)
+                .field(format!("Roles [{}]", member.roles.len()), roles.join(", "), false)
         ))?;
     };
 });
 
 command!(weather(ctx, message, args) {
+});
+
+command!(xp(ctx, message, _args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id.unwrap();
+    let user_data = db.get_user(message.author.id.0 as i64, guild_id.0 as i64)?;
+    message.channel_id.say(format!("Your current XP is {}", user_data.xp))?;
 });
 
 // Rank 1
@@ -479,9 +605,111 @@ command!(mod_info(ctx, message, args) {
 });
 
 command!(mute(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().expect("Failed to get DB").lock();
+    let lock = message.guild().unwrap();
+    let guild = lock.read();
+    let (_, mut member) = parse_user(args.single::<String>().unwrap(), guild.id).unwrap();
+    let temp = member.clone();
+    let user = temp.user.read();
+    let guild_data = db.get_guild(guild.id.0 as i64)?;
+    if guild_data.mute_setup {
+        let switches = get_switches(args.rest().to_string());
+        let time = match switches.get("t") {
+            Some(s) => hrtime_to_seconds(s.clone()),
+            None => 0,
+        };
+        let reason = match switches.get("r") {
+            Some(s) => s.clone(),
+            None => String::new(),
+        };
+        let mute_role = guild.roles.values().find(|e| e.name.to_lowercase() == "muted").unwrap();
+        if member.roles.contains(&mute_role.id) {
+            message.channel_id.say("Member already muted.")?;
+        } else {
+            if let Ok(_) = member.add_role(mute_role) {
+                let case = db.new_case(user.id.0 as i64, guild.id.0 as i64, "Mute".to_string(), message.author.id.0 as i64)?;
+                let mut fields = Vec::new();
+                fields.push(("User", format!("{}\n{}", user.tag(), user.id.0), true));
+                fields.push(("Moderator", format!("{}\n{}", message.author.tag(), message.author.id.0), true));
+                if time != 0 {
+                    let tc = data.get::<TC>().unwrap().lock();
+                    tc.request(format!("UNMUTE||{}||{}||{}||{}||{}||{}",
+                        user.id.0,
+                        guild.id.0,
+                        mute_role.id.0,
+                        if guild_data.modlog && guild_data.modlog_channel > 0 {
+                            guild_data.modlog_channel
+                        } else { message.channel_id.0 as i64 },
+                        time,
+                        case.id), time as u64);
+                    fields.push(("Duration", seconds_to_hrtime(time as usize), true));
+                }
+                if !reason.is_empty() {
+                    fields.push(("Reason", reason.to_string(), true));
+                }
+                if guild_data.modlog && guild_data.modlog_channel > 0 {
+                    let channel = ChannelId(guild_data.modlog_channel as u64);
+                    channel.send_message(|m| m
+                        .embed(|e| e
+                            .title("Member Muted")
+                            .colour(Colours::Blue.val())
+                            .fields(fields)
+                    ))?;
+                } else {
+                    message.channel_id.send_message(|m| m
+                        .embed(|e| e
+                            .title("Member Muted")
+                            .colour(Colours::Blue.val())
+                            .fields(fields)
+                    ))?;
+                }
+            }
+        }
+    } else {
+        message.channel_id.say("Please run `setup` before using this command. Without it, muting may not work right.")?;
+    }
 });
 
 command!(unmute(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().expect("Failed to get DB").lock();
+    let lock = message.guild().unwrap();
+    let guild = lock.read();
+    let (_, mut member) = parse_user(args.single::<String>().unwrap(), guild.id).unwrap();
+    let temp = member.clone();
+    let user = temp.user.read();
+    let guild_data = db.get_guild(guild.id.0 as i64)?;
+    if guild_data.mute_setup {
+        let mute_role = guild.roles.values().find(|e| e.name.to_lowercase() == "muted").unwrap();
+        let mut fields = Vec::new();
+        fields.push(("User", format!("{}\n{}", user.tag(), user.id.0), true));
+        fields.push(("Moderator", format!("{}\n{}", message.author.tag(), message.author.id.0), true));
+        if member.roles.contains(&mute_role.id) {
+            if let Ok(_) = member.remove_role(mute_role) {
+                if guild_data.modlog && guild_data.modlog_channel > 0 {
+                    let channel = ChannelId(guild_data.modlog_channel as u64);
+                    channel.send_message(|m| m
+                        .embed(|e| e
+                            .title("Member Unmuted")
+                            .colour(Colours::Blue.val())
+                            .fields(fields)
+                    ))?;
+                } else {
+                    message.channel_id.send_message(|m| m
+                        .embed(|e| e
+                            .title("Member Unmuted")
+                            .colour(Colours::Blue.val())
+                            .fields(fields)
+                    ))?;
+                }
+            }
+        } else {
+            message.channel_id.say("Member was not muted.")?;
+        }
+    } else {
+        message.channel_id.say("Please run `setup` before using this command. Without it, muting may not work right.")?;
+    }
 });
 
 command!(note_add(ctx, message, args) {
@@ -508,7 +736,6 @@ command!(note_del(ctx, message, args) {
     }
 });
 
-//TODO legible output
 command!(note_list(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
@@ -516,7 +743,7 @@ command!(note_list(ctx, message, args) {
     let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let user = user_id.get().unwrap();
     let notes = db.get_notes(user_id.0 as i64, message.guild_id.unwrap().0 as i64)?;
-    let notes_fmt = notes.iter().map(|n| format!("`{}` by {} at {}", n.note, n.moderator, n.timestamp)).collect::<Vec<String>>().join("\n");
+    let notes_fmt = notes.iter().map(|n| format!("{}", n)).collect::<Vec<String>>().join("\n\n");
     message.channel_id.send_message(|m| m
         .embed(|e| e
             .colour(Colours::Main.val())
@@ -619,10 +846,13 @@ command!(watchlist_add(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
     let guild_id = message.guild_id.unwrap();
-    let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
+    let (user_id, _) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let mut user_data = db.get_user(user_id.0 as i64, guild_id.0 as i64)?;
     user_data.watchlist = true;
-    db.update_user(user_id.0 as i64, guild_id.0 as i64, user_data)?;
+    match db.update_user(user_id.0 as i64, guild_id.0 as i64, user_data) {
+        Ok(_) => { message.channel_id.say(format!("Set {} to watchlist status.", user_id.get().unwrap().tag()))?; },
+        Err(_) => { message.channel_id.say("Failed to set watchlist status")?; },
+    }
 });
 
 command!(watchlist_del(ctx, message, args) {
@@ -632,7 +862,10 @@ command!(watchlist_del(ctx, message, args) {
     let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let mut user_data = db.get_user(user_id.0 as i64, guild_id.0 as i64)?;
     user_data.watchlist = true;
-    db.update_user(user_id.0 as i64, guild_id.0 as i64, user_data)?;
+    match db.update_user(user_id.0 as i64, guild_id.0 as i64, user_data) {
+        Ok(_) => { message.channel_id.say(format!("Unset {} from watchlist status.", user_id.get().unwrap().tag()))?; },
+        Err(_) => { message.channel_id.say("Failed to unset watchlist status")?; },
+    }
 });
 
 command!(watchlist_list(ctx, message, _args) {
@@ -726,7 +959,9 @@ command!(config_autorole(ctx, message, args) {
                     ))
             ))?;
         },
-        Err(_) => {},
+        Err(_) => {
+            message.channel_id.say("Failed to update database")?;
+        },
     }
 });
 
@@ -762,7 +997,9 @@ command!(config_admin(ctx, message, args) {
                     ))
             ))?;
         },
-        Err(_) => {},
+        Err(_) => {
+            message.channel_id.say("Failed to update database")?;
+        },
     }
 });
 
@@ -798,7 +1035,9 @@ command!(config_mod(ctx, message, args) {
                     ))
             ))?;
         },
-        Err(_) => {},
+        Err(_) => {
+            message.channel_id.say("Failed to update database")?;
+        },
     }
 });
 
@@ -840,7 +1079,9 @@ command!(config_audit(ctx, message, args) {
                     ))
             ))?;
         },
-        Err(_) => {},
+        Err(_) => {
+            message.channel_id.say("Failed to update database")?;
+        },
     }
 });
 
@@ -877,7 +1118,9 @@ command!(config_modlog(ctx, message, args) {
                     ))
             ))?;
         },
-        Err(_) => {},
+        Err(_) => {
+            message.channel_id.say("Failed to update database")?;
+        },
     }
 });
 
@@ -903,6 +1146,9 @@ command!(config_welcome(ctx, message, args) {
         "message" => {
             guild_data.welcome_message = val.to_string();
         },
+        "type" => {
+            guild_data.welcome_type = val.to_string();
+        },
         _ => {},
     }
     match db.update_guild(guild_id.0 as i64, guild_data) {
@@ -917,7 +1163,9 @@ command!(config_welcome(ctx, message, args) {
                     ))
             ))?;
         },
-        Err(_) => {},
+        Err(_) => {
+            message.channel_id.say("Failed to update database")?;
+        },
     }
 });
 
@@ -957,7 +1205,9 @@ command!(config_introduction(ctx, message, args) {
                     ))
             ))?;
         },
-        Err(_) => {},
+        Err(_) => {
+            message.channel_id.say("Failed to update database")?;
+        },
     }
 });
 
@@ -1001,6 +1251,7 @@ command!(hackban(ctx, message, args) {
     }
 });
 
+// TODO rewrite as group {add, remove, list}
 command!(ignore(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
@@ -1039,8 +1290,9 @@ command!(csr(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
     let guild_id = message.guild_id.unwrap();
-    let (role_id, role) = parse_role(args.single_quoted::<String>().unwrap(), guild_id).unwrap();
-    let switches = get_switches(args.rest().to_string());
+    let switches = get_switches(args.full().to_string());
+    let rest = switches.get("rest").unwrap();
+    let (role_id, role) = parse_role(rest.clone(), guild_id).expect("Failed to parse role");
     let category = match switches.get("c") {
         Some(s) => Some( s.clone()),
         None => None,
@@ -1078,6 +1330,47 @@ command!(dsr(ctx, message, args) {
         },
         Err(why) => {
             message.channel_id.say(format!("Failed to delete role: {:?}", why))?;
+        },
+    };
+});
+
+command!(esr(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().expect("Failed to get DB").lock();
+    let guild_id = message.guild_id.unwrap();
+    let switches = get_switches(args.full().to_string());
+    let rest = switches.get("rest").unwrap();
+    let (role_id, role) = parse_role(rest.clone(), guild_id).expect("Failed to parse role");
+    let category = match switches.get("c") {
+        Some(s) => Some(s.clone()),
+        None => None,
+    };
+    let aliases = match switches.get("a") {
+        Some(s) => Some(s.split(",").map(|c| c.trim().to_string().to_lowercase()).collect::<Vec<String>>()),
+        None => None,
+    };
+    let mut role = db.get_role(role_id.0 as i64, guild_id.0 as i64)?;
+    if let Some(s) = category { role.category = s; }
+    if let Some(mut a) = aliases {
+        match switches.get("replace") {
+            Some(_) => { role.aliases = a; },
+            None => { role.aliases.append(&mut a); },
+        }
+    }
+    match db.update_role(role_id.0 as i64, guild_id.0 as i64, role) {
+        Ok(data) => {
+            message.channel_id.say(format!("Successfully update role {} in category {} {}",
+                data.id,
+                data.category,
+                if !data.aliases.is_empty() {
+                    format!("with aliases {}", data.aliases.join(","))
+                } else {
+                    String::new()
+                }
+            ))?;
+        },
+        Err(why) => {
+            message.channel_id.say(format!("Failed to edit role: {:?}", why))?;
         },
     };
 });
@@ -1145,12 +1438,50 @@ command!(prune(ctx, message, args) {
     }
 });
 
-command!(test(ctx, message, args) {
+command!(test_welcome(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id.unwrap();
+    let guild_data = db.get_guild(guild_id.0 as i64)?;
+    let member = message.member().unwrap();
+    if guild_data.welcome {
+        let channel = ChannelId(guild_data.welcome_channel as u64);
+        if guild_data.welcome_type.as_str() == "embed" {
+            send_welcome_embed(guild_data.welcome_message, &member, channel)?;
+        } else {
+            channel.say(parse_welcome_items(guild_data.welcome_message, &member))?;
+        }
+    }
 });
 
-// Rank 3
-
 command!(setup_mute(ctx, message, _args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let guild_id = message.guild_id.unwrap();
+    let lock = message.guild().unwrap();
+    let guild = lock.read();
+    let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+    let mute_role = match guild.roles.values().find(|e| e.name.to_lowercase() == "muted") {
+        Some(role) => role.clone(),
+        None => {
+            message.channel_id.say("Role `Muted` created")?;
+            guild.create_role(|r| r.name("Muted")).unwrap()
+        },
+    };
+    let allow = Permissions::empty();
+    let deny = Permissions::SEND_MESSAGES | Permissions::ADD_REACTIONS | Permissions::SPEAK;
+    let overwrite = PermissionOverwrite {
+        allow,
+        deny,
+        kind: PermissionOverwriteType::Role(mute_role.id),
+    };
+    for channel in guild.channels.values() {
+        let mut channel = channel.read();
+        channel.create_permission(&overwrite)?;
+    }
+    guild_data.mute_setup = true;
+    db.update_guild(guild.id.0 as i64, guild_data)?;
+    message.channel_id.say(format!("Setup permissions for {} channels.", guild.channels.len()))?;
 });
 
 // Rank 4
@@ -1161,6 +1492,23 @@ command!(git(_ctx, message, args) {
 command!(log(_ctx, message, _args) {
     use std::path::Path;
     message.channel_id.send_files(vec![Path::new("./log.txt")], |m| m)?;
+});
+
+command!(premium(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().unwrap().lock();
+    let g = args.single::<String>().unwrap();
+    let op = args.single::<String>().unwrap();
+    let (guild_id, guild) = parse_guild(g).unwrap();
+    let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+    match op.to_lowercase().as_str() {
+        "enable" => { guild_data.premium = true; },
+        "disable" => { guild_data.premium = false; },
+        "set" => { guild_data.premium_tier = args.single::<i16>().unwrap(); },
+        _ => {},
+    }
+    db.update_guild(guild_id.0 as i64, guild_data)?;
+    message.channel_id.say("Command complete")?;
 });
 
 command!(restart(_ctx, message, _args) {

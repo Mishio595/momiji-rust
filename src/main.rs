@@ -4,6 +4,7 @@
 #[macro_use] extern crate serenity;
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate diesel;
+#[macro_use] extern crate lazy_static;
 extern crate pretty_env_logger;
 extern crate kankyo;
 extern crate threadpool;
@@ -16,6 +17,7 @@ extern crate regex;
 extern crate reqwest;
 extern crate serde;
 extern crate serde_json;
+extern crate levenshtein;
 
 mod modules;
 mod core;

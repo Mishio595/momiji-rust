@@ -11,36 +11,10 @@ use std::env;
 use self::models::*;
 use self::schema::*;
 
-//TODO fill and use cache
-pub struct Cache {
-    pub guilds: Vec<Guild>,
-    pub users: Vec<User<Utc>>,
-    pub notes: Vec<Note<Utc>>,
-    pub roles: Vec<Role>,
-    pub timers: Vec<Timer>,
-    pub cases: Vec<Case<Utc>>,
-    pub tags: Vec<Tag>,
-}
-
-impl Cache {
-    fn new() -> Self {
-        Cache {
-            guilds: Vec::new(),
-            users: Vec::new(),
-            notes: Vec::new(),
-            roles: Vec::new(),
-            timers: Vec::new(),
-            cases: Vec::new(),
-            tags: Vec::new(),
-        }
-    }
-}
-
 /// While the struct itself and the connection are public, Database cannot be manually
 /// instantiated. Use Database::connect() to start it.
 pub struct Database {
     pub conn: PgConnection,
-    pub cache: Cache,
     _hidden: (),
 }
 
@@ -53,11 +27,9 @@ impl Database {
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
         let conn = PgConnection::establish(&database_url)
             .expect(&format!("Error connection to {}", database_url));
-        let cache = Cache::new();
 
         Database {
             conn,
-            cache,
             _hidden: (),
         }
     }
@@ -201,6 +173,16 @@ impl Database {
         roles.filter(guild_id.eq(&g_id))
             .get_results(&self.conn)
     }
+    /// Update a role
+    /// Returns the new role on success
+    pub fn update_role(&self, r_id: i64, g_id: i64, role: Role) -> QueryResult<Role> {
+        use db::schema::roles::dsl::*;
+        let target = roles.filter(id.eq(&r_id))
+            .filter(guild_id.eq(&g_id));
+        diesel::update(target)
+            .set(&role)
+            .get_result(&self.conn)
+    }
 
     // Note Tools
     /// Add a note to the given user in the given guild by a given moderator
@@ -323,5 +305,47 @@ impl Database {
         cases.filter(user_id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
             .get_results(&self.conn)
+    }
+
+    // Tag Tools
+    /// Add a Tag
+    /// Returns the Tag on success
+    pub fn new_tag(&self, author: i64, guild_id: i64, name: String, data: String) -> QueryResult<Tag> {
+        let tag = NewTag {
+            author,
+            guild_id,
+            name,
+            data,
+        };
+        diesel::insert_into(tags::table)
+            .values(&tag)
+            .get_result(&self.conn)
+    }
+    /// Delete a Tag
+    /// Returns the Tag on success.
+    pub fn del_tag(&self, g_id: i64, nm: String) -> QueryResult<Tag> {
+        use db::schema::tags::dsl::*;
+        diesel::delete(tags)
+            .filter(name.eq(&nm))
+            .filter(guild_id.eq(&g_id))
+            .get_result(&self.conn)
+    }
+    /// Select a Tag
+    /// Returns the Tag on success
+    pub fn get_tag(&self, g_id: i64, nm: String) -> QueryResult<Tag> {
+        use db::schema::tags::dsl::*;
+        tags.filter(name.eq(&nm))
+            .filter(guild_id.eq(&g_id))
+            .first(&self.conn)
+    }
+    /// Update a tag
+    /// Returns the new tag on success
+    pub fn update_tag(&self, g_id: i64, nm: String, tag: Tag) -> QueryResult<Tag> {
+        use db::schema::tags::dsl::*;
+        let target = tags.filter(name.eq(&nm))
+            .filter(guild_id.eq(&g_id));
+        diesel::update(target)
+            .set(&tag)
+            .get_result(&self.conn)
     }
 }

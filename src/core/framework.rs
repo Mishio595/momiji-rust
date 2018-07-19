@@ -93,8 +93,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .cmd(roll)
                 .desc("Roll some dice. Defaults to 6-sided.")
                 .usage("<Nd>[X]")
-                .example("2d10")
-                .min_args(1))
+                .example("2d10"))
             .command("now", |c| c
                 .cmd(now)
                 .desc("Current time. Optionally provide an amount of hours to offset by.")
@@ -119,9 +118,36 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .min_args(1))
             .command("remind", |c| c
                 .cmd(remind)
-                .desc("Set a reminder. The reminder is sent as a DM, so make sure your privacy settings allow it.")
+                .desc("Set a reminder. The reminder is sent to whatever channel it originated in.")
                 .usage("<reminder text> </t time_resolvable>")
-                .example("do the thing /t 1 day 10 min 25 s")))
+                .example("do the thing /t 1 day 10 min 25 s"))
+            .command("xp", |c| c
+                .cmd(xp)
+                .desc("Check your current xp")))
+        .group("Tags", |g| g
+            .help_available(true)
+            .guild_only(true)
+            .prefix("tag")
+            .command("show", |c| c
+                .cmd(tag_single)
+                .desc("View a tag.")
+                .usage("<tag name>")
+                .example("foobar"))
+            .command("add", |c| c
+                .cmd(tag_add)
+                .desc("Create a new tag.")
+                .usage("<tag name, quoted> <tag value>")
+                .example(r#""my new tag" look, I made a tag!"#))
+            .command("del", |c| c
+                .cmd(tag_del)
+                .desc("Delete a tag.")
+                .usage("<tag name>")
+                .example("foobar"))
+            .command("edit", |c| c
+                .cmd(tag_edit)
+                .desc("Edit a tag. Only works if you are the author.")
+                .usage("<tag name, quoted> <new value>")
+                .example(r#""my edited tag" I had to edit this tag"#)))
         .group("NSFW", |g| g
             .help_available(true)
             .command("e621", |c| c
@@ -198,6 +224,16 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 let member = guild_id.member(message.author.id.clone()).unwrap();
                 check_rank(guild_data.mod_roles, member.roles)
             })
+            .command("mute", |c| c
+                .cmd(mute)
+                .desc("Mute a user. Can provide an optional reason and time.")
+                .usage("<user_resolvable> [/t time] [/r reason]")
+                .example("@Adelyn /t 1day /r spam"))
+            .command("unmute", |c| c
+                .cmd(unmute)
+                .desc("Unmute a user.")
+                .usage("<user_resolvable>")
+                .example("@Adelyn"))
             .command("modinfo", |c| c
                 .cmd(mod_info)
                 .desc("View some useful information on a user.")
@@ -278,6 +314,8 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 let member = guild_id.member(message.author.id.clone()).unwrap();
                 check_rank(guild_data.admin_roles, member.roles)
             })
+            .command("setup", |c| c
+                .cmd(setup_mute))
             .command("ignore", |c| c
                 .cmd(ignore)
                 .desc("Tell the bot to ignore a channel, or being listening to one that was previously ignored.")
@@ -285,9 +323,16 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .example("#general"))
             .command("prune", |c| c
                 .cmd(prune)
-                .desc("Bulk delete messages.")
+                .desc("Bulk delete messages. Filter is one of bot, attachment, !pin, mention, or a user_resolvable.\n`bot` will prune only messages from bots.\n`attachment` will prune only messages with attachments.\n`!pin` will prune all but pinned messages.\n`mention` will prune only messages that mention a user or everyone.\nMentioning a user will prune only that user's messages.")
                 .usage("<count> [filter]")
                 .example("20 bot")))
+        .group("Tests", |g| g
+            .guild_only(true)
+            .help_available(true)
+            .prefix("test")
+            .command("welcome", |c| c
+                .cmd(test_welcome)
+                .desc("Generates a welcome message to test your current setup.")))
         .group("Watchlist", |g| g
             .prefix("wl")
             .guild_only(true)
@@ -338,6 +383,12 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .desc("Delete a self role.")
                 .usage("<role_resolvable>")
                 .example("NSFW")
+                .min_args(1))
+            .command("esr", |c| c
+                .cmd(esr)
+                .desc("Edit a self role. Optionally takes a category and/or aliases. This operation is lazy and won't change anything you don't specify. Replace switch tells the bot to override aliases instead of append.")
+                .usage("<role_resolvable> [/c category] [/a aliases as CSV] [/replace]")
+                .example("NSFW /c Opt-in /a porn, lewd /replace")
                 .min_args(1)))
         .group("Config", |g| g
             .help_available(true)
@@ -351,12 +402,12 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 let member = guild_id.member(message.author.id.clone()).unwrap();
                 check_rank(guild_data.admin_roles, member.roles)
             })
-            .command("raw", |c| c
-                .cmd(config_raw)
-                .desc("Lists current configuration as raw output."))
             .command("list", |c| c
                 .cmd(config_list)
                 .desc("Lists current configuration."))
+            .command("raw", |c| c
+                .cmd(config_raw)
+                .desc("Lists current configuration as raw output."))
             .command("prefix", |c| c
                 .cmd(config_prefix)
                 .desc("Set a new prefix")
@@ -389,17 +440,20 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .example("channel #mod-logs"))
             .command("welcome", |c| c
                 .cmd(config_welcome)
-                .desc("Change welcome message settings. A channel must be provided for channel, while a message resolvable must be provided for message.")
-                .usage("<enable|disable|channel|message> <channel_resolvable|message_resolvable>")
+                .desc("Change welcome message settings.\nOption is one of enable, disable, channel, message, type and the respective values should be none, none, channel_resolvable, desired message.\nType designates if the message is plain or embed. Anything other than embed will result in plain.")
+                .usage("<option> <value>")
                 .example("message Welcome to {guild}, {user}!"))
             .command("introduction", |c| c
                 .cmd(config_introduction)
-                .desc("Change introduction message settings. A channel must be provided for channel, while a message resolvable must be provided for message. This is a premium only feature related to the Register command.")
-                .usage("<enable|disable|channel|message> <channel_resolvable|message_resolvable>")
+                .desc("Change introduction message settings. This is exactly like welcome: `help config welcome` for more info. This is a premium only feature related to the Register command.")
+                .usage("<option> <value>")
                 .example("message Hey there {user}, mind introducting yourself?")))
         .group("Owner Only", |g| g
             .owners_only(true)
             .help_available(false)
+            .command("premium", |c| c
+                .cmd(premium)
+                .batch_known_as(vec!["prem", "p"]))
             .command("log", |c| c
                 .cmd(log)))
 }

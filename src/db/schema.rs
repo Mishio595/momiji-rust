@@ -23,6 +23,7 @@ table! {
         introduction -> Bool,
         introduction_channel -> Int8,
         introduction_message -> Text,
+        introduction_type -> Text,
         mod_roles -> Array<Int8>,
         modlog -> Bool,
         modlog_channel -> Int8,
@@ -31,6 +32,7 @@ table! {
         welcome -> Bool,
         welcome_channel -> Int8,
         welcome_message -> Text,
+        welcome_type -> Text,
         premium -> Bool,
         premium_tier -> Int2,
         commands -> Array<Text>,
@@ -60,8 +62,7 @@ table! {
 }
 
 table! {
-    tags (id) {
-        id -> Int4,
+    tags (guild_id, name) {
         author -> Int8,
         guild_id -> Int8,
         name -> Text,
@@ -88,6 +89,7 @@ table! {
         watchlist -> Bool,
         xp -> Int8,
         last_message -> Timestamptz,
+        registered -> Nullable<Timestamptz>,
     }
 }
 

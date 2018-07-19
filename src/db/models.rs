@@ -1,7 +1,7 @@
-use chrono::{DateTime, TimeZone};
+use chrono::{DateTime, TimeZone, Utc};
 use super::schema::*;
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use serenity::model::id::RoleId;
+use serenity::model::id::{UserId, RoleId};
 
 // QUERYABLES
 
@@ -19,6 +19,7 @@ pub struct Guild {
     pub introduction: bool,
     pub introduction_channel: i64,
     pub introduction_message: String,
+    pub introduction_type: String,
     pub mod_roles: Vec<i64>,
     pub modlog: bool,
     pub modlog_channel: i64,
@@ -27,6 +28,7 @@ pub struct Guild {
     pub welcome: bool,
     pub welcome_channel: i64,
     pub welcome_message: String,
+    pub welcome_type: String,
     pub premium: bool,
     pub premium_tier: i16,
     pub commands: Vec<String>,
@@ -35,6 +37,7 @@ pub struct Guild {
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
+#[primary_key(id, guild_id)]
 pub struct User<Tz: TimeZone> {
     pub id: i64,
     pub guild_id: i64,
@@ -43,7 +46,8 @@ pub struct User<Tz: TimeZone> {
     pub roles: Vec<i64>,
     pub watchlist: bool,
     pub xp: i64,
-    pub last_message: DateTime<Tz>
+    pub last_message: DateTime<Tz>,
+    pub registered: Option<DateTime<Tz>>,
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
@@ -58,6 +62,7 @@ pub struct Note<Tz: TimeZone> {
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
+#[primary_key(id, guild_id)]
 pub struct Role {
     pub id: i64,
     pub guild_id: i64,
@@ -84,8 +89,8 @@ pub struct Case<Tz: TimeZone> {
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
+#[primary_key(name, guild_id)]
 pub struct Tag {
-    pub id: i32,
     pub author: i64,
     pub guild_id: i64,
     pub name: String,
@@ -190,5 +195,15 @@ impl Display for Guild {
             self.commands.join(", "),
             self.logging.join(", "),
             self.hackbans.iter().map(|e| format!("{}", e)).collect::<Vec<String>>().join(", "))
+    }
+}
+
+impl Display for Note<Utc> {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "{} wrote on {} (ID: {})\n`{}`",
+            UserId(self.moderator as u64).get().unwrap().tag(),
+            self.timestamp.format("%a, %d %h %Y @ %H:%M:%S").to_string(),
+            self.index,
+            self.note)
     }
 }

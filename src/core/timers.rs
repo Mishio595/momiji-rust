@@ -32,9 +32,9 @@ impl TimerClient {
             loop {
                 match rec.lock().recv() {
                     Ok(data) => {
-                        // type, channel_id, user_id, dur, reminder, id
                         let parts = data.split("||").map(|s| s.to_string()).collect::<Vec<String>>();
                         if parts[0] == "REMINDER" {
+                            // type, channel_id, user_id, dur, reminder, id
                             let channel_id = ChannelId::from_str(parts[1].as_str()).expect("Failed to build ChannelId from string");
                             let check = match channel_id.get() {
                                 Ok(ch) => { match ch {
@@ -52,7 +52,22 @@ impl TimerClient {
                                 .expect("Failed to send message");
                         db.lock().del_timer(parts[5].parse::<i32>().unwrap()).expect("Failed to delete timer");
                         } else if parts[0] == "UNMUTE" {
-                            // TODO write unmute
+                            // type, user_id, guild_id, mute_role, channel_id, dur, id
+                            let user_id = UserId::from_str(parts[1].as_str()).expect("Failed to build UserId");
+                            let user = user_id.get().unwrap();
+                            let guild_id = GuildId(parts[2].parse::<u64>().expect("Failed to build GuildId"));
+                            let role_id = RoleId::from_str(parts[3].as_str()).expect("Failed to build RoleId");
+                            let channel_id = ChannelId::from_str(parts[4].as_str()).expect("Failed to build ChannelId");
+                            if let Ok(mut member) = guild_id.member(user_id) {
+                                if let Ok(_) = member.remove_role(role_id) {
+                                    channel_id.send_message(|m| m
+                                        .embed(|e| e
+                                            .title("Member Unmuted Automatically")
+                                            .colour(Colours::Blue.val())
+                                            .field("Member", format!("{}\n{}", user.tag(), user_id.0), true)
+                                    )).expect("Failed to send message");
+                                }
+                            }
                         }
                     },
                     Err(_) => {},
