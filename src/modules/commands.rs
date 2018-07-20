@@ -18,6 +18,10 @@ use ::core::consts::*;
 use chrono::Utc;
 use regex::Regex;
 
+lazy_static! {
+    static ref DICE_MATCH: Regex = Regex::new(r"(?P<count>\d+)d?(?P<sides>\d*)").unwrap();
+}
+
 // Rank 0
 
 command!(bot_info(ctx, message, _args) {
@@ -349,23 +353,24 @@ command!(role_info(ctx, message, args) {
 });
 
 command!(roll(_ctx, message, args) {
-    let re = Regex::new(r"(?P<count>\d{0,2})d?(?P<sides>\d{0,2})").unwrap();
     let expr = args.single::<String>().unwrap_or(String::new());
-    let caps = re.captures(expr.as_str()).unwrap();
+    let caps = DICE_MATCH.captures(expr.as_str()).unwrap();
     let count: u32 = caps["count"].parse().unwrap_or(1);
     let sides: u32 = caps["sides"].parse().unwrap_or(6);
-    if count>0 {
-        let mut total = 0;
-        for _ in 1..&count+1 {
-            let r = thread_rng().gen_range(1,&sides+1);
-            total += r;
-        }
-        message.channel_id.send_message(|m| m
-            .embed(|e| e
-                .colour(Colours::Main.val())
-                .field(format!("{} 🎲 [1-{}]", count, sides), format!("You rolled {}", total), true)
-        ))?;
-    }
+    if count > 0 && count <= 1000 {
+        if sides > 0 && sides <= 100 {
+            let mut total = 0;
+            for _ in 1..&count+1 {
+                let r = thread_rng().gen_range(1,&sides+1);
+                total += r;
+            }
+            message.channel_id.send_message(|m| m
+                .embed(|e| e
+                    .colour(Colours::Main.val())
+                    .field(format!("{} 🎲 [1-{}]", count, sides), format!("You rolled {}", total), true)
+            ))?;
+        } else { message.channel_id.say("Sides out of bounds")?; }
+    } else { message.channel_id.say("Count out of bounds")?; }
 });
 
 command!(server_info(_ctx, message, args) {
@@ -451,7 +456,7 @@ command!(server_info(_ctx, message, args) {
 // TODO add fuzzy matching
 command!(tag_single(ctx, message, args) {
     let data = ctx.data.lock();
-    let db = data.get::<DB>().unwrap().lock();
+    let db = data.get::<DB>().expect("Failed to get DB").lock();
     let guild_id = message.guild_id.unwrap();
     let tag_input = args.rest().to_string();
     match db.get_tag(guild_id.0 as i64, tag_input.clone()) {
@@ -462,7 +467,7 @@ command!(tag_single(ctx, message, args) {
 
 command!(tag_add(ctx, message, args) {
     let data = ctx.data.lock();
-    let db = data.get::<DB>().unwrap().lock();
+    let db = data.get::<DB>().expect("Failed to get DB").lock();
     let guild_id = message.guild_id.unwrap();
     let tag_input = args.single_quoted::<String>().unwrap();
     let value = args.rest().to_string();
@@ -475,12 +480,12 @@ command!(tag_add(ctx, message, args) {
 // TODO add mod/admin checks and ownership check
 command!(tag_del(ctx, message, args) {
     let data = ctx.data.lock();
-    let db = data.get::<DB>().unwrap().lock();
+    let db = data.get::<DB>().expect("Failed to get DB").lock();
     let guild_id = message.guild_id.unwrap();
     let tag_input = args.single_quoted::<String>().unwrap();
     match db.del_tag(guild_id.0 as i64, tag_input.clone()) {
         Ok(tag) => { message.channel_id.say(format!("Successfully deleted tag `{}`", tag.name))?; },
-        Err(why) => { message.channel_id.say(format!("Failed to create tag `{}`. Here's why: {:?}", tag_input, why))?; },
+        Err(why) => { message.channel_id.say(format!("Failed to delete tag `{}`. Here's why: {:?}", tag_input, why))?; },
     }
 });
 
