@@ -1,5 +1,6 @@
-use std::collections::HashMap;
-use std::str::FromStr;
+use core::utils::*;
+use core::model::*;
+use core::colours;
 use serenity::CACHE;
 use serenity::prelude::*;
 use serenity::model::Permissions;
@@ -12,11 +13,13 @@ use sysinfo;
 use sysinfo::{ProcessExt, SystemExt};
 use sys_info;
 use rand::prelude::*;
-use ::core::utils::*;
-use ::core::model::*;
-use ::core::consts::*;
 use chrono::Utc;
 use regex::Regex;
+use fuzzy_match::fuzzy_match;
+use fuzzy_match::algorithms::*;
+use std::cmp::Ordering;
+use std::collections::HashMap;
+use std::str::FromStr;
 
 lazy_static! {
     static ref DICE_MATCH: Regex = Regex::new(r"(?P<count>\d+)d?(?P<sides>\d*)").unwrap();
@@ -47,7 +50,7 @@ command!(bot_info(ctx, message, _args) {
                 (process.cpu_usage()*100.0).round()/100.0, // round to 2 decimals
                 seconds_to_hrtime((sys.get_uptime() - process.start_time()) as usize)), true)
             .thumbnail(&cache.user.avatar_url().unwrap_or(cache.user.default_avatar_url()))
-            .colour(Colours::Main.val())
+            .colour(*colours::MAIN)
         ))?;
 });
 
@@ -127,7 +130,7 @@ command!(now(_ctx, message, args) {
     let date = datetime.format("%A %e %B %Y").to_string();
     message.channel_id.send_message(|m| m
         .embed(|e| e
-            .colour(Colours::Main.val())
+            .colour(*colours::MAIN)
             .description(format!("**Time:** {}\n**Date:** {}\n**Timezone:** UTC{}", time, date, datetime.timezone())))
     )?;
 });
@@ -144,7 +147,7 @@ command!(ping(ctx, message, _args) {
         let _ = m.edit(|m| m.embed(|e| e
             .title("Pong!")
             .description(format!("**Shard Latency:** {}\n**Response Time:** {} ms", if lat==0 { String::from("Failed to retrieve") } else { format!("{} ms", lat) }, t))
-            .colour(Colours::Main.val())
+            .colour(*colours::MAIN)
         ))?;
     };
 });
@@ -205,16 +208,21 @@ command!(asr(ctx, message, args) {
     let list = args.rest().split(",").map(|s| s.trim().to_string());
     let mut to_add = Vec::new();
     let mut failed = Vec::new();
-    let role_names = roles.iter().map(|r| RoleId(r.id as u64).find().unwrap().name.to_lowercase()).collect::<Vec<String>>();
+    let role_names = roles.iter().enumerate().map(|(i,r)| (RoleId(r.id as u64).find().unwrap().name, i)).collect::<Vec<(String, usize)>>();
     for r1 in list {
-        if let Some((s,_)) = parse_role(r1.clone(), guild_id) {
-            to_add.push(s);
+        if let Some((r, r2)) = parse_role(r1.clone(), guild_id) {
+            if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
+                to_add.push(r);
+            } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
         } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
             to_add.push(RoleId(roles[i].id as u64));
-        } else if let Some(i) = role_names.iter().position(|r| r.contains(&r1.to_lowercase())) {
-            to_add.push(RoleId(roles[i].id as u64));
         } else {
-            failed.push(format!("Could not locate {}", r1));
+            failed.push(format!("Failed to find match \"{}\". {}", r1,
+                if let Some(i) = fuzzy_match(&r1, role_names.iter().map(|(r,i)| (r.as_str(), i)).collect()) {
+                    let (ref val, _) = role_names[*i];
+                    format!("Closest match: {}", val.clone())
+                } else { String::new() }
+            ));
         }
     }
     for (i, role_id) in to_add.clone().iter().enumerate() {
@@ -250,16 +258,21 @@ command!(rsr(ctx, message, args) {
     let list = args.rest().split(",").map(|s| s.trim().to_string());
     let mut to_remove = Vec::new();
     let mut failed = Vec::new();
-    let role_names = roles.iter().map(|r| RoleId(r.id as u64).find().unwrap().name.to_lowercase()).collect::<Vec<String>>();
+    let role_names = roles.iter().enumerate().map(|(i,r)| (RoleId(r.id as u64).find().unwrap().name, i)).collect::<Vec<(String, usize)>>();
     for r1 in list {
-        if let Some((s,_)) = parse_role(r1.clone(), guild_id) {
-            to_remove.push(s);
+        if let Some((r, r2)) = parse_role(r1.clone(), guild_id) {
+            if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
+                to_remove.push(r);
+            } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
         } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
             to_remove.push(RoleId(roles[i].id as u64));
-        } else if let Some(i) = role_names.iter().position(|r| r.contains(&r1.to_lowercase())) {
-            to_remove.push(RoleId(roles[i].id as u64));
         } else {
-            failed.push(format!("Could not locate {}", r1));
+            failed.push(format!("Failed to find match \"{}\". {}", r1,
+                if let Some(i) = fuzzy_match(&r1, role_names.iter().map(|(r,i)| (r.as_str(), i)).collect()) {
+                    let (ref val, _) = role_names[*i];
+                    format!("Closest match: {}", val.clone())
+                } else { String::new() }
+            ));
         }
     }
     for (i, role_id) in to_remove.clone().iter().enumerate() {
@@ -286,6 +299,7 @@ command!(rsr(ctx, message, args) {
             .colour(member.colour().unwrap())))?;
 });
 
+// TODO view a single category
 command!(lsr(ctx, message, _args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
@@ -311,7 +325,7 @@ command!(lsr(ctx, message, _args) {
         .embed(|e| e
             .title("Self Roles")
             .fields(fields)
-            .colour(Colours::Main.val())
+            .colour(*colours::MAIN)
     ))?;
 });
 
@@ -352,6 +366,7 @@ command!(role_info(ctx, message, args) {
     };
 });
 
+// TODO eval expressions such as "2d10 + 5"
 command!(roll(_ctx, message, args) {
     let expr = args.single::<String>().unwrap_or(String::new());
     let caps = DICE_MATCH.captures(expr.as_str()).unwrap();
@@ -366,7 +381,7 @@ command!(roll(_ctx, message, args) {
             }
             message.channel_id.send_message(|m| m
                 .embed(|e| e
-                    .colour(Colours::Main.val())
+                    .colour(*colours::MAIN)
                     .field(format!("{} 🎲 [1-{}]", count, sides), format!("You rolled {}", total), true)
             ))?;
         } else { message.channel_id.say("Sides out of bounds")?; }
@@ -380,7 +395,7 @@ command!(server_info(_ctx, message, args) {
     let switches = get_switches(args.full().to_string());
     let g = match switches.get("rest") {
         Some(s) => {
-            let (id, lock) = parse_guild(s.to_string()).unwrap_or((message.guild_id.unwrap(), message.guild().unwrap()));
+            let (_, lock) = parse_guild(s.to_string()).unwrap_or((message.guild_id.unwrap(), message.guild().unwrap()));
             Some(lock)
         },
         None => message.guild(),
@@ -425,7 +440,7 @@ command!(server_info(_ctx, message, args) {
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
                         .thumbnail(guild.icon_url().unwrap_or("https://cdn.discordapp.com/embed/avatars/0.png".to_string()))
-                        .color(Colours::Main.val())
+                        .color(*colours::MAIN)
                         .field("ID", guild.id, true)
                         .field("Name", &guild.name, true)
                         .field("Owner", guild.owner_id.mention(), true)
@@ -446,22 +461,33 @@ command!(server_info(_ctx, message, args) {
                     .embed(|e| e
                         .title(format!("Roles for {}. Count: {}", guild.name, roles.len()))
                         .description(roles.join("\n"))
-                        .colour(Colours::Blue.val())
+                        .colour(*colours::BLUE)
                 ))?;
             },
         }
     }
 });
 
-// TODO add fuzzy matching
 command!(tag_single(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
     let guild_id = message.guild_id.unwrap();
     let tag_input = args.rest().to_string();
-    match db.get_tag(guild_id.0 as i64, tag_input.clone()) {
-        Ok(tag) => { message.channel_id.say(tag.data)?; },
-        Err(why) => { message.channel_id.say("No tag by that name")?; },
+    let tags = db.get_tags(guild_id.0 as i64)?;
+    if let Some(tag) = tags.iter().find(|e| e.name == tag_input) {
+        message.channel_id.say(&tag.data)?;
+    } else {
+        let mut sdc = SorensenDice::new();
+        let mut matches = Vec::new();
+        for tag in tags.iter() {
+            let dist = sdc.get_similarity(tag.name.as_str(), &tag_input);
+            matches.push((tag, dist));
+        }
+        matches.retain(|e| e.1 > 0.2);
+        matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+        matches.truncate(5);
+        let matches = matches.iter().map(|e| e.0.name.clone()).collect::<Vec<String>>();
+        message.channel_id.say(format!("No tag found. Did you mean...\n{}", matches.join("\n")))?;
     }
 });
 
@@ -477,16 +503,20 @@ command!(tag_add(ctx, message, args) {
     }
 });
 
-// TODO add mod/admin checks and ownership check
+// TODO add mod/admin checks
 command!(tag_del(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
     let guild_id = message.guild_id.unwrap();
     let tag_input = args.single_quoted::<String>().unwrap();
-    match db.del_tag(guild_id.0 as i64, tag_input.clone()) {
-        Ok(tag) => { message.channel_id.say(format!("Successfully deleted tag `{}`", tag.name))?; },
-        Err(why) => { message.channel_id.say(format!("Failed to delete tag `{}`. Here's why: {:?}", tag_input, why))?; },
-    }
+    if let Ok(tag) = db.get_tag(guild_id.0 as i64, tag_input.clone()) {
+        if message.author.id.0 as i64 == tag.author {
+            match db.del_tag(guild_id.0 as i64, tag_input.clone()) {
+                Ok(tag) => { message.channel_id.say(format!("Successfully deleted tag `{}`", tag.name))?; },
+                Err(why) => { message.channel_id.say(format!("Failed to delete tag `{}`. Here's why: {:?}", tag_input, why))?; },
+            }
+        } else { message.channel_id.say("You must own this tag in order to delete it.")?; }
+    } else { message.channel_id.say("Tag not found.")?; }
 });
 
 // TODO add mod/admin check
@@ -496,16 +526,15 @@ command!(tag_edit(ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let tag_input = args.single_quoted::<String>().unwrap();
     let value = args.rest().to_string();
-    let mut tag = db.get_tag(guild_id.0 as i64, tag_input.clone())?;
-    if message.author.id.0 as i64 == tag.author {
-        tag.data = value.clone();
-        match db.update_tag(guild_id.0 as i64, tag_input.clone(), tag) {
-            Ok(t) => { message.channel_id.say(format!("Successfully edited tag `{}`", t.name))?; },
-            Err(why) => { message.channel_id.say(format!("Failed to edit tag `{}`. Here's why: {:?}", tag_input, why))?; },
-        }
-    } else {
-        message.channel_id.say("You do not own this tag and do not have permissions to edit it")?;
-    }
+    if let Ok(mut tag) = db.get_tag(guild_id.0 as i64, tag_input.clone()) {
+        if message.author.id.0 as i64 == tag.author {
+            tag.data = value.clone();
+            match db.update_tag(guild_id.0 as i64, tag_input.clone(), tag) {
+                Ok(t) => { message.channel_id.say(format!("Successfully edited tag `{}`", t.name))?; },
+                Err(why) => { message.channel_id.say(format!("Failed to edit tag `{}`. Here's why: {:?}", tag_input, why))?; },
+            }
+        } else { message.channel_id.say("You must own this tag to edit it.")?; }
+    } else { message.channel_id.say("Tag not found.")?; }
 });
 
 command!(urban(ctx, message, args) {
@@ -518,7 +547,7 @@ command!(urban(ctx, message, args) {
             if count == 1 {
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
-                        .colour(Colours::Main.val())
+                        .colour(*colours::MAIN)
                         .field(format!(r#"Definition of "{}" by {}"#, res.list[0].word, res.list[0].author), &res.list[0].permalink, false)
                         .field("Thumbs Up", &res.list[0].thumbs_up, true)
                         .field("Thumbs Down", &res.list[0].thumbs_down, true)
@@ -536,7 +565,7 @@ command!(urban(ctx, message, args) {
                     .embed(|e| e
                         .title(format!("Top {} results for {}", count, term))
                         .description(list)
-                        .colour(Colours::Main.val())
+                        .colour(*colours::MAIN)
                 ))?;
             }
         }
@@ -658,14 +687,14 @@ command!(mute(ctx, message, args) {
                     channel.send_message(|m| m
                         .embed(|e| e
                             .title("Member Muted")
-                            .colour(Colours::Blue.val())
+                            .colour(*colours::BLUE)
                             .fields(fields)
                     ))?;
                 } else {
                     message.channel_id.send_message(|m| m
                         .embed(|e| e
                             .title("Member Muted")
-                            .colour(Colours::Blue.val())
+                            .colour(*colours::BLUE)
                             .fields(fields)
                     ))?;
                 }
@@ -697,14 +726,14 @@ command!(unmute(ctx, message, args) {
                     channel.send_message(|m| m
                         .embed(|e| e
                             .title("Member Unmuted")
-                            .colour(Colours::Blue.val())
+                            .colour(*colours::BLUE)
                             .fields(fields)
                     ))?;
                 } else {
                     message.channel_id.send_message(|m| m
                         .embed(|e| e
                             .title("Member Unmuted")
-                            .colour(Colours::Blue.val())
+                            .colour(*colours::BLUE)
                             .fields(fields)
                     ))?;
                 }
@@ -751,7 +780,7 @@ command!(note_list(ctx, message, args) {
     let notes_fmt = notes.iter().map(|n| format!("{}", n)).collect::<Vec<String>>().join("\n\n");
     message.channel_id.send_message(|m| m
         .embed(|e| e
-            .colour(Colours::Main.val())
+            .colour(*colours::MAIN)
             .title(format!("Notes for {}", user.tag()))
             .description(notes_fmt)
     ))?;
@@ -866,7 +895,7 @@ command!(watchlist_del(ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let mut user_data = db.get_user(user_id.0 as i64, guild_id.0 as i64)?;
-    user_data.watchlist = true;
+    user_data.watchlist = false;
     match db.update_user(user_id.0 as i64, guild_id.0 as i64, user_data) {
         Ok(_) => { message.channel_id.say(format!("Unset {} from watchlist status.", user_id.get().unwrap().tag()))?; },
         Err(_) => { message.channel_id.say("Failed to unset watchlist status")?; },
@@ -878,12 +907,12 @@ command!(watchlist_list(ctx, message, _args) {
     let db = data.get::<DB>().expect("Failed to get DB").lock();
     let guild_id = message.guild_id.unwrap();
     let users = db.get_users(guild_id.0 as i64).unwrap_or(Vec::new());
-    let user_map = users.iter().map(|u| UserId(u.id as u64).get().unwrap()).map(|u| u.tag()).collect::<Vec<String>>().join("\n");
+    let user_map = users.iter().filter(|e| e.watchlist).map(|u| UserId(u.id as u64).get().unwrap()).map(|u| u.tag()).collect::<Vec<String>>().join("\n");
     message.channel_id.send_message(|m| m
         .embed(|e| e
             .title("Watchlist")
             .description(user_map)
-            .colour(Colours::Main.val())
+            .colour(*colours::MAIN)
     ))?;
 });
 
@@ -904,7 +933,7 @@ command!(config_list(ctx, message, _args) {
     let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     message.channel_id.send_message(|m| m
         .embed(|e| e
-            .colour(Colours::Main.val())
+            .colour(*colours::MAIN)
             .description(format!("{}", guild_data))
     ))?;
 });
@@ -957,7 +986,7 @@ command!(config_autorole(ctx, message, args) {
             message.channel_id.send_message(|m| m
                 .embed(|e| e
                     .title("Config Autorole Summary")
-                    .colour(Colours::Main.val())
+                    .colour(*colours::MAIN)
                     .description(format!("**Operation:** {}\n**Value:** {}",
                         op,
                         if val.is_empty() { format!("{}", guild.autorole) } else { val } ,
@@ -991,11 +1020,11 @@ command!(config_admin(ctx, message, args) {
         _ => {},
     }
     match db.update_guild(guild_id.0 as i64, guild_data) {
-        Ok(guild) => {
+        Ok(_) => {
             message.channel_id.send_message(|m| m
                 .embed(|e| e
                     .title("Config Admin Summary")
-                    .colour(Colours::Main.val())
+                    .colour(*colours::MAIN)
                     .description(format!("**Operation:** {}\n**Value:** {}",
                         op,
                         val,
@@ -1029,11 +1058,11 @@ command!(config_mod(ctx, message, args) {
         _ => {},
     }
     match db.update_guild(guild_id.0 as i64, guild_data) {
-        Ok(guild) => {
+        Ok(_) => {
             message.channel_id.send_message(|m| m
                 .embed(|e| e
                     .title("Config Mod Summary")
-                    .colour(Colours::Main.val())
+                    .colour(*colours::MAIN)
                     .description(format!("**Operation:** {}\n**Value:** {}",
                         op,
                         val,
@@ -1077,7 +1106,7 @@ command!(config_audit(ctx, message, args) {
             message.channel_id.send_message(|m| m
                 .embed(|e| e
                     .title("Config Audit Summary")
-                    .colour(Colours::Main.val())
+                    .colour(*colours::MAIN)
                     .description(format!("**Operation:** {}\n**Value:** {}",
                         op,
                         if val.is_empty() { format!("{}", guild.audit) } else { val },
@@ -1116,7 +1145,7 @@ command!(config_modlog(ctx, message, args) {
             message.channel_id.send_message(|m| m
                 .embed(|e| e
                     .title("Config Modlog Summary")
-                    .colour(Colours::Main.val())
+                    .colour(*colours::MAIN)
                     .description(format!("**Operation:** {}\n**Value:** {}",
                         op,
                         if val.is_empty() { format!("{}", guild.modlog) } else { val },
@@ -1161,7 +1190,7 @@ command!(config_welcome(ctx, message, args) {
             message.channel_id.send_message(|m| m
                 .embed(|e| e
                     .title("Config Welcome Summary")
-                    .colour(Colours::Main.val())
+                    .colour(*colours::MAIN)
                     .description(format!("**Operation:** {}\n**Value:** {}",
                         op,
                         if val.is_empty() { format!("{}", guild.welcome) } else { val },
@@ -1203,7 +1232,7 @@ command!(config_introduction(ctx, message, args) {
             message.channel_id.send_message(|m| m
                 .embed(|e| e
                     .title("Config Introduction Summary")
-                    .colour(Colours::Main.val())
+                    .colour(*colours::MAIN)
                     .description(format!("**Operation:** {}\n**Value:** {}",
                         op,
                         if val.is_empty() { format!("{}", guild.introduction) } else { val },
@@ -1232,24 +1261,24 @@ command!(hackban(ctx, message, args) {
     if !guild_data.hackbans.contains(&(user_id.0 as i64)) {
         guild_data.hackbans.push(user_id.0 as i64);
         match db.update_guild(guild_id.0 as i64, guild_data) {
-            Ok(guild) => {
+            Ok(_) => {
                 message.channel_id.say(format!("Added {} to the hackban list",
                     user_id.0
                 ))?;
             },
-            Err(why) =>{
+            Err(_) =>{
                 message.channel_id.say("Failed to add hackban")?;
             },
         };
     } else {
         guild_data.hackbans.retain(|e| *e != user_id.0 as i64);
         match db.update_guild(guild_id.0 as i64, guild_data) {
-            Ok(guild) => {
+            Ok(_) => {
                 message.channel_id.say(format!("Removed {} from the hackban list",
                     user_id.0
                 ))?;
             },
-            Err(why) =>{
+            Err(_) =>{
                 message.channel_id.say("Failed to remove hackban")?;
             },
         };
@@ -1435,7 +1464,7 @@ command!(prune(ctx, message, args) {
                         message.author.tag(),
                         channel.mention(),
                         channel.name))
-                    .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                    .timestamp(now!())
             ))?;
         } else {
             message.channel_id.say(format!("Pruned {} message!", num_del))?;
@@ -1443,7 +1472,7 @@ command!(prune(ctx, message, args) {
     }
 });
 
-command!(test_welcome(ctx, message, args) {
+command!(test_welcome(ctx, message, _args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
     let guild_id = message.guild_id.unwrap();
@@ -1490,9 +1519,9 @@ command!(setup_mute(ctx, message, _args) {
 });
 
 // Rank 4
-
+/*
 command!(git(_ctx, message, args) {
-});
+});*/
 
 command!(log(_ctx, message, _args) {
     use std::path::Path;
@@ -1516,8 +1545,8 @@ command!(premium(ctx, message, args) {
     message.channel_id.say("Command complete")?;
 });
 
-command!(restart(_ctx, message, _args) {
-});
+/*command!(restart(_ctx, message, _args) {
+});*/
 
 // Helper functions for commands::prune
 fn re_retriever(limit: u64) -> GetMessages {

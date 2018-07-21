@@ -1,12 +1,14 @@
+use core::consts::*;
+use core::colours;
+use core::model::DB;
+use modules::commands::*;
 use serenity::framework::{
     StandardFramework,
     standard::{help_commands, HelpBehaviour},
 };
 use serenity::model::id::{UserId, RoleId};
-use modules::commands::*;
-use core::model::DB;
+use serenity::model::channel::Channel;
 use std::collections::HashSet;
-use core::consts::*;
 use chrono::Utc;
 
 pub fn new(owners: HashSet<UserId>) -> StandardFramework {
@@ -42,15 +44,47 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             }
             true
         })
-        .after(|ctx, message, cmd_name, error| {
+        .after(|_ctx, message, cmd_name, error| {
+            let guild = match message.guild() {
+                Some(lock) => {
+                    let g = lock.read();
+                    format!("{} ({})", g.name, g.id.0)
+                },
+                None => String::from("Private"),
+            };
+            let channel = if let Some(ch) = message.channel() {
+                match ch {
+                    Channel::Guild(c) => {
+                        let c = c.read();
+                        format!("{} ({})", c.name, c.id.0)
+                    },
+                    Channel::Private(_) => format!("{}", ch.id().0),
+                    _ => String::new(),
+                }
+            } else { String::new() };
+            COMMAND_LOG.send_message(|m| m
+                .embed(|e| e
+                    .description(format!("**Guild:** {}\n**Channel:** {}\n**Author:** {} ({})\n**ID:** {}",
+                       guild,
+                       channel,
+                       message.author.tag(),
+                       message.author.id.0,
+                       message.id.0
+                    ))
+                    .field("Content", message.content_safe(), false)
+                    .timestamp(now!())
+                    .colour(*colours::MAIN)
+            )).expect("Failed to send message.");
             if let Err(why) = error {
                 ERROR_LOG.send_message(|m| m
                     .embed(|e| e
                         .description(format!("{:?}", why))
                         .field("Message", format!("{}", message.id.0), true)
                         .field("Channel", format!("{}", message.channel_id.0), true)
-                        .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
-                        .colour(Colours::Red.val())
+                        .field("Command", cmd_name, true)
+                        .field("Message Content", message.content_safe(), false)
+                        .timestamp(now!())
+                        .colour(*colours::RED)
                 )).expect("Failed to send message");
             }
         })
@@ -75,8 +109,8 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .striked_commands_tip(Some(String::from("")))
             //.striked_commands_tip_in_guild()
             //.striked_commands_tip_in_direct_message()
-            .embed_success_colour(Colours::Main.val())
-            .embed_error_colour(Colours::Red.val()))
+            .embed_success_colour(*colours::MAIN)
+            .embed_error_colour(*colours::RED))
         .group("Miscellaneous", |g| g
             .help_available(true)
             .command("ping", |c| c
@@ -128,6 +162,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .help_available(true)
             .guild_only(true)
             .prefix("tag")
+            .default_cmd(tag_single)
             .command("show", |c| c
                 .cmd(tag_single)
                 .desc("View a tag.")
@@ -345,6 +380,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 let member = guild_id.member(message.author.id.clone()).unwrap();
                 check_rank(guild_data.admin_roles, member.roles)
             })
+            .default_cmd(watchlist_list)
             .command("add", |c| c
                 .cmd(watchlist_add)
                 .desc("Add a user to the watchlist.")
@@ -402,6 +438,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 let member = guild_id.member(message.author.id.clone()).unwrap();
                 check_rank(guild_data.admin_roles, member.roles)
             })
+            .default_cmd(config_list)
             .command("list", |c| c
                 .cmd(config_list)
                 .desc("Lists current configuration."))

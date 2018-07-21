@@ -1,16 +1,15 @@
-use std::str::FromStr;
-use std::collections::HashMap;
+use core::consts::*;
 use serenity::model::id::*;
-use serenity::model::user::User;
 use serenity::model::guild::{Guild, Role, Member};
 use serenity::model::channel::{GuildChannel, Message};
 use serenity::model::misc::Mentionable;
 use serenity::CACHE;
 use serenity::Error;
-use regex::Regex;
-use core::consts::*;
-use std::sync::Arc;
 use serenity::prelude::RwLock;
+use regex::Regex;
+use std::sync::Arc;
+use std::str::FromStr;
+use std::collections::HashMap;
 
 lazy_static! {
     static ref ROLE_MATCH: Regex    = Regex::new(r"(?:<@)?&?(\d{17,})>*?").unwrap();

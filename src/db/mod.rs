@@ -210,6 +210,7 @@ impl Database {
             .returning(columns::note)
             .get_result(&self.conn)
     }
+    /*
     /// Select a note
     /// Returns the note on success
     pub fn get_note(&self, ind: i32, u_id: i64, g_id: i64) -> QueryResult<Note<Utc>> {
@@ -218,7 +219,7 @@ impl Database {
             .filter(user_id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
             .first(&self.conn)
-    }
+    }*/
     /// Select all notes for a user
     /// Returns a vec of notes on success
     pub fn get_notes(&self, u_id: i64, g_id: i64) -> QueryResult<Vec<Note<Utc>>> {
@@ -251,13 +252,14 @@ impl Database {
             .returning(columns::data)
             .get_result(&self.conn)
     }
+    /*
     /// Select a timer
     /// Returns the timer on success
     pub fn get_timer(&self, t_id: i32) -> QueryResult<Timer> {
         use db::schema::timers::dsl::*;
         timers.filter(id.eq(&t_id))
             .first(&self.conn)
-    }
+    }*/
     /// Select all timers
     /// Returns a vec of timers on success
     pub fn get_timers(&self) -> QueryResult<Vec<Timer>> {
@@ -279,6 +281,7 @@ impl Database {
             .values(&case)
             .get_result(&self.conn)
     }
+    /*
     /// Delete a case
     /// Returns the case on success.
     pub fn del_case(&self, c_id: i32, u_id: i64, g_id: i64) -> QueryResult<Case<Utc>> {
@@ -297,7 +300,7 @@ impl Database {
             .filter(user_id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
             .first(&self.conn)
-    }
+    }*/
     /// Select all cases for a user
     /// Returns a vector of cases on success
     pub fn get_cases(&self, u_id: i64, g_id: i64) -> QueryResult<Vec<Case<Utc>>> {
@@ -337,6 +340,13 @@ impl Database {
         tags.filter(name.eq(&nm))
             .filter(guild_id.eq(&g_id))
             .first(&self.conn)
+    }
+    /// Select all tags by guild
+    /// Returns Vec<Tag> on success on success
+    pub fn get_tags(&self, g_id: i64) -> QueryResult<Vec<Tag>> {
+        use db::schema::tags::dsl::*;
+        tags.filter(guild_id.eq(&g_id))
+            .get_results(&self.conn)
     }
     /// Update a tag
     /// Returns the new tag on success

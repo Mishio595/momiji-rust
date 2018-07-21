@@ -1,3 +1,8 @@
+use core::model::*;
+use core::consts::*;
+use core::utils::*;
+use core::colours;
+use db::models::UserUpdate;
 use serenity::prelude::*;
 use serenity::CACHE;
 use serenity::model::{
@@ -10,13 +15,8 @@ use serenity::model::{
 };
 use std::sync::Arc;
 use std::thread;
-use rand::prelude::*;
 use std::time::Duration;
 use chrono::Utc;
-use core::model::*;
-use core::consts::*;
-use core::utils::*;
-use db::models::UserUpdate;
 use levenshtein::levenshtein;
 
 pub struct Handler;
@@ -96,7 +96,7 @@ impl EventHandler for Handler {
                         audit_channel.send_message(|m| m
                             .embed(|e| e
                                 .title("Message Deleted")
-                                .colour(Colours::Red.val())
+                                .colour(*colours::RED)
                                 .footer(|f| f.text(format!("ID: {}", message_id.0)))
                                 .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - {}\n**Content:**\n{}",
                                     message.author.tag(),
@@ -106,19 +106,19 @@ impl EventHandler for Handler {
                                     channel.id.0,
                                     channel.mention(),
                                     message.content_safe()))
-                                .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                                .timestamp(now!())
                         )).expect("Failed to send message");
                     } else {
                         audit_channel.send_message(|m| m
                             .embed(|e| e
                                 .title("Uncached Message Deleted")
-                                .colour(Colours::Red.val())
+                                .colour(*colours::RED)
                                 .footer(|f| f.text(format!("ID: {}", message_id.0)))
                                 .description(format!("**Channel:** {} ({}) - {}",
                                     channel.name,
                                     channel.id.0,
                                     channel.mention()))
-                                .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                                .timestamp(now!())
                         )).expect("Failed to send message");
                     }
                 }
@@ -143,7 +143,7 @@ impl EventHandler for Handler {
                     audit_channel.send_message(|m| m
                         .embed(|e| e
                             .title("Message Edited")
-                            .colour(Colours::Main.val())
+                            .colour(*colours::MAIN)
                             .footer(|f| f.text(format!("ID: {}", message.id.0)))
                             .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - {}\n**Old Content:**\n{}\n**New Content:**\n{}",
                                 message.author.tag(),
@@ -154,7 +154,7 @@ impl EventHandler for Handler {
                                 channel.mention(),
                                 message.content_safe(),
                                 content))
-                            .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                            .timestamp(now!())
                     )).expect("Failed to send message");
                 }
             }
@@ -180,7 +180,7 @@ impl EventHandler for Handler {
                             audit_channel.send_message(|m| m
                                 .embed(|e| e
                                     .title("Username changed")
-                                    .colour(Colours::Main.val())
+                                    .colour(*colours::MAIN)
                                     .thumbnail(user.face())
                                     .description(format!("**Old:** {}\n**New:** {}", user_data.username, user.tag()))
                             )).expect("Failed to send Message");
@@ -202,8 +202,8 @@ impl EventHandler for Handler {
             GUILD_LOG.send_message(|m| m
                 .embed(|e| e
                     .title("Joined Guild")
-                    .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
-                    .colour(Colours::Green.val())
+                    .timestamp(now!())
+                    .colour(*colours::GREEN)
                     .description(format!("**Name:** {}\n**ID:** {}\n**Owner:** {} ({})",
                         guild.name,
                         guild.id.0,
@@ -221,8 +221,8 @@ impl EventHandler for Handler {
         GUILD_LOG.send_message(|m| m
             .embed(|e| e
                 .title("Left Guild")
-                .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
-                .colour(Colours::Red.val())
+                .timestamp(now!())
+                .colour(*colours::RED)
                 .description(format!("**Name:** {}\n**ID:** {}\n**Owner:** {} ({})",
                     partial_guild.name,
                     partial_guild.id.0,
@@ -243,9 +243,9 @@ impl EventHandler for Handler {
             audit_channel.send_message(|m| m
                 .embed(|e| e
                     .title("Member Joined")
-                    .colour(Colours::Green.val())
+                    .colour(*colours::GREEN)
                     .thumbnail(user.face())
-                    .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                    .timestamp(now!())
                     .description(format!("<@{}>\n{}\n{}", user.id, user.tag(), user.id))
             )).expect("Failed to send message");
         }
@@ -273,9 +273,9 @@ impl EventHandler for Handler {
             audit_channel.send_message(|m| m
                 .embed(|e| e
                     .title("Member Left")
-                    .colour(Colours::Red.val())
+                    .colour(*colours::RED)
                     .thumbnail(user.face())
-                    .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                    .timestamp(now!())
                     .description(format!("<@{}>\n{}\n{}", user.id, user.tag(), user.id))
             )).expect("Failed to send message");
         }
@@ -288,9 +288,9 @@ impl EventHandler for Handler {
                 modlog_channel.send_message(|m| m
                     .embed(|e| e
                         .title("Member Kicked")
-                        .colour(Colours::Red.val())
+                        .colour(*colours::RED)
                         .thumbnail(user.face())
-                        .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                        .timestamp(now!())
                         .description(format!("**Member:** {} ({}) - {}\n**Responsible Moderator:** {}\n**Reason:** {}",
                             user.tag(),
                             user.id.0,
@@ -320,7 +320,7 @@ impl EventHandler for Handler {
                     audit_channel.send_message(|m| m
                         .embed(|e| e
                             .title("Username changed")
-                            .colour(Colours::Main.val())
+                            .colour(*colours::MAIN)
                             .thumbnail(user.face())
                             .description(format!("**User: ** {}\n**Old:** {}\n**New:** {}", user.tag(), user_data.nickname, nick))
                     )).expect("Failed to send Message");
@@ -336,7 +336,7 @@ impl EventHandler for Handler {
                     audit_channel.send_message(|m| m
                         .embed(|e| e
                             .title("Roles changed")
-                            .colour(Colours::Main.val())
+                            .colour(*colours::MAIN)
                             .thumbnail(user.face())
                             .description(format!("**User: ** {}\n**Added:** {}", user.tag(), roles_added.iter().map(|r| RoleId(*r as u64).find().unwrap().name).collect::<Vec<String>>().join(", ")))
                     )).expect("Failed to send Message");
@@ -345,7 +345,7 @@ impl EventHandler for Handler {
                     audit_channel.send_message(|m| m
                         .embed(|e| e
                             .title("Roles changed")
-                            .colour(Colours::Main.val())
+                            .colour(*colours::MAIN)
                             .thumbnail(user.face())
                             .description(format!("**User: ** {}\n**Removed:** {}", user.tag(), roles_removed.iter().map(|r| RoleId(*r as u64).find().unwrap().name).collect::<Vec<String>>().join(", ")))
                     )).expect("Failed to send Message");
@@ -367,9 +367,9 @@ impl EventHandler for Handler {
                 modlog_channel.send_message(|m| m
                     .embed(|e| e
                         .title("Member Banned")
-                        .colour(Colours::Red.val())
+                        .colour(*colours::RED)
                         .thumbnail(user.face())
-                        .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                        .timestamp(now!())
                         .description(format!("**Member:** {} ({}) - {}\n**Responsible Moderator:** {}\n**Reason:** {}",
                             user.tag(),
                             user.id.0,
@@ -394,9 +394,9 @@ impl EventHandler for Handler {
                 modlog_channel.send_message(|m| m
                     .embed(|e| e
                         .title("Member Unbanned")
-                        .colour(Colours::Green.val())
+                        .colour(*colours::GREEN)
                         .thumbnail(user.face())
-                        .timestamp(Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string())
+                        .timestamp(now!())
                         .description(format!("**Member:** {} ({}) - {}\n**Responsible Moderator:** {}",
                             user.tag(),
                             user.id.0,

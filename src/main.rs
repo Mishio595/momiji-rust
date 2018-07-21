@@ -1,36 +1,17 @@
-#![recursion_limit="128"]
-
 #[macro_use] extern crate log;
-#[macro_use] extern crate serenity;
-#[macro_use] extern crate serde_derive;
-#[macro_use] extern crate diesel;
-#[macro_use] extern crate lazy_static;
+extern crate momiji;
+extern crate serenity;
 extern crate pretty_env_logger;
 extern crate kankyo;
-extern crate threadpool;
-extern crate typemap;
-extern crate chrono;
-extern crate sysinfo;
-extern crate sys_info;
-extern crate rand;
-extern crate regex;
-extern crate reqwest;
-extern crate serde;
-extern crate serde_json;
-extern crate levenshtein;
 
-mod modules;
-mod core;
-mod db;
-
-use core::{
+use momiji::db;
+use momiji::core::{
     api,
     handler::Handler,
     model::*,
     framework,
     timers,
 };
-
 use serenity::prelude::*;
 use serenity::http;
 use std::collections::HashSet;

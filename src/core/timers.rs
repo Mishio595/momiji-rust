@@ -9,7 +9,7 @@ use serenity::prelude::Mutex;
 use serenity::model::id::*;
 use serenity::model::channel::Channel;
 use core::utils::*;
-use core::consts::Colours;
+use core::colours;
 
 pub struct TimerClient {
     pub recv: Arc<Mutex<Receiver<String>>>,
@@ -47,7 +47,7 @@ impl TimerClient {
                                 .content(if !check { format!("<@{}>", parts[2]) } else { String::new() })
                                 .embed(|e| e
                                     .title(format!("Reminder from {} ago", seconds_to_hrtime(parts[3].parse::<usize>().unwrap())))
-                                    .colour(Colours::Main.val())
+                                    .colour(*colours::MAIN)
                                     .description(&parts[4])))
                                 .expect("Failed to send message");
                         db.lock().del_timer(parts[5].parse::<i32>().unwrap()).expect("Failed to delete timer");
@@ -63,7 +63,7 @@ impl TimerClient {
                                     channel_id.send_message(|m| m
                                         .embed(|e| e
                                             .title("Member Unmuted Automatically")
-                                            .colour(Colours::Blue.val())
+                                            .colour(*colours::BLUE)
                                             .field("Member", format!("{}\n{}", user.tag(), user_id.0), true)
                                     )).expect("Failed to send message");
                                 }

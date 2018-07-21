@@ -1,10 +1,10 @@
-use serenity::prelude::Mutex;
-use typemap::Key;
 use db::Database;
 use core::api;
 use core::timers::TimerClient;
+use serenity::prelude::Mutex;
 use serenity::client::bridge::gateway::ShardManager;
 use serenity::model::id::UserId;
+use typemap::Key;
 use std::sync::Arc;
 
 pub struct Owner;
