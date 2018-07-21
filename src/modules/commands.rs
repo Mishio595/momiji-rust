@@ -20,6 +20,7 @@ use fuzzy_match::algorithms::*;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::str::FromStr;
+use forecast::Icon::*;
 
 lazy_static! {
     static ref DICE_MATCH: Regex = Regex::new(r"(?P<count>\d+)d?(?P<sides>\d*)").unwrap();
@@ -608,7 +609,62 @@ command!(user_info(ctx, message, args) {
     };
 });
 
+// TODO fix float math on pressure
 command!(weather(ctx, message, args) {
+    let mut data = ctx.data.lock();
+    let loc = args.full();
+    message.channel_id.broadcast_typing()?;
+    if let Some((city_info, res)) = data.get::<ApiClient>().expect("Failed to get API Client").weather(loc) {
+        if let Ok(body) = res {
+            let current = body.currently.unwrap();
+            let daily = &body.daily.unwrap().data[0];
+            let temp = current.temperature.unwrap();
+            let temp_high = current.temperature_high.unwrap_or(daily.temperature_high.unwrap());
+            let temp_low = current.temperature_low.unwrap_or(daily.temperature_low.unwrap());
+            let feels_like = current.apparent_temperature.unwrap();
+            let wind = current.wind_speed.unwrap();
+            let visi = current.visibility.unwrap();
+            let pressure = current.pressure.unwrap()/1000.0;
+            let humidity = current.humidity.unwrap()*100.0;
+            let icon = match current.icon {
+                Some(ic) => {
+                    match ic {
+                        ClearDay => "The sky is clear",
+                        ClearNight => "The sky is clear",
+                        Rain => "It is raining",
+                        Snow => "It is snowing",
+                        Sleet => "It is sleeting",
+                        Wind => "It is windy",
+                        Fog => "It is foggy",
+                        Cloudy => "The sky is cloudy",
+                        PartlyCloudyDay => "The sky is partly cloudy",
+                        PartlyCloudyNight => "The sky is partly cloudy",
+                        Hail => "It is hailing",
+                        Thunderstorm => "There is a thunderstorm",
+                        Tornado => "There is a tornado",
+                    }
+                },
+                None => "The sky is clear",
+            };
+            message.channel_id.send_message(|m| m
+                .embed(|e| e
+                    .title(format!("Weather in {}", city_info))
+                    .description(format!("_It is currently **{}°C** with wind of **{} mph** making it feel like **{}°C**. {} with a visibility of about **{} mi**._",
+                        temp,
+                        wind,
+                        feels_like,
+                        icon,
+                        visi
+                    ))
+                    .field("Temperature", format!("Current: **{}°C**\nLow/High: **{}°C / {}°C**", temp, temp_low, temp_high), true)
+                    .field("Wind Chill", format!("Feels Like: **{}°C**\nWind Speed: **{} mph**", feels_like, wind), true)
+                    .field("Atmosphere", format!("Humidity: **{}%**\nPressure: **{} Bar**", humidity, pressure), true)
+                    .colour(*colours::MAIN)
+                    .timestamp(now!())
+                    .footer(|f| f.text("Forecast by Dark Sky"))
+            ))?;
+        }
+    }
 });
 
 command!(xp(ctx, message, _args) {

@@ -19,6 +19,8 @@ extern crate serde;
 extern crate serde_json;
 extern crate levenshtein;
 extern crate fuzzy_match;
+extern crate forecast;
+extern crate geocoding;
 
 pub mod macros;
 pub mod core;

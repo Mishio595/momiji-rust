@@ -1,5 +1,7 @@
 use reqwest::*;
 use reqwest::header::{Headers, UserAgent, ContentType, Accept, Authorization, qitem};
+use forecast::{ApiClient as DSClient, ApiResponse, ForecastRequestBuilder, Lang, Units};
+use geocoding::Opencage;
 use std::env;
 
 const UA: &str = "momiji-bot";
@@ -10,7 +12,6 @@ const CAT: &str = "http://aws.random.cat/meow";
 const URBAN: &str = "https://api.urbandictionary.com/v0/define";
 const DAD_JOKE: &str = "https://icanhazdadjoke.com";
 const FURRY: &str = "https://e621.net/post/index.json";
-const WEATHER: &str = "https://api.openweathermap.org/data/2.5/weather";
 const DBOTS: &str = "http://discordbots.org/api/bots";
 
 // Deserialization structs
@@ -106,7 +107,7 @@ impl ApiClient {
     pub fn stats_update(&self, bot_id: u64, server_count: usize) {
         let mut headers = Headers::new();
         headers.set(ContentType::json());
-        headers.set(Authorization(env::var("DBOTS_TOKEN").unwrap()));
+        headers.set(Authorization(env::var("DBOTS_TOKEN").expect("No DiscordBots.org token in env")));
 
         let stats = [("server_count", server_count)];
         let _ = self.client.post(format!("{}/{}/stats",DBOTS, bot_id).as_str())
@@ -191,5 +192,35 @@ impl ApiClient {
                     Err(why)
                 },
         }
+    }
+
+    // TODO choose units based on location
+    pub fn weather(&self, input: &str) -> Option<(String, Result<ApiResponse>)> {
+        let ds_key = env::var("DARKSKY_KEY").expect("No DarkSky API Key found in env");
+        let oc_key = env::var("OPENCAGE_KEY").expect("No key for OpenCage in env");
+        let ds_client = DSClient::new(&self.client);
+        let oc_client = Opencage::new(oc_key);
+        if let Ok(data) = oc_client.forward_full(input, &None) {
+            if !data.results.is_empty() {
+                let first = data.results.first().unwrap();
+                let city_info = format!("{}, {}",
+                    first.components.get("city").unwrap(),
+                    first.components.get("country").unwrap()
+                );
+                let fc_req = Some(ForecastRequestBuilder::new(ds_key.as_str(), *first.geometry.get("lat").unwrap(), *first.geometry.get("lng").unwrap())
+                    .lang(Lang::English)
+                    .units(Units::UK)
+                    .build());
+                if let Some(req) = fc_req {
+                    match ds_client.get_forecast(req) {
+                        Ok(mut res) => {
+                           return Some((city_info, res.json::<ApiResponse>()));
+                        },
+                        Err(why) => { return Some((city_info, Err(why))); },
+                    }
+                }
+            }
+        }
+        None
     }
 }

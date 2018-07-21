@@ -155,6 +155,9 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .desc("Set a reminder. The reminder is sent to whatever channel it originated in.")
                 .usage("<reminder text> </t time_resolvable>")
                 .example("do the thing /t 1 day 10 min 25 s"))
+            // TODO write bucket, 1000 api calls per day
+            .command("weather", |c| c
+                .cmd(weather))
             .command("xp", |c| c
                 .cmd(xp)
                 .desc("Check your current xp")))
