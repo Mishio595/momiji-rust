@@ -1,4 +1,7 @@
-use reqwest::*;
+use kitsu::{KitsuReqwestRequester, Error as KitsuErr};
+use kitsu::model::{Response, Anime, Manga};
+use reqwest::{Client, Result as ReqwestResult};
+use reqwest::mime;
 use reqwest::header::{Headers, UserAgent, ContentType, Accept, Authorization, qitem};
 use forecast::{ApiClient as DSClient, ApiResponse, ForecastRequestBuilder, Lang, Units};
 use geocoding::Opencage;
@@ -115,7 +118,7 @@ impl ApiClient {
             .send();
     }
 
-    pub fn dog(&self) -> Result<Dog> {
+    pub fn dog(&self) -> ReqwestResult<Dog> {
         match self.client.get(DOG).send() {
             Ok(mut res) => {
                 res.json::<Dog>()
@@ -127,7 +130,7 @@ impl ApiClient {
         }
     }
 
-    pub fn cat(&self) -> Result<Cat> {
+    pub fn cat(&self) -> ReqwestResult<Cat> {
         match self.client.get(CAT).send() {
             Ok(mut res) => {
                 res.json::<Cat>()
@@ -140,7 +143,7 @@ impl ApiClient {
         }
     }
 
-    pub fn joke(&self) -> Result<String> {
+    pub fn joke(&self) -> ReqwestResult<String> {
         let mut headers = Headers::new();
         headers.set(UserAgent::new(UA));
         headers.set(Accept(vec![qitem(mime::TEXT_PLAIN)]));
@@ -158,7 +161,7 @@ impl ApiClient {
         }
     }
 
-    pub fn urban<S: Into<String>>(&self, input: S) -> Result<Urban> {
+    pub fn urban<S: Into<String>>(&self, input: S) -> ReqwestResult<Urban> {
         let mut headers = Headers::new();
         headers.set(UserAgent::new(UA));
 
@@ -176,7 +179,7 @@ impl ApiClient {
         }
     }
 
-    pub fn furry<S: Into<String>>(&self, input: S, count: u32) -> Result<Vec<FurPost>> {
+    pub fn furry<S: Into<String>>(&self, input: S, count: u32) -> ReqwestResult<Vec<FurPost>> {
         let mut headers = Headers::new();
         headers.set(UserAgent::new(UA));
 
@@ -194,8 +197,16 @@ impl ApiClient {
         }
     }
 
+    pub fn anime<S: Into<String>>(&self, input: S) -> Result<Response<Vec<Anime>>, KitsuErr> {
+        self.client.search_anime(|f| f.filter("text", input.into().trim()))
+    }
+
+    pub fn manga<S: Into<String>>(&self, input: S) -> Result<Response<Vec<Manga>>, KitsuErr> {
+        self.client.search_manga(|f| f.filter("text", input.into().trim()))
+    }
+
     // TODO choose units based on location
-    pub fn weather(&self, input: &str) -> Option<(String, Result<ApiResponse>)> {
+    pub fn weather(&self, input: &str) -> Option<(String, ReqwestResult<ApiResponse>)> {
         let ds_key = env::var("DARKSKY_KEY").expect("No DarkSky API Key found in env");
         let oc_key = env::var("OPENCAGE_KEY").expect("No key for OpenCage in env");
         let ds_client = DSClient::new(&self.client);

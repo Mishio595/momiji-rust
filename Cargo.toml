@@ -31,6 +31,7 @@ levenshtein = "1.0.3"
 fuzzy_match = "0.1.1"
 forecast = "1.1.0"
 geocoding = "0.0.3"
+kitsu = "0.2.0"
 
 [dependencies.diesel]
 version = "1.0.0"

@@ -158,6 +158,10 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             // TODO write bucket, 1000 api calls per day
             .command("weather", |c| c
                 .cmd(weather))
+            .command("anime", |c| c
+                .cmd(anime_search))
+            .command("manga", |c| c
+                .cmd(manga_search))
             .command("xp", |c| c
                 .cmd(xp)
                 .desc("Check your current xp")))

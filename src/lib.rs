@@ -21,6 +21,7 @@ extern crate levenshtein;
 extern crate fuzzy_match;
 extern crate forecast;
 extern crate geocoding;
+extern crate kitsu;
 
 pub mod macros;
 pub mod core;

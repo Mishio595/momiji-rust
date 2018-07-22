@@ -107,10 +107,80 @@ command!(e621(ctx, message, args) {
     }
 });
 
-command!(anime(ctx, message, args) {
+command!(anime_search(ctx, message, args) {
+    use kitsu::model::Status::*;
+    let data = ctx.data.lock();
+    let api = data.get::<ApiClient>().expect("Failed to get ApiClient");
+    if let Ok(res) = api.anime(args.full()) {
+        if let Some(anime) = res.data.first() {
+            let status = match anime.attributes.status.unwrap() {
+                Current => "Current",
+                Finished => "Complete",
+                TBA => "To Be Announced",
+                Unreleased => "Unreleased",
+                Upcoming => "Upcoming",
+            };
+            let cover_url = match anime.attributes.cover_image.clone() {
+                Some(cover) => { match cover.original {
+                    Some(url) => url,
+                    None => String::new(),
+                }},
+                None => String::new(),
+            };
+            message.channel_id.send_message(|m| m
+                .embed(|e| e
+                    .title(format!("**{}**", anime.attributes.canonical_title.clone()))
+                    .url(anime.url())
+                    .description(format!("{}\n\n**Episodes:** {} ({} min/ep)\n**Score:** {}\n**Status:** {}",
+                        anime.attributes.synopsis,
+                        anime.attributes.episode_count.unwrap(),
+                        anime.attributes.episode_length.unwrap(),
+                        anime.attributes.average_rating.clone().unwrap(),
+                        status
+                    ))
+                    .thumbnail(cover_url)
+                    .colour(*colours::MAIN)
+            ))?;
+        }
+    }
 });
 
-command!(manga(ctx, message, args) {
+command!(manga_search(ctx, message, args) {
+    use kitsu::model::Status::*;
+    let data = ctx.data.lock();
+    let api = data.get::<ApiClient>().expect("Failed to get ApiClient");
+    if let Ok(res) = api.manga(args.full()) {
+        if let Some(manga) = res.data.first() {
+            let status = match manga.attributes.status.unwrap() {
+                Current => "Current",
+                Finished => "Complete",
+                TBA => "To Be Announced",
+                Unreleased => "Unreleased",
+                Upcoming => "Upcoming",
+            };
+            let cover_url = match manga.attributes.cover_image.clone() {
+                Some(cover) => { match cover.original {
+                    Some(url) => url,
+                    None => String::new(),
+                }},
+                None => String::new(),
+            };
+            message.channel_id.send_message(|m| m
+                .embed(|e| e
+                    .title(format!("**{}**", manga.attributes.canonical_title.clone()))
+                    .url(manga.url())
+                    .description(format!("{}\n\n**Volumes:** {}\n**Chapters:** {}\n**Score:** {}\n**Status:** {}",
+                        manga.attributes.synopsis,
+                        manga.attributes.volume_count.unwrap(),
+                        manga.attributes.chapter_count.unwrap(),
+                        manga.attributes.average_rating.clone().unwrap(),
+                        status
+                    ))
+                    .thumbnail(cover_url)
+                    .colour(*colours::MAIN)
+            ))?;
+        }
+    }
 });
 
 command!(now(_ctx, message, args) {
@@ -624,7 +694,7 @@ command!(weather(ctx, message, args) {
             let feels_like = current.apparent_temperature.unwrap();
             let wind = current.wind_speed.unwrap();
             let visi = current.visibility.unwrap();
-            let pressure = current.pressure.unwrap()/1000.0;
+            let pressure = current.pressure.unwrap();
             let humidity = current.humidity.unwrap()*100.0;
             let icon = match current.icon {
                 Some(ic) => {
@@ -658,7 +728,7 @@ command!(weather(ctx, message, args) {
                     ))
                     .field("Temperature", format!("Current: **{}°C**\nLow/High: **{}°C / {}°C**", temp, temp_low, temp_high), true)
                     .field("Wind Chill", format!("Feels Like: **{}°C**\nWind Speed: **{} mph**", feels_like, wind), true)
-                    .field("Atmosphere", format!("Humidity: **{}%**\nPressure: **{} Bar**", humidity, pressure), true)
+                    .field("Atmosphere", format!("Humidity: **{}%**\nPressure: **{} mb**", humidity, pressure), true)
                     .colour(*colours::MAIN)
                     .timestamp(now!())
                     .footer(|f| f.text("Forecast by Dark Sky"))
@@ -1351,26 +1421,25 @@ command!(ignore(ctx, message, args) {
     if !guild_data.ignored_channels.contains(&(channel_id.0 as i64)) {
         guild_data.ignored_channels.push(channel_id.0 as i64);
         match db.update_guild(guild_id.0 as i64, guild_data) {
-            Ok(guild) => {
+            Ok(_) => {
                 message.channel_id.say(format!("I will now ignore messages in {}",
                     channel.name
                 ))?;
             },
-            Err(why) =>{
+            Err(_) =>{
                 message.channel_id.say("Failed to add channel to ignore list")?;
             },
         };
     } else {
         guild_data.ignored_channels.retain(|e| *e != channel_id.0 as i64);
         match db.update_guild(guild_id.0 as i64, guild_data) {
-            Ok(guild) => {
+            Ok(_) => {
                 message.channel_id.say(format!("I will no longer ignore messages in {}",
                     channel.name
-                )).expect("Failed to send message");
+                ))?;
             },
-            Err(why) =>{
-                message.channel_id.say("Failed to remove channel to ignore list")
-                    .expect("Failed to send message");
+            Err(_) =>{
+                message.channel_id.say("Failed to remove channel to ignore list")?;
             },
         };
     }
@@ -1382,7 +1451,7 @@ command!(csr(ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let switches = get_switches(args.full().to_string());
     let rest = switches.get("rest").unwrap();
-    let (role_id, role) = parse_role(rest.clone(), guild_id).expect("Failed to parse role");
+    let (role_id, _) = parse_role(rest.clone(), guild_id).expect("Failed to parse role");
     let category = match switches.get("c") {
         Some(s) => Some( s.clone()),
         None => None,
@@ -1413,7 +1482,7 @@ command!(dsr(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
     let guild_id = message.guild_id.unwrap();
-    let (role_id, role) = parse_role(args.single_quoted::<String>().unwrap(), guild_id).unwrap();
+    let (role_id, _) = parse_role(args.single_quoted::<String>().unwrap(), guild_id).unwrap();
     match db.del_role(role_id.0 as i64, guild_id.0 as i64) {
         Ok(data) => {
             message.channel_id.say(format!("Successfully deleted role {}", data))?;
@@ -1430,7 +1499,7 @@ command!(esr(ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let switches = get_switches(args.full().to_string());
     let rest = switches.get("rest").unwrap();
-    let (role_id, role) = parse_role(rest.clone(), guild_id).expect("Failed to parse role");
+    let (role_id, _) = parse_role(rest.clone(), guild_id).expect("Failed to parse role");
     let category = match switches.get("c") {
         Some(s) => Some(s.clone()),
         None => None,
@@ -1589,7 +1658,7 @@ command!(premium(ctx, message, args) {
     let db = data.get::<DB>().unwrap().lock();
     let g = args.single::<String>().unwrap();
     let op = args.single::<String>().unwrap();
-    let (guild_id, guild) = parse_guild(g).unwrap();
+    let (guild_id, _) = parse_guild(g).unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     match op.to_lowercase().as_str() {
         "enable" => { guild_data.premium = true; },
