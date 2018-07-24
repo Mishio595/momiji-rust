@@ -33,41 +33,59 @@ impl TimerClient {
                 match rec.lock().recv() {
                     Ok(data) => {
                         let parts = data.split("||").map(|s| s.to_string()).collect::<Vec<String>>();
-                        if parts[0] == "REMINDER" {
-                            // type, channel_id, user_id, dur, reminder, id
-                            let channel_id = ChannelId::from_str(parts[1].as_str()).expect("Failed to build ChannelId from string");
-                            let check = match channel_id.get() {
-                                Ok(ch) => { match ch {
-                                    Channel::Private(_) => true,
+                        match parts[0].as_str() {
+                            "REMINDER" => {
+                                // type, channel_id, user_id, dur, reminder, id
+                                let channel_id = ChannelId::from_str(parts[1].as_str()).expect("Failed to build ChannelId from string");
+                                let check = match channel_id.get() {
+                                    Ok(ch) => { match ch {
+                                        Channel::Private(_) => true,
+                                        _ => false,
+                                    }}
                                     _ => false,
-                                }}
-                                _ => false,
-                            };
-                            channel_id.send_message(|m| m
-                                .content(if !check { format!("<@{}>", parts[2]) } else { String::new() })
-                                .embed(|e| e
-                                    .title(format!("Reminder from {} ago", seconds_to_hrtime(parts[3].parse::<usize>().unwrap())))
-                                    .colour(*colours::MAIN)
-                                    .description(&parts[4])))
-                                .expect("Failed to send message");
-                        db.lock().del_timer(parts[5].parse::<i32>().unwrap()).expect("Failed to delete timer");
-                        } else if parts[0] == "UNMUTE" {
-                            // type, user_id, guild_id, mute_role, channel_id, dur, id
-                            let user_id = UserId::from_str(parts[1].as_str()).expect("Failed to build UserId");
-                            let user = user_id.get().unwrap();
-                            let guild_id = GuildId(parts[2].parse::<u64>().expect("Failed to build GuildId"));
-                            let role_id = RoleId::from_str(parts[3].as_str()).expect("Failed to build RoleId");
-                            let channel_id = ChannelId::from_str(parts[4].as_str()).expect("Failed to build ChannelId");
-                            if let Ok(mut member) = guild_id.member(user_id) {
-                                if let Ok(_) = member.remove_role(role_id) {
-                                    channel_id.send_message(|m| m
-                                        .embed(|e| e
-                                            .title("Member Unmuted Automatically")
-                                            .colour(*colours::BLUE)
-                                            .field("Member", format!("{}\n{}", user.tag(), user_id.0), true)
-                                    )).expect("Failed to send message");
+                                };
+                                channel_id.send_message(|m| m
+                                    .content(if !check { format!("<@{}>", parts[2]) } else { String::new() })
+                                    .embed(|e| e
+                                        .title(format!("Reminder from {} ago", seconds_to_hrtime(parts[3].parse::<usize>().unwrap())))
+                                        .colour(*colours::MAIN)
+                                        .description(&parts[4])))
+                                    .expect("Failed to send message");
+                                db.lock().del_timer(parts[5].parse::<i32>().unwrap()).expect("Failed to delete timer");
+                            },
+                            "UNMUTE" => {
+                                // type, user_id, guild_id, mute_role, channel_id, dur, id
+                                let user_id = UserId::from_str(parts[1].as_str()).expect("Failed to build UserId");
+                                let user = user_id.get().unwrap();
+                                let guild_id = GuildId(parts[2].parse::<u64>().expect("Failed to build GuildId"));
+                                let role_id = RoleId::from_str(parts[3].as_str()).expect("Failed to build RoleId");
+                                let channel_id = ChannelId::from_str(parts[4].as_str()).expect("Failed to build ChannelId");
+                                if let Ok(mut member) = guild_id.member(user_id) {
+                                    if let Ok(_) = member.remove_role(role_id) {
+                                        channel_id.send_message(|m| m
+                                            .embed(|e| e
+                                                .title("Member Unmuted Automatically")
+                                                .colour(*colours::BLUE)
+                                                .field("Member", format!("{}\n{}", user.tag(), user_id.0), true)
+                                        )).expect("Failed to send message");
+                                    }
                                 }
-                            }
+                            },
+                            "COOLDOWN" => {
+                                // type, user_id, guild_id, member_role_id
+                                let user_id = UserId::from_str(parts[1].as_str()).expect("Failed to build UserId");
+                                let guild_id = GuildId(parts[2].parse::<u64>().expect("Failed to build GuildId"));
+                                let member_role_id = RoleId::from_str(parts[3].as_str()).expect("Failed to build RoleId");
+                                let cooldown_role_id = RoleId::from_str(parts[4].as_str()).expect("Failed to build RoleId");
+                                if let Ok(mut member) = guild_id.member(user_id) {
+                                    if let Ok(_) = member.add_role(member_role_id) {
+                                        if let Ok(_) = member.remove_role(cooldown_role_id) {
+                                            info!("Member removed from cooldown. User ID: {:?}, Guild: {:?}", user_id, guild_id);
+                                        } else { warn!("Failed to remove cooldown role"); }
+                                    } else { warn!("Failed to add member role"); }
+                                }
+                            },
+                            _ => {},
                         }
                     },
                     Err(_) => {},

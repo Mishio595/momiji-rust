@@ -358,4 +358,43 @@ impl Database {
             .set(&tag)
             .get_result(&self.conn)
     }
+    // TODO add premium abstractions
+    // Premium Tools
+    /// Add premium with a given guild ID.
+    /// Returns the PremiumSettings on success.
+    pub fn new_premium(&self, id: i64) -> QueryResult<PremiumSettings> {
+        let prem = NewPremium {
+            id,
+        };
+        diesel::insert_into(premium::table)
+            .values(&prem)
+            .get_result(&self.conn)
+    }
+    /// Delete premium by a guild ID.
+    /// Returns the ID on success.
+    pub fn del_premium(&self, g_id: i64) -> QueryResult<i64> {
+        use db::schema::premium::dsl::*;
+        use db::schema::premium::columns;
+        diesel::delete(premium)
+            .filter(id.eq(&g_id))
+            .returning(columns::id)
+            .get_result(&self.conn)
+    }
+    /// Select PremiumSettings by guild ID
+    /// Returns the settings on success
+    /// Will return Err if the guild is not premium
+    pub fn get_premium(&self, g_id: i64) -> QueryResult<PremiumSettings> {
+        use db::schema::premium::dsl::*;
+        premium.filter(id.eq(&g_id))
+            .first(&self.conn)
+    }
+    /// Update PremiumSettings
+    /// Returns the new settings on success
+    pub fn update_premium(&self, g_id: i64, settings: PremiumSettings) -> QueryResult<PremiumSettings> {
+        use db::schema::premium::dsl::*;
+        let target = premium.filter(id.eq(&g_id));
+        diesel::update(target)
+            .set(&settings)
+            .get_result(&self.conn)
+    }
 }

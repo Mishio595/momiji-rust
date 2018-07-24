@@ -24,6 +24,11 @@ lazy_static! {
     static ref TIME: Regex          = Regex::new(r"(\d+)\s*?(\w)").unwrap();
 }
 
+/// Attempts to parse a role ID out of a string
+/// If the string does not contain a valid snowflake, attempt to match as name to cached roles
+/// This method is case insensitive
+/// # Panics
+/// This method will panic if `guild` is not a valid, cached GuildId
 pub fn parse_role(input: String, guild: GuildId) -> Option<(RoleId, Role)> {
     let cache = CACHE.read();
     match ROLE_MATCH.captures(input.as_str()) {
@@ -44,6 +49,11 @@ pub fn parse_role(input: String, guild: GuildId) -> Option<(RoleId, Role)> {
     }
 }
 
+/// Attempts to parse a user ID out of a string
+/// If the string does not contain a valid snowflake, attempt to match as name to cached users
+/// This method is case insensitive
+/// # Panics
+/// This method will panic if `guild` is not a valid, cached GuildId
 pub fn parse_user(input: String, guild: GuildId) -> Option<(UserId, Member)> {
     let cache = CACHE.read();
     match USER_MATCH.captures(input.as_str()) {
@@ -64,6 +74,11 @@ pub fn parse_user(input: String, guild: GuildId) -> Option<(UserId, Member)> {
     }
 }
 
+/// Attempts to parse a channel ID out of a string
+/// If the string does not contain a valid snowflake, attempt to match as name to cached GuildChannels
+/// This method is case insensitive
+/// # Panics
+/// This method will panic if `guild` is not a valid, cached GuildId
 pub fn parse_channel(input: String, guild: GuildId) -> Option<(ChannelId, GuildChannel)> {
     let cache = CACHE.read();
     match CHANNEL_MATCH.captures(input.as_str()) {
@@ -85,6 +100,9 @@ pub fn parse_channel(input: String, guild: GuildId) -> Option<(ChannelId, GuildC
     }
 }
 
+/// Attempts to parse a guild ID out of a string
+/// If the string does not contain a valid snowflake, attempt to match as name to cached guild
+/// This method is case insensitive
 pub fn parse_guild(input: String) -> Option<(GuildId, Arc<RwLock<Guild>>)> {
     let cache = CACHE.read();
     match GUILD_MATCH.captures(input.as_str()) {
@@ -104,6 +122,22 @@ pub fn parse_guild(input: String) -> Option<(GuildId, Arc<RwLock<Guild>>)> {
     }
 }
 
+/// This is used for checking if a member has any roles that match the guild's configured mod_roles
+/// or admin_roles
+pub fn check_rank(roles: Vec<i64>, member: Vec<RoleId>) -> bool {
+    for role in roles.iter() {
+        if member.contains(&RoleId(*role as u64)) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Parses a string for flags preceded by `/`
+/// The HashMap returned correlates to `/{key} {value}` where value may be an empty string.
+/// Additionally, the map will contain the key "rest" which contains anything in the string prior
+/// to any unescaped `/` appearing. If no unescaped `/` are present, this will also be the full
+/// string.
 pub fn get_switches(input: String) -> HashMap<String, String> {
     let input = input.replace(r"\/", "∰"); // use an uncommon substitute because the regex crate doesn't support lookaround, we'll sub back after the regex does its thing
     let mut map: HashMap<String, String> = HashMap::new();
@@ -116,6 +150,10 @@ pub fn get_switches(input: String) -> HashMap<String, String> {
     map
 }
 
+/// Converts a human-readable time to seconds
+/// Example inputs
+/// `3 days 2 hours 23 seconds`
+/// `7w2d4h`
 pub fn hrtime_to_seconds(time: String) -> i64 {
     let mut secs: usize = 0;
     for s in TIME.captures_iter(time.as_str()) {
@@ -132,6 +170,7 @@ pub fn hrtime_to_seconds(time: String) -> i64 {
     secs as i64
 }
 
+/// Converts a time in seconds to a human readable string
 pub fn seconds_to_hrtime(mut secs: usize) -> String {
     let mut time = [0,0,0,0,0];
     let word = ["week", "day", "hour", "min", "sec"];

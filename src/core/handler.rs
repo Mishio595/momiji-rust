@@ -170,7 +170,24 @@ impl EventHandler for Handler {
             let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
             let user = event.presence.user_id.get().unwrap();
             if !user.bot {
-                if let Ok(_) = guild_id.member(user.id) {
+                if let Ok(mut member) = guild_id.member(user.id) {
+                    if guild_id == TRANSCEND {
+                        match event.presence.game {
+                            Some(ref game) => {
+                                use serenity::model::gateway::GameType;
+                                if let GameType::Streaming = game.kind {
+                                    if member.roles.contains(&NOW_LIVE) {
+                                        let _ = member.add_role(NOW_LIVE);
+                                    }
+                                }
+                            },
+                            None => {
+                                if !member.roles.contains(&NOW_LIVE) {
+                                    let _ = member.remove_role(NOW_LIVE);
+                                }
+                            },
+                        }
+                    }
                     let mut user_data = db.get_user(event.presence.user_id.0 as i64, guild_id.0 as i64).unwrap_or_else(|_| {
                         db.new_user(event.presence.user_id.0 as i64, guild_id.0 as i64).unwrap()
                     });

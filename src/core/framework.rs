@@ -1,12 +1,13 @@
 use core::consts::*;
 use core::colours;
 use core::model::DB;
+use core::utils::check_rank;
 use modules::commands::*;
 use serenity::framework::{
     StandardFramework,
     standard::{help_commands, HelpBehaviour},
 };
-use serenity::model::id::{UserId, RoleId};
+use serenity::model::id::UserId;
 use serenity::model::channel::Channel;
 use std::collections::HashSet;
 use chrono::Utc;
@@ -282,7 +283,10 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .usage("<user_resolvable>")
                 .example("@Adelyn")
                 .batch_known_as(vec!["mi", "minfo"])
-                .min_args(1)))
+                .min_args(1))
+            .command("register", |c| c
+                .cmd(register)
+                .known_as("reg")))
         .group("Role Management", |g| g
             .help_available(true)
             .guild_only(true)
@@ -368,10 +372,42 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .desc("Bulk delete messages. Filter is one of bot, attachment, !pin, mention, or a user_resolvable.\n`bot` will prune only messages from bots.\n`attachment` will prune only messages with attachments.\n`!pin` will prune all but pinned messages.\n`mention` will prune only messages that mention a user or everyone.\nMentioning a user will prune only that user's messages.")
                 .usage("<count> [filter]")
                 .example("20 bot")))
+        .group("Premium", |g| g
+            .guild_only(true)
+            .help_available(true)
+            .prefixes(vec!["p", "premium", "prem"])
+            .check(|ctx, message, _, _| {
+                let data = ctx.data.lock();
+                let db = data.get::<DB>().expect("Failed to get DB").lock();
+                let guild_id = message.guild_id.unwrap();
+                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+                let member = guild_id.member(message.author.id.clone()).unwrap();
+                check_rank(guild_data.admin_roles, member.roles)
+            })
+            .command("register_member", |c| c
+                .cmd(premium_reg_member)
+                .batch_known_as(vec!["reg_m", "reg_member"]))
+            .command("register_cooldown", |c| c
+                .cmd(premium_reg_cooldown)
+                .batch_known_as(vec!["reg_c", "reg_cooldown"]))
+            .command("register_duration", |c| c
+                .cmd(premium_reg_dur)
+                .batch_known_as(vec!["reg_dur", "reg_duration"]))
+            .command("register_roles", |c| c
+                .cmd(premium_reg_restrict)
+                .batch_known_as(vec!["reg_roles", "reg_restrict"])))
         .group("Tests", |g| g
             .guild_only(true)
             .help_available(true)
             .prefix("test")
+            .check(|ctx, message, _, _| {
+                let data = ctx.data.lock();
+                let db = data.get::<DB>().expect("Failed to get DB").lock();
+                let guild_id = message.guild_id.unwrap();
+                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
+                let member = guild_id.member(message.author.id.clone()).unwrap();
+                check_rank(guild_data.admin_roles, member.roles)
+            })
             .command("welcome", |c| c
                 .cmd(test_welcome)
                 .desc("Generates a welcome message to test your current setup.")))
@@ -495,18 +531,8 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
         .group("Owner Only", |g| g
             .owners_only(true)
             .help_available(false)
-            .command("premium", |c| c
-                .cmd(premium)
-                .batch_known_as(vec!["prem", "p"]))
+            .command("op", |c| c
+                .cmd(set_premium))
             .command("log", |c| c
                 .cmd(log)))
-}
-
-fn check_rank(roles: Vec<i64>, member: Vec<RoleId>) -> bool {
-    for role in roles.iter() {
-        if member.contains(&RoleId(*role as u64)) {
-            return true;
-        }
-    }
-    false
 }

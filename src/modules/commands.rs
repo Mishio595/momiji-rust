@@ -1,5 +1,6 @@
 use core::utils::*;
 use core::model::*;
+use core::consts::DAY;
 use core::colours;
 use serenity::CACHE;
 use serenity::prelude::*;
@@ -64,11 +65,13 @@ command!(cat(ctx, message, _args) {
     };
 });
 
+/* TODO add these in once I get good tools for it
 command!(color(ctx, message, args) {
 });
 
 command!(danbooru(ctx, message, args) {
 });
+*/
 
 command!(dog(ctx, message, _args) {
     let mut data = ctx.data.lock();
@@ -648,7 +651,10 @@ command!(user_info(ctx, message, args) {
         let data = ctx.data.lock();
         let db = data.get::<DB>().unwrap().lock();
         let guild = guild_lock.read();
-        let guild_data = db.get_guild(guild.id.0 as i64)?;
+        let premium = match db.get_premium(guild.id.0 as i64) {
+            Ok(_) => true,
+            Err(_) => false,
+        };
         let (user, member) = match parse_user(args.single::<String>().unwrap_or(String::new()), guild.id) {
             Some((id, member)) => (id.get().unwrap(), member),
             None => (message.author.clone(), message.member().unwrap().clone()),
@@ -659,7 +665,7 @@ command!(user_info(ctx, message, args) {
         let dates = format!("Created: {}\nJoined: {}{}",
             user.created_at().format("%a, %d %h %Y @ %H:%M:%S").to_string(),
             member.joined_at.unwrap().format("%a, %d %h %Y @ %H:%M:%S").to_string(),
-            if guild_data.premium {
+            if premium {
                 let r = user_data.registered;
                 if r.is_some() { format!("\nRegistered: {}", r.unwrap().format("%a, %d %h %Y @ %H:%M:%S").to_string()) }
                 else { String::new() }}
@@ -913,6 +919,67 @@ command!(note_list(ctx, message, args) {
 });
 
 command!(register(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().expect("Failed to get DB").lock();
+    let guild_id = message.guild_id.unwrap();
+    if let Ok(settings) = db.get_premium(guild_id.0 as i64) {
+        let tc = data.get::<TC>().expect("Failed to get TimerClient").lock();
+        let guild_data = db.get_guild(guild_id.0 as i64)?;
+        let roles = db.get_roles(guild_id.0 as i64)?;
+        let (user_id, mut member) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
+        let user = user_id.get().unwrap();
+        let channel = if guild_data.modlog {
+            ChannelId(guild_data.modlog_channel as u64)
+        } else { message.channel_id };
+        let list = args.rest().split(",").map(|s| s.trim().to_string());
+        let mut to_add = Vec::new();
+        for r1 in list {
+            if let Some((r, _)) = parse_role(r1.clone(), guild_id) {
+                if settings.cooldown_restricted_roles.contains(&(r.0 as i64)) { continue; }
+                if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
+                    to_add.push(r);
+                }
+            } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
+                to_add.push(RoleId(roles[i].id as u64));
+            }
+        }
+        for (i, role_id) in to_add.clone().iter().enumerate() {
+            if member.roles.contains(role_id) {
+                to_add.remove(i);
+            }
+            if let Err(_) = member.add_role(*role_id) {
+                to_add.remove(i);
+            };
+        }
+        if let Some(role) = settings.register_cooldown_role {
+            member.add_role(RoleId(role as u64))?;
+            if let Some(member_role) = settings.register_member_role {
+                tc.request(format!("COOLDOWN||{}||{}||{}||{}",
+                    user.id.0,
+                    guild_id.0,
+                    member_role,
+                    role,
+                ), match settings.register_cooldown_duration {
+                    Some(dur) => dur as u64,
+                    None => DAY as u64,
+                });
+            }
+        } else if let Some(role) = settings.register_member_role {
+            member.add_role(RoleId(role as u64))?;
+        }
+        let desc = if !to_add.is_empty() {
+            format!("{}", to_add.iter().map(|r| r.find().unwrap().name).collect::<Vec<String>>().join("\n"))
+        } else { String::new() };
+        channel.send_message(|m| m
+            .embed(|e| e
+                .title(format!("Registered {} with the following roles:", user.tag()))
+                .description(desc)
+                .colour(member.colour().unwrap())
+                .timestamp(now!())
+        ))?;
+    } else {
+        message.channel_id.say("This guild does not have permissions to use this command.")?;
+    }
 });
 
 command!(ar(_ctx, message, args) {
@@ -1534,6 +1601,90 @@ command!(esr(ctx, message, args) {
     };
 });
 
+command!(premium_reg_member(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().expect("Failed to get DB").lock();
+    let guild_id = message.guild_id.unwrap();
+    if let Ok(mut settings) = db.get_premium(guild_id.0 as i64) {
+        if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id) {
+            settings.register_member_role = Some(role_id.0 as i64);
+            db.update_premium(guild_id.0 as i64, settings)?;
+            message.channel_id.say(format!("Set member role to {}", role.name))?;
+        }
+    }
+});
+
+command!(premium_reg_cooldown(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().expect("Failed to get DB").lock();
+    let guild_id = message.guild_id.unwrap();
+    if let Ok(mut settings) = db.get_premium(guild_id.0 as i64) {
+        if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id) {
+            settings.register_cooldown_role = Some(role_id.0 as i64);
+            db.update_premium(guild_id.0 as i64, settings)?;
+            message.channel_id.say(format!("Set cooldown role to {}", role.name))?;
+        }
+    }
+});
+
+command!(premium_reg_dur(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().expect("Failed to get DB").lock();
+    let guild_id = message.guild_id.unwrap();
+    if let Ok(mut settings) = db.get_premium(guild_id.0 as i64) {
+        if let Ok(dur) = args.full().parse::<String>() {
+            let dur = hrtime_to_seconds(dur);
+            settings.register_cooldown_duration = Some(dur as i32);
+            db.update_premium(guild_id.0 as i64, settings)?;
+            message.channel_id.say(format!("Set duration of cooldown to {}", seconds_to_hrtime(dur as usize)))?;
+        }
+    }
+});
+
+command!(premium_reg_restrict(ctx, message, args) {
+    let data = ctx.data.lock();
+    let db = data.get::<DB>().expect("Failed to get DB").lock();
+    let guild_id = message.guild_id.unwrap();
+    let op = args.single::<String>().unwrap();
+    let mut sec = "";
+    let mut val = String::new();
+    if let Ok(mut settings) = db.get_premium(guild_id.0 as i64) {
+        match op.as_str() {
+            "add" => {
+                if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id) {
+                    settings.cooldown_restricted_roles.push(role_id.0 as i64);
+                    sec = "Added";
+                    val = role.name;
+                }
+            },
+            "del" => {
+                if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id) {
+                    settings.cooldown_restricted_roles.push(role_id.0 as i64);
+                    sec = "Removed";
+                    val = role.name;
+                }
+            },
+            "set" => {
+                let list = args.rest().split(",").map(|s| s.trim().to_string());
+                let mut roles = Vec::new();
+                let mut role_names = Vec::new();
+                for role in list {
+                    if let Some((role_id, role)) = parse_role(role, guild_id) {
+                        roles.push(role_id.0 as i64);
+                        role_names.push(role.name);
+                    }
+                }
+                settings.cooldown_restricted_roles = roles;
+                sec = "Set to";
+                val = role_names.join(", ");
+            },
+            _ => {},
+        }
+        db.update_premium(guild_id.0 as i64, settings)?;
+        message.channel_id.say(format!("Successfully modified restricted roles. {} {}", sec, val))?;
+    }
+});
+
 command!(prune(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
@@ -1653,21 +1804,33 @@ command!(log(_ctx, message, _args) {
     message.channel_id.send_files(vec![Path::new("./log.txt")], |m| m)?;
 });
 
-command!(premium(ctx, message, args) {
+command!(set_premium(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();
-    let g = args.single::<String>().unwrap();
+    let g = args.single_quoted::<String>().unwrap();
     let op = args.single::<String>().unwrap();
     let (guild_id, _) = parse_guild(g).unwrap();
-    let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     match op.to_lowercase().as_str() {
-        "enable" => { guild_data.premium = true; },
-        "disable" => { guild_data.premium = false; },
-        "set" => { guild_data.premium_tier = args.single::<i16>().unwrap(); },
+        "enable" => {
+            db.new_premium(guild_id.0 as i64)?;
+        },
+        "disable" => {
+            db.del_premium(guild_id.0 as i64)?;
+        },
+        "set" => {
+            if let Ok(mut prem) = db.get_premium(guild_id.0 as i64) {
+                prem.tier = args.single::<i32>().unwrap();
+                db.update_premium(guild_id.0 as i64, prem)?;
+            }
+        },
+        "show" => {
+            if let Ok(mut prem) = db.get_premium(guild_id.0 as i64) {
+                message.channel_id.say(format!("{:?}", prem))?;
+            }
+        },
         _ => {},
     }
-    db.update_guild(guild_id.0 as i64, guild_data)?;
-    message.channel_id.say("Command complete")?;
+    message.channel_id.say("Command complete.")?;
 });
 
 /*command!(restart(_ctx, message, _args) {

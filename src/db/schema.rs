@@ -33,8 +33,6 @@ table! {
         welcome_channel -> Int8,
         welcome_message -> Text,
         welcome_type -> Text,
-        premium -> Bool,
-        premium_tier -> Int2,
         commands -> Array<Text>,
         logging -> Array<Text>,
         hackbans -> Array<Int8>,
@@ -49,6 +47,17 @@ table! {
         note -> Text,
         moderator -> Int8,
         timestamp -> Timestamptz,
+    }
+}
+
+table! {
+    premium (id) {
+        id -> Int8,
+        tier -> Int4,
+        register_member_role -> Nullable<Int8>,
+        register_cooldown_role -> Nullable<Int8>,
+        register_cooldown_duration -> Nullable<Int4>,
+        cooldown_restricted_roles -> Array<Int8>,
     }
 }
 
@@ -97,6 +106,7 @@ allow_tables_to_appear_in_same_query!(
     cases,
     guilds,
     notes,
+    premium,
     roles,
     tags,
     timers,

@@ -21,8 +21,6 @@ CREATE TABLE guilds (
 	welcome_channel BIGINT NOT NULL DEFAULT 0,
 	welcome_message TEXT NOT NULL DEFAULT '',
 	welcome_type TEXT NOT NULL DEFAULT 'plain',
-	premium BOOL NOT NULL DEFAULT 'f',
-	premium_tier SMALLINT NOT NULL DEFAULT 0,
 	commands TEXT [] NOT NULL DEFAULT array[]::text[],
 	logging TEXT [] NOT NULL DEFAULT array[]::text[],
 	hackbans BIGINT [] NOT NULL DEFAULT array[]::bigint[]
