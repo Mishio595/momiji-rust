@@ -12,16 +12,16 @@ use std::str::FromStr;
 use std::collections::HashMap;
 
 lazy_static! {
-    static ref ROLE_MATCH: Regex    = Regex::new(r"(?:<@)?&?(\d{17,})>*?").unwrap();
-    static ref USER_MATCH: Regex    = Regex::new(r"(?:<@)?!?(\d{17,})>*?").unwrap();
-    static ref CHANNEL_MATCH: Regex = Regex::new(r"(?:<#)?(\d{17,})>*?").unwrap();
-    static ref GUILD_MATCH: Regex   = Regex::new(r"\d{17,}").unwrap();
-    static ref EMBED_ITEM: Regex    = Regex::new(r"\$[^\$]*").unwrap();
-    static ref EMEBED_PARTS: Regex  = Regex::new(r"\$?(?P<field>\S+):(?P<value>.*)").unwrap();
-    static ref PLAIN_PARTS: Regex   = Regex::new(r"\{.*\}").unwrap();
-    static ref SWITCH_REST: Regex   = Regex::new(r"^[^/]+").unwrap();
-    static ref SWITCH_PARTS: Regex  = Regex::new(r"/\s*(\S+)([^/]*)").unwrap();
-    static ref TIME: Regex          = Regex::new(r"(\d+)\s*?(\w)").unwrap();
+    static ref ROLE_MATCH: Regex    = Regex::new(r"(?:<@)?&?(\d{17,})>*?").expect("Failed to create Regex");
+    static ref USER_MATCH: Regex    = Regex::new(r"(?:<@)?!?(\d{17,})>*?").expect("Failed to create Regex");
+    static ref CHANNEL_MATCH: Regex = Regex::new(r"(?:<#)?(\d{17,})>*?").expect("Failed to create Regex");
+    static ref GUILD_MATCH: Regex   = Regex::new(r"\d{17,}").expect("Failed to create Regex");
+    static ref EMBED_ITEM: Regex    = Regex::new(r"\$[^\$]*").expect("Failed to create Regex");
+    static ref EMEBED_PARTS: Regex  = Regex::new(r"\$?(?P<field>\S+):(?P<value>.*)").expect("Failed to create Regex");
+    static ref PLAIN_PARTS: Regex   = Regex::new(r"\{.*\}").expect("Failed to create Regex");
+    static ref SWITCH_REST: Regex   = Regex::new(r"^[^/]+").expect("Failed to create Regex");
+    static ref SWITCH_PARTS: Regex  = Regex::new(r"/\s*(\S+)([^/]*)").expect("Failed to create Regex");
+    static ref TIME: Regex          = Regex::new(r"(\d+)\s*?(\w)").expect("Failed to create Regex");
 }
 
 /// Attempts to parse a role ID out of a string
@@ -29,19 +29,27 @@ lazy_static! {
 /// This method is case insensitive
 /// # Panics
 /// This method will panic if `guild` is not a valid, cached GuildId
-pub fn parse_role(input: String, guild: GuildId) -> Option<(RoleId, Role)> {
+pub fn parse_role(input: String, guild_id: GuildId) -> Option<(RoleId, Role)> {
     let cache = CACHE.read();
     match ROLE_MATCH.captures(input.as_str()) {
         Some(s) => {
-            let id = RoleId::from_str(&s[1]).unwrap();
-            let guild = cache.guilds.get(&guild).unwrap().read();
-            let role = guild.roles.get(&id).unwrap();
-            Some((id, role.clone()))
+            if let Ok(id) = RoleId::from_str(&s[1]) {
+                if let Some(guild_lock) = cache.guild(&guild_id) {
+                    let guild = guild_lock.read();
+                    if let Some(role) = guild.roles.get(&id) {
+                        return Some((id, role.clone()));
+                    }
+                }
+            }
+            None
         },
         None => {
-            for (id, role) in cache.guilds.get(&guild).unwrap().read().roles.iter() {
-                if role.name.to_lowercase() == input.to_lowercase() {
-                    return Some((*id, role.clone()));
+            if let Some(guild_lock) = cache.guild(&guild_id) {
+                let guild = guild_lock.read();
+                for (id, role) in guild.roles.iter() {
+                    if role.name.to_lowercase() == input.to_lowercase() {
+                        return Some((*id, role.clone()));
+                    }
                 }
             }
             None
@@ -54,19 +62,25 @@ pub fn parse_role(input: String, guild: GuildId) -> Option<(RoleId, Role)> {
 /// This method is case insensitive
 /// # Panics
 /// This method will panic if `guild` is not a valid, cached GuildId
-pub fn parse_user(input: String, guild: GuildId) -> Option<(UserId, Member)> {
+pub fn parse_user(input: String, guild_id: GuildId) -> Option<(UserId, Member)> {
     let cache = CACHE.read();
     match USER_MATCH.captures(input.as_str()) {
         Some(s) => {
-            let id = UserId::from_str(&s[1]).unwrap();
-            let member = guild.member(id).unwrap();
-            Some((id, member.clone()))
+            if let Ok(id) = UserId::from_str(&s[1]) {
+                if let Ok(member) = guild_id.member(&id) {
+                    return Some((id, member.clone()));
+                }
+            }
+            None
         },
         None => {
-            for (id, member) in cache.guilds.get(&guild).unwrap().read().members.iter() {
-                let user = member.user.read();
-                if user.name.to_lowercase() == input.to_lowercase() || user.tag().to_lowercase() == input.to_lowercase() || member.display_name().to_lowercase() == input.to_lowercase() {
-                    return Some((*id, member.clone()));
+            if let Some(guild_lock) = cache.guild(&guild_id) {
+                let guild = guild_lock.read();
+                for (id, member) in guild.members.iter() {
+                    let user = member.user.read();
+                    if user.name.to_lowercase() == input.to_lowercase() || user.tag().to_lowercase() == input.to_lowercase() || member.display_name().to_lowercase() == input.to_lowercase() {
+                        return Some((*id, member.clone()));
+                    }
                 }
             }
             None
@@ -79,20 +93,26 @@ pub fn parse_user(input: String, guild: GuildId) -> Option<(UserId, Member)> {
 /// This method is case insensitive
 /// # Panics
 /// This method will panic if `guild` is not a valid, cached GuildId
-pub fn parse_channel(input: String, guild: GuildId) -> Option<(ChannelId, GuildChannel)> {
+pub fn parse_channel(input: String, guild_id: GuildId) -> Option<(ChannelId, GuildChannel)> {
     let cache = CACHE.read();
     match CHANNEL_MATCH.captures(input.as_str()) {
         Some(s) => {
-            let id = ChannelId::from_str(&s[1]).unwrap();
-            let ch_lock = id.get().unwrap().guild().unwrap();
-            let ch = ch_lock.read();
-            Some((id, ch.clone()))
+            if let Ok(id) = ChannelId::from_str(&s[1]) {
+                if let Some(ch_lock) = cache.guild_channel(&id) {
+                    let ch = ch_lock.read();
+                    return Some((id, ch.clone()));
+                }
+            }
+            None
         },
         None => {
-            for (id, ch_lock) in cache.guilds.get(&guild).unwrap().read().channels.iter() {
-                let ch = ch_lock.read();
-                if ch.name.to_lowercase() == input.to_lowercase() {
-                    return Some((*id, ch.clone()));
+            if let Some(guild_lock) = cache.guild(&guild_id) {
+                let guild = guild_lock.read();
+                for (id, ch_lock) in guild.channels.iter() {
+                    let ch = ch_lock.read();
+                    if ch.name.to_lowercase() == input.to_lowercase() {
+                        return Some((*id, ch.clone()));
+                    }
                 }
             }
             None
@@ -107,9 +127,13 @@ pub fn parse_guild(input: String) -> Option<(GuildId, Arc<RwLock<Guild>>)> {
     let cache = CACHE.read();
     match GUILD_MATCH.captures(input.as_str()) {
         Some(s) => {
-            let id = GuildId(s[0].parse::<u64>().unwrap());
-            let g_lock = id.find().unwrap();
-            Some((id, g_lock))
+            if let Ok(id) = s[0].parse::<u64>() {
+                let id = GuildId(id);
+                if let Some(g_lock) = id.find() {
+                    return Some((id, g_lock));
+                }
+            }
+            None
         },
         None => {
             for (id, g_lock) in cache.guilds.iter() {
@@ -157,14 +181,15 @@ pub fn get_switches(input: String) -> HashMap<String, String> {
 pub fn hrtime_to_seconds(time: String) -> i64 {
     let mut secs: usize = 0;
     for s in TIME.captures_iter(time.as_str()) {
-        let count = s[1].parse::<usize>().unwrap();
-        match &s[2] {
-            "w" => { secs += count*WEEK },
-            "d" => { secs += count*DAY },
-            "h" => { secs += count*HOUR },
-            "m" => { secs += count*MIN },
-            "s" => { secs += count },
-            _ => {},
+        if let Ok(count) = s[1].parse::<usize>() {
+            match &s[2] {
+                "w" => { secs += count*WEEK },
+                "d" => { secs += count*DAY },
+                "h" => { secs += count*HOUR },
+                "m" => { secs += count*MIN },
+                "s" => { secs += count },
+                _ => {},
+            }
         }
     }
     secs as i64
@@ -219,8 +244,9 @@ pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member) -> String
                 ret = input.replace(&word[0], user.name.as_str());
             },
             "{guild}" => {
-                let guild = member.guild_id.get().unwrap();
-                ret = input.replace(&word[0], guild.name.as_str());
+                if let Ok(guild) = member.guild_id.get() {
+                    ret = input.replace(&word[0], guild.name.as_str());
+                }
             },
             _ => {},
         }
@@ -230,42 +256,46 @@ pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member) -> String
 
 pub fn send_welcome_embed(input: String, member: &Member, channel: ChannelId) -> Result<Message, Error> {
     let user = member.user.read();
-    let guild = member.guild_id.get().unwrap();
-    channel.send_message(|m| { m .embed(|mut e| {
-        for item in EMBED_ITEM.captures_iter(input.as_str()) {
-            let caps = EMEBED_PARTS.captures(&item[0]).unwrap();
-            match caps["field"].to_lowercase().as_str() {
-                "title" => {
-                    e = e.title(parse_welcome_items(&caps["value"], member));
-                },
-                "description" => {
-                    e = e.description(parse_welcome_items(&caps["value"], member));
-                },
-                "thumbnail" => {
-                    match caps["value"].to_lowercase().as_str() {
-                        "user" => {
-                            e = e.thumbnail(user.face());
+    if let Ok(guild) = member.guild_id.get() {
+        channel.send_message(|m| { m .embed(|mut e| {
+            for item in EMBED_ITEM.captures_iter(input.as_str()) {
+                if let Some(caps) = EMEBED_PARTS.captures(&item[0]) {
+                    match caps["field"].to_lowercase().as_str() {
+                        "title" => {
+                            e = e.title(parse_welcome_items(&caps["value"], member));
                         },
-                        "member" => {
-                            e = e.thumbnail(user.face());
+                        "description" => {
+                            e = e.description(parse_welcome_items(&caps["value"], member));
                         },
-                        "guild" => {
-                            if let Some(ref s) = guild.icon {
-                                e = e.thumbnail(s);
+                        "thumbnail" => {
+                            match caps["value"].to_lowercase().as_str() {
+                                "user" => {
+                                    e = e.thumbnail(user.face());
+                                },
+                                "member" => {
+                                    e = e.thumbnail(user.face());
+                                },
+                                "guild" => {
+                                    if let Some(ref s) = guild.icon {
+                                        e = e.thumbnail(s);
+                                    }
+                                },
+                                _ => {},
                             }
+                        },
+                        "color" => {
+                            e = e.colour(u64::from_str_radix(&caps["value"].replace("#",""), 16).unwrap_or(0));
+                        },
+                        "colour" => {
+                            e = e.colour(u64::from_str_radix(&caps["value"].replace("#",""), 16).unwrap_or(0));
                         },
                         _ => {},
                     }
-                },
-                "color" => {
-                    e = e.colour(u64::from_str_radix(&caps["value"].replace("#",""), 16).unwrap_or(0));
-                },
-                "colour" => {
-                    e = e.colour(u64::from_str_radix(&caps["value"].replace("#",""), 16).unwrap_or(0));
-                },
-                _ => {},
+                }
             }
-        }
-        e
-    })})
+            e
+        })})
+    } else {
+        Err(Error::Other("Failed to get guild from guild_id"))
+    }
 }
