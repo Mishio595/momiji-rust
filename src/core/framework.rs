@@ -7,7 +7,7 @@ use serenity::framework::{
     StandardFramework,
     standard::{help_commands, HelpBehaviour},
 };
-use serenity::model::id::UserId;
+use serenity::model::id::{GuildId, UserId};
 use serenity::model::channel::Channel;
 use std::collections::HashSet;
 use chrono::Utc;
@@ -22,26 +22,35 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .case_insensitivity(true)
             .delimiters(vec![","," "])
             .owners(owners)
-            .dynamic_prefix(|ctx, message|
+            .prefix("m!")
+            .dynamic_prefix(|ctx, message| {
                 if message.is_private() {
-                    Some(String::new())
+                    return Some(String::new());
                 } else {
                     let data = ctx.data.lock();
-                    let db = data.get::<DB>().expect("Failed to get DB").lock();
-                    let settings = db.get_guild(message.guild_id.unwrap().0 as i64).unwrap();
-                    Some(settings.prefix)
+                    if let Some(db_lock) = data.get::<DB>() {
+                        let db = db_lock.lock();
+                        let guild_id = message.guild_id.unwrap_or(GuildId(0));
+                        if let Ok(settings) = db.get_guild(guild_id.0 as i64) {
+                            return Some(settings.prefix);
+                        }
+                    }
                 }
-            ))
+                None
+            }))
         .before(|ctx, message, command_name| {
             println!("Got command {} by user {}",
                 command_name,
                 message.author.name);
             if let false = message.is_private() {
                 let data = ctx.data.lock();
-                let db = data.get::<DB>().expect("Failed to get DB").lock();
-                let guild_id = message.guild_id.unwrap();
-                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                return !guild_data.ignored_channels.contains(&(message.channel_id.0 as i64));
+                if let Some(db_lock) = data.get::<DB>() {
+                    let db = db_lock.lock();
+                    let guild_id = message.guild_id.unwrap_or(GuildId(0));
+                    if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                        return !guild_data.ignored_channels.contains(&(message.channel_id.0 as i64));
+                    }
+                }
             }
             true
         })
@@ -63,7 +72,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                     _ => String::new(),
                 }
             } else { String::new() };
-            COMMAND_LOG.send_message(|m| m
+            check_error!(COMMAND_LOG.send_message(|m| m
                 .embed(|e| e
                     .description(format!("**Guild:** {}\n**Channel:** {}\n**Author:** {} ({})\n**ID:** {}",
                        guild,
@@ -75,9 +84,9 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                     .field("Content", message.content_safe(), false)
                     .timestamp(now!())
                     .colour(*colours::MAIN)
-            )).expect("Failed to send message.");
+            )));
             if let Err(why) = error {
-                ERROR_LOG.send_message(|m| m
+                check_error!(ERROR_LOG.send_message(|m| m
                     .embed(|e| e
                         .description(format!("{:?}", why))
                         .field("Message", format!("{}", message.id.0), true)
@@ -86,7 +95,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                         .field("Message Content", message.content_safe(), false)
                         .timestamp(now!())
                         .colour(*colours::RED)
-                )).expect("Failed to send message");
+                )));
             }
         })
         .customised_help(help_commands::with_embeds, |c| c
@@ -199,10 +208,15 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .usage("[tags]")
                 .example("male/male dragon double_penetration")
                 .check(|_,message,_,_| {
-                    if message.channel_id.get().unwrap().is_nsfw() {
-                        true
+                    if let Ok(channel) = message.channel_id.get() {
+                        if channel.is_nsfw() {
+                            true
+                        } else {
+                            check_error!(message.channel_id.say("Command only available in NSFW channels."));
+                            false
+                        }
                     } else {
-                        message.channel_id.say("Command only available in NSFW channels.").expect("Failed to send message");
+                        check_error!(message.channel_id.say("Failed to get the channel info. I can't tell if this channel is NSFW."));
                         false
                     }})
                 .known_as("furry")))
@@ -261,11 +275,17 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .help_available(true)
             .check(|ctx, message, _, _| {
                 let data = ctx.data.lock();
-                let db = data.get::<DB>().expect("Failed to get DB").lock();
-                let guild_id = message.guild_id.unwrap();
-                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                let member = guild_id.member(message.author.id.clone()).unwrap();
-                check_rank(guild_data.mod_roles, member.roles)
+                if let Some(guild_id) = message.guild_id {
+                    if let Some(db_lock) = data.get::<DB>() {
+                        let db = db_lock.lock();
+                        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                                return check_rank(guild_data.mod_roles, member.roles);
+                            }
+                        }
+                    }
+                }
+                false
             })
             .command("mute", |c| c
                 .cmd(mute)
@@ -292,11 +312,17 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .guild_only(true)
             .check(|ctx, message, _, _| {
                 let data = ctx.data.lock();
-                let db = data.get::<DB>().expect("Failed to get DB").lock();
-                let guild_id = message.guild_id.unwrap();
-                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                let member = guild_id.member(message.author.id.clone()).unwrap();
-                check_rank(guild_data.mod_roles, member.roles)
+                if let Some(guild_id) = message.guild_id {
+                    if let Some(db_lock) = data.get::<DB>() {
+                        let db = db_lock.lock();
+                        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                                return check_rank(guild_data.mod_roles, member.roles);
+                            }
+                        }
+                    }
+                }
+                false
             })
             .command("ar", |c| c
                 .cmd(ar)
@@ -325,11 +351,17 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .help_available(true)
             .check(|ctx, message, _, _| {
                 let data = ctx.data.lock();
-                let db = data.get::<DB>().expect("Failed to get DB").lock();
-                let guild_id = message.guild_id.unwrap();
-                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                let member = guild_id.member(message.author.id.clone()).unwrap();
-                check_rank(guild_data.mod_roles, member.roles)
+                if let Some(guild_id) = message.guild_id {
+                    if let Some(db_lock) = data.get::<DB>() {
+                        let db = db_lock.lock();
+                        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                                return check_rank(guild_data.mod_roles, member.roles);
+                            }
+                        }
+                    }
+                }
+                false
             })
             .command("add", |c| c
                 .cmd(note_add)
@@ -349,16 +381,57 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .usage("<user_resolvable>")
                 .example("@Adelyn")
                 .min_args(1)))
+        .group("Watchlist", |g| g
+            .prefix("wl")
+            .guild_only(true)
+            .help_available(true)
+            .check(|ctx, message, _, _| {
+                let data = ctx.data.lock();
+                if let Some(guild_id) = message.guild_id {
+                    if let Some(db_lock) = data.get::<DB>() {
+                        let db = db_lock.lock();
+                        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                                return check_rank(guild_data.mod_roles, member.roles);
+                            }
+                        }
+                    }
+                }
+                false
+            })
+            .default_cmd(watchlist_list)
+            .command("add", |c| c
+                .cmd(watchlist_add)
+                .desc("Add a user to the watchlist.")
+                .usage("<user_resolvable>")
+                .example("@Adelyn")
+                .min_args(1))
+            .command("del", |c| c
+                .cmd(watchlist_del)
+                .desc("Remove a user from the watchlist.")
+                .usage("<user_resolvable>")
+                .example("@Adelyn")
+                .min_args(1))
+            .command("list", |c| c
+                .cmd(watchlist_list)
+                .desc("List users on the watchlist.")
+                .usage("")))
         .group("Admin+", |g| g
             .guild_only(true)
             .help_available(true)
             .check(|ctx, message, _, _| {
                 let data = ctx.data.lock();
-                let db = data.get::<DB>().expect("Failed to get DB").lock();
-                let guild_id = message.guild_id.unwrap();
-                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                let member = guild_id.member(message.author.id.clone()).unwrap();
-                check_rank(guild_data.admin_roles, member.roles)
+                if let Some(guild_id) = message.guild_id {
+                    if let Some(db_lock) = data.get::<DB>() {
+                        let db = db_lock.lock();
+                        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                                return check_rank(guild_data.admin_roles, member.roles);
+                            }
+                        }
+                    }
+                }
+                false
             })
             .command("setup", |c| c
                 .cmd(setup_mute))
@@ -378,11 +451,17 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .prefixes(vec!["p", "premium", "prem"])
             .check(|ctx, message, _, _| {
                 let data = ctx.data.lock();
-                let db = data.get::<DB>().expect("Failed to get DB").lock();
-                let guild_id = message.guild_id.unwrap();
-                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                let member = guild_id.member(message.author.id.clone()).unwrap();
-                check_rank(guild_data.admin_roles, member.roles)
+                if let Some(guild_id) = message.guild_id {
+                    if let Some(db_lock) = data.get::<DB>() {
+                        let db = db_lock.lock();
+                        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                                return check_rank(guild_data.admin_roles, member.roles);
+                            }
+                        }
+                    }
+                }
+                false
             })
             .command("register_member", |c| c
                 .cmd(premium_reg_member)
@@ -402,54 +481,37 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .prefix("test")
             .check(|ctx, message, _, _| {
                 let data = ctx.data.lock();
-                let db = data.get::<DB>().expect("Failed to get DB").lock();
-                let guild_id = message.guild_id.unwrap();
-                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                let member = guild_id.member(message.author.id.clone()).unwrap();
-                check_rank(guild_data.admin_roles, member.roles)
+                if let Some(guild_id) = message.guild_id {
+                    if let Some(db_lock) = data.get::<DB>() {
+                        let db = db_lock.lock();
+                        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                                return check_rank(guild_data.admin_roles, member.roles);
+                            }
+                        }
+                    }
+                }
+                false
             })
             .command("welcome", |c| c
                 .cmd(test_welcome)
                 .desc("Generates a welcome message to test your current setup.")))
-        .group("Watchlist", |g| g
-            .prefix("wl")
-            .guild_only(true)
-            .help_available(true)
-            .check(|ctx, message, _, _| {
-                let data = ctx.data.lock();
-                let db = data.get::<DB>().expect("Failed to get DB").lock();
-                let guild_id = message.guild_id.unwrap();
-                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                let member = guild_id.member(message.author.id.clone()).unwrap();
-                check_rank(guild_data.admin_roles, member.roles)
-            })
-            .default_cmd(watchlist_list)
-            .command("add", |c| c
-                .cmd(watchlist_add)
-                .desc("Add a user to the watchlist.")
-                .usage("<user_resolvable>")
-                .example("@Adelyn")
-                .min_args(1))
-            .command("del", |c| c
-                .cmd(watchlist_del)
-                .desc("Remove a user from the watchlist.")
-                .usage("<user_resolvable>")
-                .example("@Adelyn")
-                .min_args(1))
-            .command("list", |c| c
-                .cmd(watchlist_list)
-                .desc("List users on the watchlist.")
-                .usage("")))
         .group("Self Role Management", |g| g
             .help_available(true)
             .guild_only(true)
             .check(|ctx, message, _, _| {
                 let data = ctx.data.lock();
-                let db = data.get::<DB>().expect("Failed to get DB").lock();
-                let guild_id = message.guild_id.unwrap();
-                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                let member = guild_id.member(message.author.id.clone()).unwrap();
-                check_rank(guild_data.admin_roles, member.roles)
+                if let Some(guild_id) = message.guild_id {
+                    if let Some(db_lock) = data.get::<DB>() {
+                        let db = db_lock.lock();
+                        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                                return check_rank(guild_data.admin_roles, member.roles);
+                            }
+                        }
+                    }
+                }
+                false
             })
             .command("csr", |c| c
                 .cmd(csr)
@@ -475,11 +537,17 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .prefix("config")
             .check(|ctx, message, _, _| {
                 let data = ctx.data.lock();
-                let db = data.get::<DB>().expect("Failed to get DB").lock();
-                let guild_id = message.guild_id.unwrap();
-                let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
-                let member = guild_id.member(message.author.id.clone()).unwrap();
-                check_rank(guild_data.admin_roles, member.roles)
+                if let Some(guild_id) = message.guild_id {
+                    if let Some(db_lock) = data.get::<DB>() {
+                        let db = db_lock.lock();
+                        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                                return check_rank(guild_data.admin_roles, member.roles);
+                            }
+                        }
+                    }
+                }
+                false
             })
             .default_cmd(config_list)
             .command("list", |c| c

@@ -24,7 +24,7 @@ use std::str::FromStr;
 use forecast::Icon::*;
 
 lazy_static! {
-    static ref DICE_MATCH: Regex = Regex::new(r"(?P<count>\d+)d?(?P<sides>\d*)").unwrap();
+    static ref DICE_MATCH: Regex = Regex::new(r"(?P<count>\d+)d?(?P<sides>\d*)").expect("Failed to create Regex");
 }
 
 // Rank 0
@@ -35,25 +35,25 @@ command!(bot_info(ctx, message, _args) {
     let shard_count = cache.shard_count;
     let owner = data.get::<Owner>().expect("Failed to get owner").get()?;
     let sys = sysinfo::System::new();
-    let process = sys.get_process(sysinfo::get_current_pid()).unwrap();
-
-    message.channel_id.send_message(|m| m
-        .embed(|e| e
-            .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
-            .field("Owner", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
-            .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Github](https://github.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
-            .field("Counts", format!("Guilds: {}\nShards: {}", cache.guilds.len(), shard_count), false)
-            .field("System Info", format!("OS: {} {}\nUptime: {}",
-                sys_info::os_type().unwrap(),
-                sys_info::os_release().unwrap(),
-                seconds_to_hrtime(sys.get_uptime() as usize)), true)
-            .field("Process Info", format!("Memory Usage: {} mB\nCPU Usage {}%\nUptime: {}",
-                process.memory()/1000, // convert to mB
-                (process.cpu_usage()*100.0).round()/100.0, // round to 2 decimals
-                seconds_to_hrtime((sys.get_uptime() - process.start_time()) as usize)), true)
-            .thumbnail(&cache.user.avatar_url().unwrap_or(cache.user.default_avatar_url()))
-            .colour(*colours::MAIN)
+    if let Some(process) = sys.get_process(sysinfo::get_current_pid()) {
+        message.channel_id.send_message(|m| m
+            .embed(|e| e
+                .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
+                .field("Owner", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
+                .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Github](https://github.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
+                .field("Counts", format!("Guilds: {}\nShards: {}", cache.guilds.len(), shard_count), false)
+                .field("System Info", format!("OS: {} {}\nUptime: {}",
+                    sys_info::os_type().unwrap_or(String::from("OS Not Found")),
+                    sys_info::os_release().unwrap_or(String::from("Release Not Found")),
+                    seconds_to_hrtime(sys.get_uptime() as usize)), true)
+                .field("Process Info", format!("Memory Usage: {} mB\nCPU Usage {}%\nUptime: {}",
+                    process.memory()/1000, // convert to mB
+                    (process.cpu_usage()*100.0).round()/100.0, // round to 2 decimals
+                    seconds_to_hrtime((sys.get_uptime() - process.start_time()) as usize)), true)
+                .thumbnail(&cache.user.avatar_url().unwrap_or(cache.user.default_avatar_url()))
+                .colour(*colours::MAIN)
         ))?;
+    }
 });
 
 command!(cat(ctx, message, _args) {
@@ -61,8 +61,9 @@ command!(cat(ctx, message, _args) {
     if let Ok(res) = data.get::<ApiClient>().expect("Failed to get API Client").cat() {
         message.channel_id.send_message(|m| m
             .embed(|e| e
-                .image(res.file)))?;
-    };
+                .image(res.file)
+        ))?;
+    }
 });
 
 /* TODO add these in once I get good tools for it
@@ -78,15 +79,16 @@ command!(dog(ctx, message, _args) {
     if let Ok(res) = data.get::<ApiClient>().expect("Failed to get API Client").dog() {
         message.channel_id.send_message(|m| m
             .embed(|e| e
-                .image(res.message)))?;
-    };
+                .image(res.message)
+        ))?;
+    }
 });
 
 command!(dad_joke(ctx, message, _args) {
     let mut data = ctx.data.lock();
     if let Ok(res) = data.get::<ApiClient>().expect("Failed to get API Client").joke() {
         message.channel_id.say(res)?;
-    };
+    }
 });
 
 command!(e621(ctx, message, args) {
@@ -110,18 +112,22 @@ command!(e621(ctx, message, args) {
     }
 });
 
+// TODO handle unwraprapping None for anime status
 command!(anime_search(ctx, message, args) {
     use kitsu::model::Status::*;
     let data = ctx.data.lock();
     let api = data.get::<ApiClient>().expect("Failed to get ApiClient");
     if let Ok(res) = api.anime(args.full()) {
         if let Some(anime) = res.data.first() {
-            let status = match anime.attributes.status.unwrap() {
-                Current => "Current",
-                Finished => "Complete",
-                TBA => "To Be Announced",
-                Unreleased => "Unreleased",
-                Upcoming => "Upcoming",
+            let status = match anime.attributes.status {
+                Some(stat) => { match stat {
+                    Current => "Current",
+                    Finished => "Complete",
+                    TBA => "To Be Announced",
+                    Unreleased => "Unreleased",
+                    Upcoming => "Upcoming",
+                }},
+                None => "Status Not Found",
             };
             let cover_url = match anime.attributes.cover_image.clone() {
                 Some(cover) => { match cover.original {
@@ -134,11 +140,16 @@ command!(anime_search(ctx, message, args) {
                 .embed(|e| e
                     .title(format!("**{}**", anime.attributes.canonical_title.clone()))
                     .url(anime.url())
-                    .description(format!("{}\n\n**Episodes:** {} ({} min/ep)\n**Score:** {}\n**Status:** {}",
+                    .description(format!("{}\n\n{}\n**Score:** {}\n**Status:** {}",
                         anime.attributes.synopsis,
-                        anime.attributes.episode_count.unwrap(),
-                        anime.attributes.episode_length.unwrap(),
-                        anime.attributes.average_rating.clone().unwrap(),
+                        if let Some(count) = anime.attributes.episode_count {
+                            let mut out = format!("**Episodes:** {}", count);
+                            if let Some(length) = anime.attributes.episode_length {
+                                out.push_str(format!(" ({} min/ep)", length).as_str());
+                            }
+                            out
+                        } else { String::from("Episode Information Not Found") },
+                        anime.attributes.average_rating.clone().unwrap_or(String::from("Not Found")),
                         status
                     ))
                     .thumbnail(cover_url)
@@ -154,12 +165,15 @@ command!(manga_search(ctx, message, args) {
     let api = data.get::<ApiClient>().expect("Failed to get ApiClient");
     if let Ok(res) = api.manga(args.full()) {
         if let Some(manga) = res.data.first() {
-            let status = match manga.attributes.status.unwrap() {
-                Current => "Current",
-                Finished => "Complete",
-                TBA => "To Be Announced",
-                Unreleased => "Unreleased",
-                Upcoming => "Upcoming",
+            let status = match manga.attributes.status {
+                Some(stat) => { match stat {
+                    Current => "Current",
+                    Finished => "Complete",
+                    TBA => "To Be Announced",
+                    Unreleased => "Unreleased",
+                    Upcoming => "Upcoming",
+                }},
+                None => "Status Not Found",
             };
             let cover_url = match manga.attributes.cover_image.clone() {
                 Some(cover) => { match cover.original {
@@ -174,9 +188,9 @@ command!(manga_search(ctx, message, args) {
                     .url(manga.url())
                     .description(format!("{}\n\n**Volumes:** {}\n**Chapters:** {}\n**Score:** {}\n**Status:** {}",
                         manga.attributes.synopsis,
-                        manga.attributes.volume_count.unwrap(),
-                        manga.attributes.chapter_count.unwrap(),
-                        manga.attributes.average_rating.clone().unwrap(),
+                        manga.attributes.volume_count.map_or(String::from("Not Found"), |count| format!("{}", count)),
+                        manga.attributes.chapter_count.map_or(String::from("Not Found"), |count| format!("{}", count)),
+                        manga.attributes.average_rating.clone().unwrap_or(String::from("Not Found")),
                         status
                     ))
                     .thumbnail(cover_url)
@@ -205,8 +219,8 @@ command!(now(_ctx, message, args) {
     message.channel_id.send_message(|m| m
         .embed(|e| e
             .colour(*colours::MAIN)
-            .description(format!("**Time:** {}\n**Date:** {}\n**Timezone:** UTC{}", time, date, datetime.timezone())))
-    )?;
+            .description(format!("**Time:** {}\n**Date:** {}\n**Timezone:** UTC{}", time, date, datetime.timezone()))
+    ))?;
 });
 
 command!(ping(ctx, message, _args) {
@@ -229,8 +243,13 @@ command!(ping(ctx, message, _args) {
 command!(prefix(ctx, message, _args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
-    let settings = db.get_guild(message.guild_id.unwrap().0 as i64)?;
-    message.channel_id.say(format!("The prefix for this guild is `{}`", settings.prefix))?;
+    if let Some(guild_id) = message.guild_id {
+        if let Ok(settings) = db.get_guild(guild_id.0 as i64) {
+            message.channel_id.say(format!("The prefix for this guild is `{}`", settings.prefix))?;
+        } else {
+            message.channel_id.say("Failed to get guild data.")?;
+        }
+    }
 });
 
 command!(remind(ctx, message, args) {
@@ -262,7 +281,8 @@ command!(remind(ctx, message, args) {
                 tc.request(reminder_fmt, dur as u64);
                 message.channel_id.say(format!("Got it! I'll remind you to {} in {}",
                     reminder,
-                    seconds_to_hrtime(dur as usize)))?;
+                    seconds_to_hrtime(dur as usize)
+                ))?;
             },
             Err(why) => {
                 message.channel_id.say(format!("Sorry, I couldn't make the reminder. Here's why: {:?}", why))?;
@@ -546,22 +566,26 @@ command!(tag_single(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
     let guild_id = message.guild_id.unwrap();
-    let tag_input = args.rest().to_string();
+    let tag_input = args.full().trim().to_string();
     let tags = db.get_tags(guild_id.0 as i64)?;
     if let Some(tag) = tags.iter().find(|e| e.name == tag_input) {
         message.channel_id.say(&tag.data)?;
     } else {
-        let mut sdc = SorensenDice::new();
-        let mut matches = Vec::new();
-        for tag in tags.iter() {
-            let dist = sdc.get_similarity(tag.name.as_str(), &tag_input);
-            matches.push((tag, dist));
+        if tag_input.is_empty() {
+            message.channel_id.say(tags.iter().map(|e| e.name.as_str()).collect::<Vec<&str>>().join("\n"))?;
+        } else {
+            let mut sdc = SorensenDice::new();
+            let mut matches = Vec::new();
+            for tag in tags.iter() {
+                let dist = sdc.get_similarity(tag.name.as_str(), &tag_input);
+                matches.push((tag, dist));
+            }
+            matches.retain(|e| e.1 > 0.2);
+            matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+            matches.truncate(5);
+            let matches = matches.iter().map(|e| e.0.name.clone()).collect::<Vec<String>>();
+            message.channel_id.say(format!("No tag found. Did you mean...\n{}", matches.join("\n")))?;
         }
-        matches.retain(|e| e.1 > 0.2);
-        matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
-        matches.truncate(5);
-        let matches = matches.iter().map(|e| e.0.name.clone()).collect::<Vec<String>>();
-        message.channel_id.say(format!("No tag found. Did you mean...\n{}", matches.join("\n")))?;
     }
 });
 
@@ -577,14 +601,20 @@ command!(tag_add(ctx, message, args) {
     }
 });
 
-// TODO add mod/admin checks
 command!(tag_del(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().expect("Failed to get DB").lock();
     let guild_id = message.guild_id.unwrap();
     let tag_input = args.single_quoted::<String>().unwrap();
     if let Ok(tag) = db.get_tag(guild_id.0 as i64, tag_input.clone()) {
-        if message.author.id.0 as i64 == tag.author {
+        let mut rank_check = false;
+        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+            if let Ok(member) = guild_id.member(&message.author.id) {
+                if check_rank(guild_data.admin_roles, &member.roles) { rank_check = true }
+                if check_rank(guild_data.mod_roles, &member.roles) { rank_check = true }
+            }
+        }
+        if message.author.id.0 as i64 == tag.author || rank_check {
             match db.del_tag(guild_id.0 as i64, tag_input.clone()) {
                 Ok(tag) => { message.channel_id.say(format!("Successfully deleted tag `{}`", tag.name))?; },
                 Err(why) => { message.channel_id.say(format!("Failed to delete tag `{}`. Here's why: {:?}", tag_input, why))?; },
@@ -593,7 +623,6 @@ command!(tag_del(ctx, message, args) {
     } else { message.channel_id.say("Tag not found.")?; }
 });
 
-// TODO add mod/admin check
 command!(tag_edit(ctx, message, args) {
     let data = ctx.data.lock();
     let db = data.get::<DB>().unwrap().lock();

@@ -36,15 +36,17 @@ impl Database {
 
     // Guild Tools
     /// Add a guild with a given ID.
-    /// Returns the Guild on success.
+    /// Returns the Ok(Some(Guild)) on success or Ok(None) if there is a conflict.
     /// Uses default values.
-    pub fn new_guild(&self, id: i64) -> QueryResult<Guild> {
+    pub fn new_guild(&self, id: i64) -> QueryResult<Option<Guild>> {
         let guild = NewGuild {
             id,
         };
         diesel::insert_into(guilds::table)
             .values(&guild)
+            .on_conflict_do_nothing()
             .get_result(&self.conn)
+            .optional()
     }
     /// Delete a guild by the ID.
     /// Returns the ID on success.

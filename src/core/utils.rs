@@ -124,9 +124,9 @@ pub fn parse_guild(input: String) -> Option<(GuildId, Arc<RwLock<Guild>>)> {
 
 /// This is used for checking if a member has any roles that match the guild's configured mod_roles
 /// or admin_roles
-pub fn check_rank(roles: Vec<i64>, member: Vec<RoleId>) -> bool {
+pub fn check_rank<T: AsRef<Vec<RoleId>>>(roles: Vec<i64>, member: T) -> bool {
     for role in roles.iter() {
-        if member.contains(&RoleId(*role as u64)) {
+        if member.as_ref().contains(&RoleId(*role as u64)) {
             return true;
         }
     }
