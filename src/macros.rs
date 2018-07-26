@@ -1,5 +1,6 @@
 #![macro_use]
 
+// Some convenience macros
 macro_rules! check_error {
     ($e:expr) => {
         if let Err(err) = $e {
@@ -11,6 +12,11 @@ macro_rules! check_error {
             )).expect("Failed to send message.");
         }
     };
+}
+
+macro_rules! failed {
+    ($e:expr) => { warn!("[{}:{}] {}", line!(), column!(), $e); };
+    ($e:expr, $w:expr) => { warn!("[{}:{}] {} | {}", line!(), column!(), $e, $w); };
 }
 
 macro_rules! now {

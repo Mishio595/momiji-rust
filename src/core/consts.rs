@@ -14,3 +14,16 @@ pub const GUILD_LOG: ChannelId = ChannelId(406115496833056789);
 pub const SUPPORT_SERVER: GuildId = GuildId(373561057639268352);
 pub const TRANSCEND: GuildId = GuildId(348660188951216129);
 pub const NOW_LIVE: RoleId = RoleId(370395740406546432);
+
+pub const DB_FAIL: &str = "Failed to get DB";
+pub const DB_USER_FAIL: &str = "Failed to select user entry";
+pub const DB_USER_ENTRY_FAIL: &str = "Failed to create user entry";
+pub const DB_GUILD_FAIL: &str = "Failed to select guild entry";
+pub const DB_GUILD_ENTRY_FAIL: &str = "Failed to create guild entry";
+pub const DB_GUILD_DEL_FAIL: &str = "Failed to delete guild entry";
+pub const API_FAIL: &str = "Failed to get API";
+pub const CACHE_GUILD_FAIL: &str = "Failed to get guild lock from CACHE";
+pub const CACHE_CHANNEL_FAIL: &str = "Failed to get channel lock from CACHE";
+pub const GUILDID_FAIL: &str = "Failed to get GuildId";
+pub const USER_FAIL: &str = "Failed to get user";
+pub const MEMBER_FAIL: &str = "Failed to get member";

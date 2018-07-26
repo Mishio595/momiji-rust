@@ -21,24 +21,6 @@ use levenshtein::levenshtein;
 
 pub struct Handler;
 
-const DB_FAIL: &str = "Failed to get DB";
-const DB_USER_FAIL: &str = "Failed to select user entry";
-const DB_USER_ENTRY_FAIL: &str = "Failed to create user entry";
-const DB_GUILD_FAIL: &str = "Failed to select guild entry";
-const DB_GUILD_ENTRY_FAIL: &str = "Failed to create guild entry";
-const DB_GUILD_DEL_FAIL: &str = "Failed to delete guild entry";
-const API_FAIL: &str = "Failed to get API";
-const CACHE_GUILD_FAIL: &str = "Failed to get guild lock from CACHE";
-const CACHE_CHANNEL_FAIL: &str = "Failed to get channel lock from CACHE";
-const GUILDID_FAIL: &str = "Failed to get GuildId";
-const USER_FAIL: &str = "Failed to get user";
-const MEMBER_FAIL: &str = "Failed to get member";
-
-macro_rules! failed {
-    ($e:expr) => { warn!("[{}:{}] {}", line!(), column!(), $e); };
-    ($e:expr, $w:expr) => { warn!("[{}:{}] {} | {}", line!(), column!(), $e, $w); };
-}
-
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
         CACHE.write().settings_mut().max_messages(MESSAGE_CACHE);
