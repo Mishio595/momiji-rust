@@ -1,1 +1,14 @@
 Got command log by user Adelyn
+   Compiling momiji v0.1.0 (file:///home/lynn/dev/momiji)
+warning: unused variable: `why`
+   --> src/modules/commands/everyone.rs:698:21
+    |
+698 |                 Err(why) => {},
+    |                     ^^^ help: consider using `_why` instead
+    |
+    = note: #[warn(unused_variables)] on by default
+
+    Finished dev [unoptimized + debuginfo] target(s) in 30.46s
+     Running `target/debug/momiji`
+ [32mINFO [0m [1mserenity::client::bridge::gateway::shard_manager[0m > Telling shard queuer to start shard 0
+ [32mINFO [0m [1mmomiji::core::handler                           [0m > Logged in as MomijiTesting

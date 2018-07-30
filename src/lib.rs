@@ -5,6 +5,8 @@
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate diesel;
 #[macro_use] extern crate lazy_static;
+extern crate r2d2;
+extern crate r2d2_diesel;
 extern crate pretty_env_logger;
 extern crate kankyo;
 extern crate threadpool;

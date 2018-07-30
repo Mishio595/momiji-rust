@@ -4,7 +4,6 @@ extern crate serenity;
 extern crate pretty_env_logger;
 extern crate kankyo;
 
-use momiji::db;
 use momiji::core::{
     api,
     handler::Handler,
@@ -28,11 +27,9 @@ fn main() {
     {
         let mut data = client.data.lock();
         let api_client = api::ApiClient::new();
-        let db = Arc::new(Mutex::new(db::Database::connect()));
-        let tc = timers::TimerClient::new(Arc::clone(&db));
+        let tc = timers::TimerClient::new();
         data.insert::<SerenityShardManager>(Arc::clone(&client.shard_manager));
         data.insert::<ApiClient>(api_client);
-        data.insert::<DB>(Arc::clone(&db));
         data.insert::<TC>(Arc::new(Mutex::new(tc)));
     }
 
