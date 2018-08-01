@@ -1,0 +1,9 @@
+2018-07-31 18:05:51  DEBUG   	serenity::http::ratelimiting                                                    	>[ratelimiting] Set the ratelimit offset to 0
+2018-07-31 18:05:52  DEBUG   	serenity::client                                                                	>Initializing shard info: 0 - 1/1
+2018-07-31 18:05:52  INFO    	serenity::client::bridge::gateway::shard_manager                                	>Telling shard queuer to start shard 0
+2018-07-31 18:05:52  DEBUG   	serenity::client::bridge::gateway::shard_manager_monitor                        	>Starting shard manager worker
+2018-07-31 18:05:52  DEBUG   	serenity::client::bridge::gateway::shard_runner                                 	>[ShardRunner [0, 1]] Running
+2018-07-31 18:05:52  DEBUG   	serenity::gateway::shard                                                        	>[Shard [0, 1]] Received a Hello; interval: 41250
+2018-07-31 18:05:52  DEBUG   	serenity::gateway::ws_client_ext                                                	>[Shard [0, 1]] Identifying
+2018-07-31 18:05:54  DEBUG   	serenity::gateway::shard                                                        	>[Shard [0, 1]] Received Ready
+2018-07-31 18:05:56  INFO    	momiji::core::handler                                                           	>Logged in as Momiji

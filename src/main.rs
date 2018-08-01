@@ -1,8 +1,9 @@
 #[macro_use] extern crate log;
+extern crate chrono;
+extern crate fern;
+extern crate kankyo;
 extern crate momiji;
 extern crate serenity;
-extern crate pretty_env_logger;
-extern crate kankyo;
 
 use momiji::core::{
     api,
@@ -16,10 +17,55 @@ use serenity::http;
 use std::collections::HashSet;
 use std::env;
 use std::sync::Arc;
+use fern::colors::{Color, ColoredLevelConfig};
 
 fn main() {
     kankyo::load().expect("Failed to load .env file");
-    pretty_env_logger::init();
+    let colors = ColoredLevelConfig::new()
+        .trace(Color::Magenta)
+        .debug(Color::Cyan)
+        .info(Color::Green)
+        .warn(Color::Yellow)
+        .error(Color::Red);
+
+    let term_out = fern::Dispatch::new()
+        .format(move |out, message, record| {
+            out.finish(format_args!(
+                "{}  {:level_width$}\t{:target_width$}\t> {}",
+                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                colors.color(record.level()),
+                record.target(),
+                message,
+                level_width = 8,
+                target_width = 80
+            ))
+        })
+        .level(log::LevelFilter::Info)
+        .level_for("serenity", log::LevelFilter::Trace)
+        .chain(std::io::stdout())
+        .into_shared();
+        
+    let file_out = fern::Dispatch::new()
+        .format(move |out, message, record| {
+            out.finish(format_args!(
+                "{}  {:level_width$}\t{:target_width$}\t> {}",
+                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                record.level(),
+                record.target(),
+                message,
+                level_width = 8,
+                target_width = 80
+            ))
+        })
+        .level(log::LevelFilter::Info)
+        .level_for("serenity", log::LevelFilter::Trace)
+        .chain(fern::log_file("output.log").expect("Unable to access log file"))
+        .into_shared();
+
+    fern::Dispatch::new()
+        .chain(term_out)
+        .chain(file_out)
+        .apply().expect("Failed to apply fern settings");
 
     let token = env::var("DISCORD_TOKEN").expect("Expected token in environment");
 

@@ -11,34 +11,38 @@ opt-level = 0
 opt-level = 3
 
 [dependencies]
-kankyo = "0.2.0"
-log = "0.4"
-pretty_env_logger = "0.2"
-threadpool = "1.7"
 chrono = "0.4"
-typemap = "0.3"
-sysinfo = "0.5"
-sys-info = "*"
+forecast = "1.1.0"
+fuzzy_match = "0.1.1"
+geocoding = "0.0.3"
+kankyo = "0.2.0"
+kitsu = "0.2.0"
+lazy_static = "1.0.1"
+levenshtein = "1.0.3"
+log = "0.4"
+r2d2 = "0.8.2"
+r2d2-diesel = "1.0.0"
 rand = "0.5.2"
 regex = "*"
 reqwest = "0.8"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
-lazy_static = "1.0.1"
-levenshtein = "1.0.3"
-fuzzy_match = "0.1.1"
-forecast = "1.1.0"
-geocoding = "0.0.3"
-kitsu = "0.2.0"
-r2d2 = "0.8.2"
-r2d2-diesel = "1.0.0"
+sys-info = "*"
+sysinfo = "0.5"
+threadpool = "1.7"
+typemap = "0.3"
 
 [dependencies.diesel]
 version = "1.0.0"
 features = ["postgres", "chrono"]
 
+[dependencies.fern]
+version = "0.5"
+features = ["colored"]
+
 [dependencies.serenity]
 #git = "https://github.com/Mishio595/serenity.git"
 path = "/home/lynn/builds/serenity"
+default_features = false
 features = ["builder", "client", "cache", "framework", "standard_framework", "gateway", "http", "model", "utils", "voice"]

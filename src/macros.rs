@@ -1,6 +1,3 @@
-#![macro_use]
-
-// Some convenience macros
 macro_rules! check_error {
     ($e:expr) => {
         if let Err(err) = $e {
