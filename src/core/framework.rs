@@ -8,15 +8,43 @@ use serenity::framework::{
     StandardFramework,
     standard::{
         help_commands,
-        HelpBehaviour
+        HelpBehaviour,
+        CommandOptions,
+        Args
     }
 };
-use serenity::model::channel::Channel;
+use serenity::model::channel::{
+    Channel,
+    Message,
+};
 use serenity::model::id::{
     GuildId,
     UserId
 };
+use serenity::prelude::Context;
 use std::collections::HashSet;
+
+fn mod_check(_ctx: &mut Context, message: &Message, _args: &mut Args, _options: &CommandOptions) -> bool {
+    if let Some(guild_id) = message.guild_id {
+        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                return check_rank(guild_data.mod_roles, member.roles);
+            }
+        }
+    }
+    false
+}
+
+fn admin_check(_ctx: &mut Context, message: &Message, _args: &mut Args, _options: &CommandOptions) -> bool {
+    if let Some(guild_id) = message.guild_id {
+        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                return check_rank(guild_data.admin_roles, member.roles);
+            }
+        }
+    }
+    false
+}
 
 pub fn new(owners: HashSet<UserId>) -> StandardFramework {
     StandardFramework::new()
@@ -29,7 +57,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .delimiters(vec![","," "])
             .owners(owners)
             .prefix("m!")
-            .dynamic_prefix(|_ctx, message| {
+            .dynamic_prefix(|_, message| {
                 if message.is_private() {
                     return Some(String::new());
                 } else {
@@ -40,8 +68,8 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 }
                 None
             }))
-        .before(|_ctx, message, _command_name| {
-            info!("{}", _command_name);
+        .before(|_, message, command_name| {
+            debug!("Received command {} from {}", command_name, message.author.tag());
             if let false = message.is_private() {
                 let guild_id = message.guild_id.unwrap_or(GuildId(0));
                 if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
@@ -50,7 +78,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             }
             true
         })
-        .after(|_ctx, message, cmd_name, error| {
+        .after(|_, message, cmd_name, error| {
             let guild = match message.guild() {
                 Some(lock) => {
                     let g = lock.read();
@@ -95,30 +123,51 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             }
         })
         .customised_help(help_commands::plain, |c| c
-            //.suggestion_text("Couldn't find that command, but I did find a similar one. `{}`")
             .no_help_available_text("No help is available on this command.")
             .usage_label("Usage")
             .usage_sample_label("Example")
-            //.ungrouped_label("Ungrouped")
-            //.grouped_label("")
             .aliases_label("Aliases")
             .guild_only_text("Guild only")
             .dm_only_text("DM only")
             .dm_and_guilds_text("DM or Guild")
-            //.available_text("")
             .command_not_found_text("Command not found.")
-            //.individual_command_tip("")
-            //.group_prefix("Prefix")
             .lacking_role(HelpBehaviour::Hide)
             .lacking_permissions(HelpBehaviour::Hide)
             .wrong_channel(HelpBehaviour::Strike)
-            //.striked_commands_tip()
-            //.striked_commands_tip_in_guild()
-            //.striked_commands_tip_in_direct_message()
             .embed_success_colour(*colours::MAIN)
             .embed_error_colour(*colours::RED))
         .group("For Everyone", |g| g
             .help_available(true)
+            .command("anime", |c| c
+                .cmd(anime_search)
+                .desc("Search for an anime using kitsu.io")
+                .usage("<anime title>")
+                .example("darling in the franxx"))
+            .command("botinfo", |c| c
+                .cmd(bot_info)
+                .desc("Information about the bot.")
+                .usage("")
+                .batch_known_as(vec!["bi", "binfo"]))
+            .command("cat", |c| c
+                .cmd(cat)
+                .desc("Random cat photo or gif."))
+            .command("dog", |c| c
+                .cmd(dog)
+                .desc("Random dog photo or gif."))
+            .command("joke", |c| c
+                .cmd(dad_joke)
+                .desc("Dad pun, now in discord."))
+            .command("manga", |c| c
+                .cmd(manga_search)
+                .desc("Search for a manga using kitsu.io")
+                .usage("<anime title>")
+                .example("tsubasa"))
+            .command("now", |c| c
+                .cmd(now)
+                .desc("Current time. Optionally provide an amount of hours to offset by.")
+                .usage("[hour]")
+                .example("-5")
+                .known_as("time"))
             .command("ping", |c| c
                 .cmd(ping)
                 .desc("Make sure the bot is alive.")
@@ -129,65 +178,38 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .usage("")
                 .guild_only(true)
                 .known_as("pre"))
-            .command("roll", |c| c
-                .cmd(roll)
-                .desc("Roll some dice. Defaults to 6-sided.")
-                .usage("<Nd>[X]")
-                .example("2d10"))
-            .command("now", |c| c
-                .cmd(now)
-                .desc("Current time. Optionally provide an amount of hours to offset by.")
-                .usage("[hour]")
-                .example("-5")
-                .known_as("time"))
-            .command("cat", |c| c
-                .cmd(cat)
-                .desc("Random cat photo or gif."))
-            .command("dog", |c| c
-                .cmd(dog)
-                .desc("Random dog photo or gif."))
-            .command("joke", |c| c
-                .cmd(dad_joke)
-                .desc("Dad pun, now in discord."))
-            .command("urban", |c| c
-                .cmd(urban)
-                .desc("Look something up on UrbanDictionary.")
-                .usage(r#"<"term"> [count]"#)
-                .example(r#""boku no pico" 5"#)
-                .batch_known_as(vec!["ud", "urbandict"])
-                .min_args(1))
             .command("remind", |c| c
                 .cmd(remind)
                 .desc("Set a reminder. The reminder is sent to whatever channel it originated in.")
                 .usage("<reminder text> </t time_resolvable>")
                 .example("do the thing /t 1 day 10 min 25 s"))
-            // TODO write bucket, 1000 api calls per day
-            .command("weather", |c| c
-                .cmd(weather)
-                .desc("Check on the current weather.")
-                .usage("<city name>")
-                .example("london"))
-            .command("anime", |c| c
-                .cmd(anime_search)
-                .desc("Search for an anime using kitsu.io")
-                .usage("<anime title>")
-                .example("darling in the franxx"))
-            .command("manga", |c| c
-                .cmd(manga_search)
-                .desc("Search for a manga using kitsu.io")
-                .usage("<anime title>")
-                .example("tsubasa"))
-            .command("botinfo", |c| c
-                .cmd(bot_info)
-                .desc("Information about the bot.")
-                .usage("")
-                .batch_known_as(vec!["bi", "binfo"]))
+            .command("roleinfo", |c| c
+                .cmd(role_info)
+                .desc("Information about a role.")
+                .usage("<role_resolvable>")
+                .example("@example role")
+                .guild_only(true)
+                .batch_known_as(vec!["ri", "rinfo"]))
+            .command("roll", |c| c
+                .cmd(roll)
+                .desc("Roll some dice. Defaults to 6-sided.")
+                .usage("<Nd>[X]")
+                .example("2d10"))
             .command("serverinfo", |c| c
                 .cmd(server_info)
                 .desc("Information about the current server (guild).")
                 .usage("")
                 .guild_only(true)
                 .batch_known_as(vec!["si", "sinfo"]))
+            .command("tags", |c| c
+                .cmd(tag_list)
+                .desc("Alias to `tag list`"))
+            .command("urban", |c| c
+                .cmd(urban)
+                .desc("Look something up on UrbanDictionary.")
+                .usage(r#"<"term"> [count]"#)
+                .example(r#""boku no pico" 5"#)
+                .batch_known_as(vec!["ud", "urbandict"]))
             .command("userinfo", |c| c
                 .cmd(user_info)
                 .desc("Information about a user. Defaults to the author of the command.")
@@ -195,21 +217,12 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
                 .example("@Adelyn")
                 .guild_only(true)
                 .batch_known_as(vec!["ui", "uinfo"]))
-            .command("roleinfo", |c| c
-                .cmd(role_info)
-                .desc("Information about a role.")
-                .usage("<role_resolvable>")
-                .example("@example role")
-                .guild_only(true)
-                .batch_known_as(vec!["ri", "rinfo"])
-                .min_args(1))
-            .command("tags", |c| c
-                .cmd(tag_list)
-                .desc("Alias to `tag list`"))
-            .command("xp", |c| c
-                .cmd(xp)
-                .help_available(false)
-                .desc("Check your current xp")))
+            // TODO write bucket, 1000 api calls per day
+            .command("weather", |c| c
+                .cmd(weather)
+                .desc("Check on the current weather.")
+                .usage("<city name>")
+                .example("london")))
         .group("Tags", |g| g
             .help_available(true)
             .guild_only(true)
@@ -283,16 +296,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
         .group("For Moderators", |g| g
             .guild_only(true)
             .help_available(true)
-            .check(|ctx, message, _, _| {
-                if let Some(guild_id) = message.guild_id {
-                    if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                        if let Ok(member) = guild_id.member(message.author.id.clone()) {
-                            return check_rank(guild_data.mod_roles, member.roles);
-                        }
-                    }
-                }
-                false
-            })
+            .check(mod_check)
             .command("mute", |c| c
                 .cmd(mute)
                 .desc("Mute a user. Can provide an optional reason and time.")
@@ -341,16 +345,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .prefix("note")
             .guild_only(true)
             .help_available(true)
-            .check(|ctx, message, _, _| {
-                if let Some(guild_id) = message.guild_id {
-                    if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                        if let Ok(member) = guild_id.member(message.author.id.clone()) {
-                            return check_rank(guild_data.mod_roles, member.roles);
-                        }
-                    }
-                }
-                false
-            })
+            .check(mod_check)
             .command("add", |c| c
                 .cmd(note_add)
                 .desc("Add a note to a user.")
@@ -374,16 +369,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .guild_only(true)
             .help_available(true)
             .default_cmd(watchlist_list)
-            .check(|ctx, message, _, _| {
-                if let Some(guild_id) = message.guild_id {
-                    if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                        if let Ok(member) = guild_id.member(message.author.id.clone()) {
-                            return check_rank(guild_data.mod_roles, member.roles);
-                        }
-                    }
-                }
-                false
-            })
+            .check(mod_check)
             .command("add", |c| c
                 .cmd(watchlist_add)
                 .desc("Add a user to the watchlist.")
@@ -401,16 +387,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
         .group("For Admins", |g| g
             .guild_only(true)
             .help_available(true)
-            .check(|ctx, message, _, _| {
-                if let Some(guild_id) = message.guild_id {
-                    if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                        if let Ok(member) = guild_id.member(message.author.id.clone()) {
-                            return check_rank(guild_data.admin_roles, member.roles);
-                        }
-                    }
-                }
-                false
-            })
+            .check(admin_check)
             .command("setup", |c| c
                 .cmd(setup_mute)
                 .desc("Sets up mute for the server. This command requires the Manage Channels and Manage Roles permissions. It creates the Muted role if it doesn't exist, then iterates through every channel and category to disable Send Messages, Speak, and Add Reactions.")
@@ -429,16 +406,7 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .guild_only(true)
             .help_available(true)
             .prefixes(vec!["p", "premium", "prem"])
-            .check(|ctx, message, _, _| {
-                if let Some(guild_id) = message.guild_id {
-                    if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                        if let Ok(member) = guild_id.member(message.author.id.clone()) {
-                            return check_rank(guild_data.admin_roles, member.roles);
-                        }
-                    }
-                }
-                false
-            })
+            .check(admin_check)
             .command("register_member", |c| c
                 .cmd(premium_reg_member)
                 .batch_known_as(vec!["reg_m", "reg_member"]))
@@ -455,65 +423,38 @@ pub fn new(owners: HashSet<UserId>) -> StandardFramework {
             .guild_only(true)
             .help_available(true)
             .prefix("test")
-            .check(|ctx, message, _, _| {
-                if let Some(guild_id) = message.guild_id {
-                    if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                        if let Ok(member) = guild_id.member(message.author.id.clone()) {
-                            return check_rank(guild_data.admin_roles, member.roles);
-                        }
-                    }
-                }
-                false
-            })
+            .check(admin_check)
             .command("welcome", |c| c
                 .cmd(test_welcome)
                 .desc("Generates a welcome message to test your current setup.")))
         .group("Self Role Management (Admin+)", |g| g
             .help_available(true)
             .guild_only(true)
-            .check(|ctx, message, _, _| {
-                if let Some(guild_id) = message.guild_id {
-                    if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                        if let Ok(member) = guild_id.member(message.author.id.clone()) {
-                            return check_rank(guild_data.admin_roles, member.roles);
-                        }
-                    }
-                }
-                false
-            })
+            .check(admin_check)
             .command("csr", |c| c
                 .cmd(csr)
                 .desc("Create a self role from a discord role. Also optionally takes a category and/or aliases.")
                 .usage("<role_resolvable> [/c category] [/a aliases as CSV]")
                 .example("NSFW /c Opt-in /a porn, lewd")
-                .known_as("createselfrolesr"))
+                .known_as("createselfrole"))
             .command("dsr", |c| c
                 .cmd(dsr)
                 .desc("Delete a self role.")
                 .usage("<role_resolvable>")
                 .example("NSFW")
-                .known_as("deleteselfrolesr"))
+                .known_as("deleteselfrole"))
             .command("esr", |c| c
                 .cmd(esr)
                 .desc("Edit a self role. Optionally takes a category and/or aliases. This operation is lazy and won't change anything you don't specify. Replace switch tells the bot to override aliases instead of append.")
                 .usage("<role_resolvable> [/c category] [/a aliases as CSV] [/replace]")
                 .example("NSFW /c Opt-in /a porn, lewd /replace")
-                .known_as("editselfrolesr")))
+                .known_as("editselfrole")))
         .group("Config (Admin+)", |g| g
             .help_available(true)
             .guild_only(true)
             .prefixes(vec!["config", "conf"])
             .default_cmd(config_list)
-            .check(|ctx, message, _, _| {
-                if let Some(guild_id) = message.guild_id {
-                    if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                        if let Ok(member) = guild_id.member(message.author.id.clone()) {
-                            return check_rank(guild_data.admin_roles, member.roles);
-                        }
-                    }
-                }
-                false
-            })
+            .check(admin_check)
             .command("list", |c| c
                 .cmd(config_list)
                 .desc("Lists current configuration."))

@@ -81,7 +81,7 @@ impl EventHandler for Handler {
     }
 
     // Handle XP and last_message
-    fn message(&self, ctx: Context, message: Message) {
+    fn message(&self, _: Context, message: Message) {
         // These are only relevant in a guild context
         if message.author.bot { return; }
         if let Some(guild_id) = message.guild_id {
@@ -97,9 +97,9 @@ impl EventHandler for Handler {
         } else { failed!(GUILDID_FAIL); }
     }
 
-    fn message_delete(&self, ctx: Context, channel_id: ChannelId, message_id: MessageId) {
+    fn message_delete(&self, _: Context, channel_id: ChannelId, message_id: MessageId) {
         let cache = CACHE.read();
-        if let Some(channel_lock) = cache.channels.get(&channel_id) {
+        if let Some(channel_lock) = cache.guild_channel(&channel_id) {
             let channel = channel_lock.read();
             let guild_id = channel.guild_id;
             match db.get_guild(guild_id.0 as i64) {
@@ -146,11 +146,11 @@ impl EventHandler for Handler {
     }
 
     // Edit logs
-    fn message_update(&self, ctx: Context, old: Option<Message>, new: Message) {
+    fn message_update(&self, _: Context, old: Option<Message>, new: Message) {
         if new.author.bot { return; }
         if let Some(message) = old {
             let cache = CACHE.read();
-            if let Some(channel_lock) = cache.channels.get(&new.channel_id) {
+            if let Some(channel_lock) = cache.guild_channel(&new.channel_id) {
                 let channel = channel_lock.read();
                 let guild_id = channel.guild_id;
                 match db.get_guild(guild_id.0 as i64) {
@@ -183,7 +183,7 @@ impl EventHandler for Handler {
     }
 
     // Username changes and Now Live! role
-    fn presence_update(&self, ctx: Context, event: PresenceUpdateEvent) {
+    fn presence_update(&self, _: Context, event: PresenceUpdateEvent) {
         match event.presence.user {
             Some(ref user_lock) => {
                 if let Some(guild_id) = event.guild_id {
@@ -237,7 +237,7 @@ impl EventHandler for Handler {
         }
     }
 
-    fn guild_create(&self, ctx: Context, guild: Guild, is_new: bool) {
+    fn guild_create(&self, _: Context, guild: Guild, is_new: bool) {
         if is_new {
             match db.new_guild(guild.id.0 as i64) {
                 Ok(_) => {
@@ -263,7 +263,7 @@ impl EventHandler for Handler {
         }
     }
 
-    fn guild_delete(&self, ctx: Context, partial_guild: PartialGuild, _: Option<Arc<RwLock<Guild>>>) {
+    fn guild_delete(&self, _: Context, partial_guild: PartialGuild, _: Option<Arc<RwLock<Guild>>>) {
         match db.del_guild(partial_guild.id.0 as i64) {
             Ok(_) => {
                 match partial_guild.owner_id.get() {
@@ -288,7 +288,7 @@ impl EventHandler for Handler {
     }
 
     // Join log and welcome message
-    fn guild_member_addition(&self, ctx: Context, guild_id: GuildId, member: Member) {
+    fn guild_member_addition(&self, _: Context, guild_id: GuildId, member: Member) {
         match db.get_guild(guild_id.0 as i64) {
             Ok(guild_data) => {
                 let user = member.user.read();
@@ -326,7 +326,7 @@ impl EventHandler for Handler {
     }
 
     // Leave and kick log
-    fn guild_member_removal(&self, ctx: Context, guild_id: GuildId, user: User, _: Option<Member>) {
+    fn guild_member_removal(&self, _: Context, guild_id: GuildId, user: User, _: Option<Member>) {
         match db.get_guild(guild_id.0 as i64) {
             Ok(guild_data) => {
                 if guild_data.audit && guild_data.audit_channel > 0 {
@@ -372,7 +372,7 @@ impl EventHandler for Handler {
     }
 
     // Nickname and Role changes
-    fn guild_member_update(&self, ctx: Context, _: Option<Member>, new: Member) {
+    fn guild_member_update(&self, _: Context, _: Option<Member>, new: Member) {
         let guild_id = new.guild_id;
         match db.get_guild(guild_id.0 as i64) {
             Ok(guild_data) => {
@@ -437,7 +437,7 @@ impl EventHandler for Handler {
         }
     }
 
-    fn guild_ban_addition(&self, ctx: Context, guild_id: GuildId, user: User) {
+    fn guild_ban_addition(&self, _: Context, guild_id: GuildId, user: User) {
         thread::sleep(Duration::from_secs(3));
         if let Ok(audits) = guild_id.audit_logs(Some(22), None, None, Some(1)) {
             if let Some(audit) = audits.entries.values().next() {
@@ -470,7 +470,7 @@ impl EventHandler for Handler {
         }
     }
 
-    fn guild_ban_removal(&self, ctx: Context, guild_id: GuildId, user: User) {
+    fn guild_ban_removal(&self, _: Context, guild_id: GuildId, user: User) {
         thread::sleep(Duration::from_secs(3));
         if let Ok(audits) = guild_id.audit_logs(Some(23), None, None, Some(1)) {
             if let Some(audit) = audits.entries.values().next() {

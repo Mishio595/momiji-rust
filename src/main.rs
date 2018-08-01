@@ -49,8 +49,6 @@ fn main() {
                 target_width = 80
             ))
         })
-        .level(log::LevelFilter::Info)
-        .level_for("serenity", log::LevelFilter::Trace)
         .chain(std::io::stdout())
         .into_shared();
 
@@ -66,12 +64,13 @@ fn main() {
                 target_width = 80
             ))
         })
-        .level(log::LevelFilter::Info)
-        .level_for("serenity", log::LevelFilter::Trace)
         .chain(fern::log_file("output.log").expect("Unable to access log file"))
         .into_shared();
 
     fern::Dispatch::new()
+        .level(log::LevelFilter::Info)
+        .level_for("serenity", log::LevelFilter::Trace)
+        .level_for("momiji", log::LevelFilter::Debug)
         .chain(term_out)
         .chain(file_out)
         .apply().expect("Failed to apply fern settings");

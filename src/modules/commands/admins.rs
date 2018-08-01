@@ -15,13 +15,13 @@ use std::str::FromStr;
 
 // Rank 2
 
-command!(config_raw(ctx, message, _args) {
+command!(config_raw(_ctx, message, _args) {
     let guild_id = message.guild_id.unwrap();
     let guild_data = db.get_guild(guild_id.0 as i64)?;
     message.channel_id.say(format!("{:?}", guild_data))?;
 });
 
-command!(config_list(ctx, message, _args) {
+command!(config_list(_ctx, message, _args) {
     let guild_id = message.guild_id.unwrap();
     let guild_data = db.get_guild(guild_id.0 as i64).unwrap();
     message.channel_id.send_message(|m| m
@@ -31,7 +31,7 @@ command!(config_list(ctx, message, _args) {
     ))?;
 });
 
-command!(config_prefix(ctx, message, args) {
+command!(config_prefix(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     let pre = args.single::<String>().unwrap();
@@ -46,7 +46,7 @@ command!(config_prefix(ctx, message, args) {
     };
 });
 
-command!(config_autorole(ctx, message, args) {
+command!(config_autorole(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     let op = args.single::<String>().unwrap();
@@ -88,7 +88,7 @@ command!(config_autorole(ctx, message, args) {
     }
 });
 
-command!(config_admin(ctx, message, args) {
+command!(config_admin(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     let op = args.single::<String>().unwrap();
@@ -124,7 +124,7 @@ command!(config_admin(ctx, message, args) {
     }
 });
 
-command!(config_mod(ctx, message, args) {
+command!(config_mod(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     let op = args.single::<String>().unwrap();
@@ -160,7 +160,7 @@ command!(config_mod(ctx, message, args) {
     }
 });
 
-command!(config_audit(ctx, message, args) {
+command!(config_audit(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     let op = args.single::<String>().unwrap();
@@ -202,7 +202,7 @@ command!(config_audit(ctx, message, args) {
     }
 });
 
-command!(config_modlog(ctx, message, args) {
+command!(config_modlog(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     let op = args.single::<String>().unwrap();
@@ -239,7 +239,7 @@ command!(config_modlog(ctx, message, args) {
     }
 });
 
-command!(config_welcome(ctx, message, args) {
+command!(config_welcome(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     let op = args.single::<String>().unwrap();
@@ -282,7 +282,7 @@ command!(config_welcome(ctx, message, args) {
     }
 });
 
-command!(config_introduction(ctx, message, args) {
+command!(config_introduction(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     let op = args.single::<String>().unwrap();
@@ -323,7 +323,7 @@ command!(config_introduction(ctx, message, args) {
 });
 
 // TODO add hackban and ignore lists views
-command!(hackban(ctx, message, args) {
+command!(hackban(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     let user_id = match UserId::from_str(args.full()) {
@@ -361,7 +361,7 @@ command!(hackban(ctx, message, args) {
 });
 
 // TODO rewrite as group {add, remove, list}
-command!(ignore(ctx, message, args) {
+command!(ignore(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let mut guild_data = db.get_guild(guild_id.0 as i64)?;
     let (channel_id, channel) = parse_channel(args.full().to_string(), guild_id).unwrap();
@@ -392,7 +392,7 @@ command!(ignore(ctx, message, args) {
     }
 });
 
-command!(csr(ctx, message, args) {
+command!(csr(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let switches = get_switches(args.full().to_string());
     let rest = switches.get("rest").unwrap();
@@ -423,7 +423,7 @@ command!(csr(ctx, message, args) {
     };
 });
 
-command!(dsr(ctx, message, args) {
+command!(dsr(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let (role_id, _) = parse_role(args.single_quoted::<String>().unwrap(), guild_id).unwrap();
     match db.del_role(role_id.0 as i64, guild_id.0 as i64) {
@@ -436,7 +436,7 @@ command!(dsr(ctx, message, args) {
     };
 });
 
-command!(esr(ctx, message, args) {
+command!(esr(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let switches = get_switches(args.full().to_string());
     let rest = switches.get("rest").unwrap();
@@ -475,7 +475,7 @@ command!(esr(ctx, message, args) {
     };
 });
 
-command!(premium_reg_member(ctx, message, args) {
+command!(premium_reg_member(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     if let Ok(mut settings) = db.get_premium(guild_id.0 as i64) {
         if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id) {
@@ -486,7 +486,7 @@ command!(premium_reg_member(ctx, message, args) {
     }
 });
 
-command!(premium_reg_cooldown(ctx, message, args) {
+command!(premium_reg_cooldown(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     if let Ok(mut settings) = db.get_premium(guild_id.0 as i64) {
         if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id) {
@@ -497,7 +497,7 @@ command!(premium_reg_cooldown(ctx, message, args) {
     }
 });
 
-command!(premium_reg_dur(ctx, message, args) {
+command!(premium_reg_dur(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     if let Ok(mut settings) = db.get_premium(guild_id.0 as i64) {
         if let Ok(dur) = args.full().parse::<String>() {
@@ -509,7 +509,7 @@ command!(premium_reg_dur(ctx, message, args) {
     }
 });
 
-command!(premium_reg_restrict(ctx, message, args) {
+command!(premium_reg_restrict(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let op = args.single::<String>().unwrap();
     let mut sec = "";
@@ -551,7 +551,7 @@ command!(premium_reg_restrict(ctx, message, args) {
     }
 });
 
-command!(prune(ctx, message, args) {
+command!(prune(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let guild_data = db.get_guild(guild_id.0 as i64)?;
     let mut count = args.single::<usize>().unwrap();
@@ -612,7 +612,7 @@ command!(prune(ctx, message, args) {
     }
 });
 
-command!(test_welcome(ctx, message, _args) {
+command!(test_welcome(_ctx, message, _args) {
     let guild_id = message.guild_id.unwrap();
     let guild_data = db.get_guild(guild_id.0 as i64)?;
     let member = message.member().unwrap();
@@ -626,7 +626,7 @@ command!(test_welcome(ctx, message, _args) {
     }
 });
 
-command!(setup_mute(ctx, message, _args) {
+command!(setup_mute(_ctx, message, _args) {
     let guild_id = message.guild_id.unwrap();
     let lock = message.guild().unwrap();
     let guild = lock.read();

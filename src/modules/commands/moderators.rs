@@ -15,7 +15,7 @@ use serenity::model::id::{
 // Rank 1
 
 //TODO obtain data safely
-command!(mod_info(ctx, message, args) {
+command!(mod_info(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let user = db.get_user(user_id.0 as i64, guild_id.0 as i64)?;
@@ -95,7 +95,7 @@ command!(mute(ctx, message, args) {
     }
 });
 
-command!(unmute(ctx, message, args) {
+command!(unmute(_ctx, message, args) {
     let lock = message.guild().unwrap();
     let guild = lock.read();
     let (_, mut member) = parse_user(args.single::<String>().unwrap(), guild.id).unwrap();
@@ -134,7 +134,7 @@ command!(unmute(ctx, message, args) {
     }
 });
 
-command!(note_add(ctx, message, args) {
+command!(note_add(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let (user,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let note = String::from(args.rest());
@@ -144,7 +144,7 @@ command!(note_add(ctx, message, args) {
     }
 });
 
-command!(note_del(ctx, message, args) {
+command!(note_del(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let (user,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let index = args.single::<i32>().unwrap_or(0);
@@ -154,7 +154,7 @@ command!(note_del(ctx, message, args) {
     }
 });
 
-command!(note_list(ctx, message, args) {
+command!(note_list(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let user = user_id.get().unwrap();
@@ -318,7 +318,7 @@ command!(role_colour(_ctx, message, args) {
     }
 });
 
-command!(watchlist_add(ctx, message, args) {
+command!(watchlist_add(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let (user_id, _) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let mut user_data = db.get_user(user_id.0 as i64, guild_id.0 as i64)?;
@@ -329,7 +329,7 @@ command!(watchlist_add(ctx, message, args) {
     }
 });
 
-command!(watchlist_del(ctx, message, args) {
+command!(watchlist_del(_ctx, message, args) {
     let guild_id = message.guild_id.unwrap();
     let (user_id,_) = parse_user(args.single::<String>().unwrap(), guild_id).unwrap();
     let mut user_data = db.get_user(user_id.0 as i64, guild_id.0 as i64)?;
@@ -340,7 +340,7 @@ command!(watchlist_del(ctx, message, args) {
     }
 });
 
-command!(watchlist_list(ctx, message, _args) {
+command!(watchlist_list(_ctx, message, _args) {
     let guild_id = message.guild_id.unwrap();
     let users = db.get_users(guild_id.0 as i64).unwrap_or(Vec::new());
     let user_map = users.iter().filter(|e| e.watchlist).map(|u| UserId(u.id as u64).get().unwrap()).map(|u| u.tag()).collect::<Vec<String>>().join("\n");

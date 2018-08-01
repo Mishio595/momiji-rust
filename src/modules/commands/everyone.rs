@@ -301,8 +301,7 @@ command!(ping(ctx, message, _args) {
     };
 });
 
-command!(prefix(ctx, message, _args) {
-    let data = ctx.data.lock();
+command!(prefix(_ctx, message, _args) {
     if let Some(guild_id) = message.guild_id {
         if let Ok(settings) = db.get_guild(guild_id.0 as i64) {
             message.channel_id.say(format!("The prefix for this guild is `{}`", settings.prefix))?;
@@ -350,7 +349,7 @@ command!(remind(ctx, message, args) {
     } else { failed!(TC_FAIL); }
 });
 
-command!(asr(ctx, message, args) {
+command!(asr(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
         if let Some(mut member) = message.member() {
             match db.get_roles(guild_id.0 as i64) {
@@ -421,7 +420,7 @@ command!(asr(ctx, message, args) {
     } else { failed!(GUILDID_FAIL); }
 });
 
-command!(rsr(ctx, message, args) {
+command!(rsr(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
         if let Some(mut member) = message.member() {
             match db.get_roles(guild_id.0 as i64) {
@@ -493,7 +492,7 @@ command!(rsr(ctx, message, args) {
 });
 
 // TODO view a single category
-command!(lsr(ctx, message, args) {
+command!(lsr(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
         match db.get_roles(guild_id.0 as i64) {
             Ok(roles) => {
@@ -534,61 +533,66 @@ command!(lsr(ctx, message, args) {
     } else { failed!(GUILDID_FAIL); }
 });
 
-command!(role_info(ctx, message, args) {
-    let guild_id = message.guild_id.unwrap();
-    if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id) {
-        let role_data = match db.get_role(role_id.0 as i64, guild_id.0 as i64) {
-            Ok(r) => Some(r),
-            _ => None,
-        };
-        let mut fields = vec![
-            ("Name", role.name.clone(), true),
-            ("ID", format!("{}", role_id.0), true),
-            ("Hex", format!("#{}", role.colour.hex()), true),
-            ("Hoisted", String::from(if role.hoist { "Yes" } else { "No" }), true),
-            ("Mentionable", String::from(if role.mentionable { "Yes" } else { "No" }), true),
-            ("Position", format!("{}", role.position), true),
-        ];
-        match role_data {
-            Some(r) => {
-                fields.push(("Self Assignable", String::from("Yes"), true));
-                if !r.aliases.is_empty() {
-                    fields.push(("Self Role Aliases", r.aliases.join(", "), true));
+command!(role_info(_ctx, message, args) {
+    if let Some(guild_id) = message.guild_id {
+        match parse_role(args.rest().to_string(), guild_id) {
+            Some((role_id, role)) => {
+                let role_data = match db.get_role(role_id.0 as i64, guild_id.0 as i64) {
+                    Ok(r) => Some(r),
+                    _ => None,
+                };
+                let mut fields = vec![
+                    ("Name", role.name.clone(), true),
+                    ("ID", format!("{}", role_id.0), true),
+                    ("Hex", format!("#{}", role.colour.hex()), true),
+                    ("Hoisted", String::from(if role.hoist { "Yes" } else { "No" }), true),
+                    ("Mentionable", String::from(if role.mentionable { "Yes" } else { "No" }), true),
+                    ("Position", format!("{}", role.position), true),
+                ];
+                match role_data {
+                    Some(r) => {
+                        fields.push(("Self Assignable", String::from("Yes"), true));
+                        if !r.aliases.is_empty() {
+                            fields.push(("Self Role Aliases", r.aliases.join(", "), true));
+                        }
+                    },
+                    None => {
+                        fields.push(("Self Assignable", String::from("No"), true));
+                    }
                 }
+                message.channel_id.send_message(|m| m
+                    .embed(|e| e
+                        .thumbnail(format!("https://www.colorhexa.com/{}.png", role.colour.hex().to_lowercase()))
+                        .colour(role.colour)
+                        .fields(fields)
+                ))?;
             },
-            None => {
-                fields.push(("Self Assignable", String::from("No"), true));
-            }
+            None => { message.channel_id.say("Unable to find that role.")?; }
         }
-        message.channel_id.send_message(|m| m
-            .embed(|e| e
-                .thumbnail(format!("https://www.colorhexa.com/{}.png", role.colour.hex().to_lowercase()))
-                .colour(role.colour)
-                .fields(fields)
-        ))?;
-    };
+    } else { failed!(GUILDID_FAIL); }
 });
 
 // TODO eval expressions such as "2d10 + 5"
 command!(roll(_ctx, message, args) {
     let expr = args.single::<String>().unwrap_or(String::new());
-    let caps = DICE_MATCH.captures(expr.as_str()).unwrap();
-    let count: u32 = caps["count"].parse().unwrap_or(1);
-    let sides: u32 = caps["sides"].parse().unwrap_or(6);
-    if count > 0 && count <= 1000 {
-        if sides > 0 && sides <= 100 {
-            let mut total = 0;
-            for _ in 1..&count+1 {
-                let r = thread_rng().gen_range(1,&sides+1);
-                total += r;
-            }
-            message.channel_id.send_message(|m| m
-                .embed(|e| e
-                    .colour(*colours::MAIN)
-                    .field(format!("{} 🎲 [1-{}]", count, sides), format!("You rolled {}", total), true)
-            ))?;
-        } else { message.channel_id.say("Sides out of bounds")?; }
-    } else { message.channel_id.say("Count out of bounds")?; }
+    if let Some(caps) = DICE_MATCH.captures(expr.as_str()) {
+        let count: u32 = caps["count"].parse().unwrap_or(1);
+        let sides: u32 = caps["sides"].parse().unwrap_or(6);
+        if count > 0 && count <= 1000 {
+            if sides > 0 && sides <= 100 {
+                let mut total = 0;
+                for _ in 1..&count+1 {
+                    let r = thread_rng().gen_range(1,&sides+1);
+                    total += r;
+                }
+                message.channel_id.send_message(|m| m
+                    .embed(|e| e
+                        .colour(*colours::MAIN)
+                        .field(format!("{} 🎲 [1-{}]", count, sides), format!("You rolled {}", total), true)
+                ))?;
+            } else { message.channel_id.say("Sides out of bounds")?; }
+        } else { message.channel_id.say("Count out of bounds")?; }
+    } else { message.channel_id.say("Sorry, I didn't understand your input.")?; }
 });
 
 command!(server_info(_ctx, message, args) {
@@ -598,10 +602,13 @@ command!(server_info(_ctx, message, args) {
     let switches = get_switches(args.full().to_string());
     let g = match switches.get("rest") {
         Some(s) => {
-            let (_, lock) = parse_guild(s.to_string()).unwrap_or((message.guild_id.unwrap(), message.guild().unwrap()));
-            Some(lock)
+            if let Some((_, lock)) = parse_guild(s.to_string()) {
+                Some(lock)
+            } else {
+                None
+            }
         },
-        None => message.guild(),
+        None => message.guild()
     };
     if let Some(guild_lock) = g {
         let guild = guild_lock.read().clone();
@@ -668,84 +675,95 @@ command!(server_info(_ctx, message, args) {
                 ))?;
             },
         }
-    }
+    } else { message.channel_id.say("Could not find that guild.")?; }
 });
 
-command!(tag_list(ctx, message, _args) {
+command!(tag_list(_ctx, message, _args) {
     if let Some(guild_id) = message.guild_id {
-        match db.get_tags(guild_id.0 as i64) {
-            Ok(tags) => {
+        if let Ok(tags) = db.get_tags(guild_id.0 as i64) {
+            if !tags.is_empty() {
                 message.channel_id.say(tags.iter().map(|e| e.name.as_str()).collect::<Vec<&str>>().join("\n"))?;
-            },
-            Err(why) => {},
-        }
-    }
-});
-
-command!(tag_single(ctx, message, args) {
-    let guild_id = message.guild_id.unwrap();
-    let tag_input = args.full().trim().to_string();
-    let tags = db.get_tags(guild_id.0 as i64)?;
-    if let Some(tag) = tags.iter().find(|e| e.name == tag_input) {
-        message.channel_id.say(&tag.data)?;
-    } else {
-        let mut sdc = SorensenDice::new();
-        let mut matches = Vec::new();
-        for tag in tags.iter() {
-            let dist = sdc.get_similarity(tag.name.as_str(), &tag_input);
-            matches.push((tag, dist));
-        }
-        matches.retain(|e| e.1 > 0.2);
-        matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
-        matches.truncate(5);
-        let matches = matches.iter().map(|e| e.0.name.clone()).collect::<Vec<String>>();
-        message.channel_id.say(format!("No tag found. Did you mean...\n{}", matches.join("\n")))?;
-    }
-});
-
-command!(tag_add(ctx, message, args) {
-    let guild_id = message.guild_id.unwrap();
-    let tag_input = args.single_quoted::<String>().unwrap();
-    let value = args.rest().to_string();
-    match db.new_tag(message.author.id.0 as i64, guild_id.0 as i64, tag_input.clone(), value) {
-        Ok(tag) => { message.channel_id.say(format!("Successfully created tag `{}`", tag.name))?; },
-        Err(why) => { message.channel_id.say(format!("Failed to create tag `{}`. Here's why: {:?}", tag_input, why))?; },
-    }
-});
-
-command!(tag_del(ctx, message, args) {
-    let guild_id = message.guild_id.unwrap();
-    let tag_input = args.single_quoted::<String>().unwrap();
-    if let Ok(tag) = db.get_tag(guild_id.0 as i64, tag_input.clone()) {
-        let mut rank_check = false;
-        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-            if let Ok(member) = guild_id.member(&message.author.id) {
-                if check_rank(guild_data.admin_roles, &member.roles) { rank_check = true }
-                if check_rank(guild_data.mod_roles, &member.roles) { rank_check = true }
+            } else {
+                message.channel_id.say("No tags founds.")?;
             }
-        }
-        if message.author.id.0 as i64 == tag.author || rank_check {
-            match db.del_tag(guild_id.0 as i64, tag_input.clone()) {
-                Ok(tag) => { message.channel_id.say(format!("Successfully deleted tag `{}`", tag.name))?; },
-                Err(why) => { message.channel_id.say(format!("Failed to delete tag `{}`. Here's why: {:?}", tag_input, why))?; },
-            }
-        } else { message.channel_id.say("You must own this tag in order to delete it.")?; }
-    } else { message.channel_id.say("Tag not found.")?; }
+        } else { failed!(DB_TAGS_FAIL); }
+    } else { failed!(GUILDID_FAIL); }
 });
 
-command!(tag_edit(ctx, message, args) {
-    let guild_id = message.guild_id.unwrap();
-    let tag_input = args.single_quoted::<String>().unwrap();
-    let value = args.rest().to_string();
-    if let Ok(mut tag) = db.get_tag(guild_id.0 as i64, tag_input.clone()) {
-        if message.author.id.0 as i64 == tag.author {
-            tag.data = value.clone();
-            match db.update_tag(guild_id.0 as i64, tag_input.clone(), tag) {
-                Ok(t) => { message.channel_id.say(format!("Successfully edited tag `{}`", t.name))?; },
-                Err(why) => { message.channel_id.say(format!("Failed to edit tag `{}`. Here's why: {:?}", tag_input, why))?; },
+command!(tag_single(_ctx, message, args) {
+    if let Some(guild_id) = message.guild_id {
+        let tag_input = args.full().trim().to_string();
+        if let Ok(tags) = db.get_tags(guild_id.0 as i64) {
+            if !tags.is_empty() {
+                if let Some(tag) = tags.iter().find(|e| e.name == tag_input) {
+                    message.channel_id.say(&tag.data)?;
+                } else {
+                    let mut sdc = SorensenDice::new();
+                    let mut matches = Vec::new();
+                    for tag in tags.iter() {
+                        let dist = sdc.get_similarity(tag.name.as_str(), &tag_input);
+                        matches.push((tag, dist));
+                    }
+                    matches.retain(|e| e.1 > 0.2);
+                    matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+                    matches.truncate(5);
+                    let matches = matches.iter().map(|e| e.0.name.clone()).collect::<Vec<String>>();
+                    message.channel_id.say(format!("No tag found. Did you mean...\n{}", matches.join("\n")))?;
+                }
+            } else { message.channel_id.say("There are no tags yet.")?; }
+        } else { failed!(DB_TAGS_FAIL); }
+    } else { failed!(GUILDID_FAIL); }
+});
+
+command!(tag_add(_ctx, message, args) {
+    if let Some(guild_id) = message.guild_id {
+        if let Ok(tag_input) = args.single_quoted::<String>() {
+            let value = args.rest().to_string();
+            match db.new_tag(message.author.id.0 as i64, guild_id.0 as i64, tag_input.clone(), value) {
+                Ok(tag) => { message.channel_id.say(format!("Successfully created tag `{}`", tag.name))?; },
+                Err(why) => { message.channel_id.say(format!("Failed to create tag `{}`. Here's why: {:?}", tag_input, why))?; },
             }
-        } else { message.channel_id.say("You must own this tag to edit it.")?; }
-    } else { message.channel_id.say("Tag not found.")?; }
+        } else { message.channel_id.say("I couldn't understand your input.")?; }
+    } else { failed!(GUILDID_FAIL); }
+});
+
+command!(tag_del(_ctx, message, args) {
+    if let Some(guild_id) = message.guild_id {
+        if let Ok(tag_input) = args.single_quoted::<String>() {
+            if let Ok(tag) = db.get_tag(guild_id.0 as i64, tag_input.clone()) {
+                let mut rank_check = false;
+                if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                    if let Ok(member) = guild_id.member(&message.author.id) {
+                        if check_rank(guild_data.admin_roles, &member.roles) { rank_check = true }
+                        if check_rank(guild_data.mod_roles, &member.roles) { rank_check = true }
+                    }
+                }
+                if message.author.id.0 as i64 == tag.author || rank_check {
+                    match db.del_tag(guild_id.0 as i64, tag_input.clone()) {
+                        Ok(tag) => { message.channel_id.say(format!("Successfully deleted tag `{}`", tag.name))?; },
+                        Err(why) => { message.channel_id.say(format!("Failed to delete tag `{}`. Here's why: {:?}", tag_input, why))?; },
+                    }
+                } else { message.channel_id.say("You must own this tag in order to delete it.")?; }
+            } else { message.channel_id.say("Tag not found.")?; }
+        } else { message.channel_id.say("I couldn't understand your input.")?; }
+    } else { failed!(GUILDID_FAIL); }
+});
+
+command!(tag_edit(_ctx, message, args) {
+    if let Some(guild_id) = message.guild_id {
+        if let Ok(tag_input) = args.single_quoted::<String>() {
+            let value = args.rest().to_string();
+            if let Ok(mut tag) = db.get_tag(guild_id.0 as i64, tag_input.clone()) {
+                if message.author.id.0 as i64 == tag.author {
+                    tag.data = value.clone();
+                    match db.update_tag(guild_id.0 as i64, tag_input.clone(), tag) {
+                        Ok(t) => { message.channel_id.say(format!("Successfully edited tag `{}`", t.name))?; },
+                        Err(why) => { message.channel_id.say(format!("Failed to edit tag `{}`. Here's why: {:?}", tag_input, why))?; },
+                    }
+                } else { message.channel_id.say("You must own this tag in order to edit it.")?; }
+            } else { message.channel_id.say("Tag not found.")?; }
+        } else { message.channel_id.say("I couldn't understand your input.")?; }
+    } else { failed!(GUILDID_FAIL); }
 });
 
 command!(urban(ctx, message, args) {
@@ -783,18 +801,17 @@ command!(urban(ctx, message, args) {
     };
 });
 
-command!(user_info(ctx, message, args) {
-    if let Some(guild_lock) = message.guild() {
-        let guild = guild_lock.read();
-        let premium = match db.get_premium(guild.id.0 as i64) {
+command!(user_info(_ctx, message, args) {
+    if let Some(guild_id) = message.guild_id {
+        let premium = match db.get_premium(guild_id.0 as i64) {
             Ok(_) => true,
             Err(_) => false,
         };
-        let (user, member) = match parse_user(args.single::<String>().unwrap_or(String::new()), guild.id) {
+        let (user, member) = match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
             Some((id, member)) => (id.get().unwrap(), member),
             None => (message.author.clone(), message.member().unwrap().clone()),
         };
-        let user_data = db.get_user(user.id.0 as i64, guild.id.0 as i64)?;
+        let user_data = db.get_user(user.id.0 as i64, guild_id.0 as i64)?;
         let mut roles = member.roles.iter().map(|c| c.find().unwrap().name).collect::<Vec<String>>();
         roles.sort();
         let dates = format!("Created: {}\nJoined: {}{}",
@@ -878,8 +895,10 @@ command!(weather(ctx, message, args) {
     }
 });
 
+/*
 command!(xp(ctx, message, _args) {
     let guild_id = message.guild_id.unwrap();
     let user_data = db.get_user(message.author.id.0 as i64, guild_id.0 as i64)?;
     message.channel_id.say(format!("Your current XP is {}", user_data.xp))?;
 });
+*/

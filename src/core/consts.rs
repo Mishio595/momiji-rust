@@ -29,6 +29,7 @@ pub const DB_GUILD_DEL_FAIL: &str   = "Failed to delete guild entry";
 pub const DB_GUILD_ENTRY_FAIL: &str = "Failed to create guild entry";
 pub const DB_GUILD_FAIL: &str       = "Failed to select guild entry";
 pub const DB_ROLES_FAIL: &str       = "Failed to select roles";
+pub const DB_TAGS_FAIL: &str        = "Failed to select tags";
 pub const DB_USER_ENTRY_FAIL: &str  = "Failed to create user entry";
 pub const DB_USER_FAIL: &str        = "Failed to select user entry";
 pub const GUILDID_FAIL: &str        = "Failed to get GuildId";
