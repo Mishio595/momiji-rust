@@ -1,27 +1,34 @@
 use core::consts::*;
-use serenity::model::id::*;
-use serenity::model::guild::{Guild, Role, Member};
-use serenity::model::channel::{GuildChannel, Message};
-use serenity::model::misc::Mentionable;
+use regex::Regex;
 use serenity::CACHE;
 use serenity::Error;
+use serenity::model::channel::{
+    GuildChannel,
+    Message
+};
+use serenity::model::guild::{
+    Guild,
+    Role,
+    Member
+};
+use serenity::model::id::*;
+use serenity::model::misc::Mentionable;
 use serenity::prelude::RwLock;
-use regex::Regex;
-use std::sync::Arc;
-use std::str::FromStr;
 use std::collections::HashMap;
+use std::str::FromStr;
+use std::sync::Arc;
 
 lazy_static! {
-    static ref ROLE_MATCH: Regex    = Regex::new(r"(?:<@)?&?(\d{17,})>*?").expect("Failed to create Regex");
-    static ref USER_MATCH: Regex    = Regex::new(r"(?:<@)?!?(\d{17,})>*?").expect("Failed to create Regex");
     static ref CHANNEL_MATCH: Regex = Regex::new(r"(?:<#)?(\d{17,})>*?").expect("Failed to create Regex");
-    static ref GUILD_MATCH: Regex   = Regex::new(r"\d{17,}").expect("Failed to create Regex");
     static ref EMBED_ITEM: Regex    = Regex::new(r"\$[^\$]*").expect("Failed to create Regex");
     static ref EMEBED_PARTS: Regex  = Regex::new(r"\$?(?P<field>\S+):(?P<value>.*)").expect("Failed to create Regex");
+    static ref GUILD_MATCH: Regex   = Regex::new(r"\d{17,}").expect("Failed to create Regex");
     static ref PLAIN_PARTS: Regex   = Regex::new(r"\{.*\}").expect("Failed to create Regex");
-    static ref SWITCH_REST: Regex   = Regex::new(r"^[^/]+").expect("Failed to create Regex");
+    static ref ROLE_MATCH: Regex    = Regex::new(r"(?:<@)?&?(\d{17,})>*?").expect("Failed to create Regex");
     static ref SWITCH_PARTS: Regex  = Regex::new(r"/\s*(\S+)([^/]*)").expect("Failed to create Regex");
+    static ref SWITCH_REST: Regex   = Regex::new(r"^[^/]+").expect("Failed to create Regex");
     static ref TIME: Regex          = Regex::new(r"(\d+)\s*?(\w)").expect("Failed to create Regex");
+    static ref USER_MATCH: Regex    = Regex::new(r"(?:<@)?!?(\d{17,})>*?").expect("Failed to create Regex");
 }
 
 /// Attempts to parse a role ID out of a string

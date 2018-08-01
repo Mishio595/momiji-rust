@@ -5,22 +5,31 @@ extern crate kankyo;
 extern crate momiji;
 extern crate serenity;
 
+use fern::colors::{
+    Color,
+    ColoredLevelConfig
+};
 use momiji::core::{
     api,
     handler::Handler,
     model::*,
     framework,
-    timers,
+    timers
 };
-use serenity::prelude::*;
 use serenity::http;
+use serenity::prelude::{
+    Client,
+    Mutex
+};
 use std::collections::HashSet;
 use std::env;
 use std::sync::Arc;
-use fern::colors::{Color, ColoredLevelConfig};
 
 fn main() {
     kankyo::load().expect("Failed to load .env file");
+    // This is a bit verbose, but it allows for logging to console with colors and to a file
+    // without to avoid ANSI color codes showing up in the log. This is mostly to improve
+    // visibility.
     let colors = ColoredLevelConfig::new()
         .trace(Color::Magenta)
         .debug(Color::Cyan)
@@ -44,7 +53,7 @@ fn main() {
         .level_for("serenity", log::LevelFilter::Trace)
         .chain(std::io::stdout())
         .into_shared();
-        
+
     let file_out = fern::Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(

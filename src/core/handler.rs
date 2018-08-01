@@ -1,25 +1,35 @@
-use core::model::*;
-use core::consts::DB as db;
-use core::consts::*;
-use core::utils::*;
+use chrono::Utc;
 use core::colours;
+use core::consts::*;
+use core::consts::DB as db;
+use core::model::*;
+use core::utils::*;
 use db::models::UserUpdate;
-use serenity::prelude::*;
+use levenshtein::levenshtein;
 use serenity::CACHE;
-use serenity::model::{
-    id::*,
-    guild::*,
-    user::*,
-    event::*,
-    gateway::{Ready, Game},
-    channel::Message,
+use serenity::model::gateway::{
+    Game,
+    GameType,
+    Ready
 };
-use serenity::model::gateway::GameType;
+use serenity::model::channel::Message;
+use serenity::model::event::PresenceUpdateEvent;
+use serenity::model::guild::{
+    Guild,
+    Member,
+    PartialGuild
+};
+use serenity::model::id::{
+    ChannelId,
+    GuildId,
+    MessageId,
+    RoleId,
+};
+use serenity::model::user::User;
+use serenity::prelude::*;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use chrono::Utc;
-use levenshtein::levenshtein;
 
 pub struct Handler;
 

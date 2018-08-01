@@ -2,18 +2,18 @@
 pub mod models;
 mod schema;
 
-use kankyo;
-use diesel;
-use r2d2;
-use r2d2_diesel::ConnectionManager;
-use diesel::prelude::*;
+use chrono::offset::Utc;
 use diesel::pg::PgConnection;
 use diesel::pg::upsert::excluded;
-use chrono::offset::Utc;
-use std::env;
-use std::ops::Deref;
+use diesel::prelude::*;
+use diesel;
+use kankyo;
+use r2d2;
+use r2d2_diesel::ConnectionManager;
 use self::models::*;
 use self::schema::*;
+use std::env;
+use std::ops::Deref;
 
 /// While the struct itself and the connection are public, Database cannot be manually
 /// instantiated. Use Database::connect() to start it.

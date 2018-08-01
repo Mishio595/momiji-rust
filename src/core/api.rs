@@ -1,10 +1,32 @@
-use kitsu::{KitsuReqwestRequester, Error as KitsuErr};
-use kitsu::model::{Response, Anime, Manga};
-use reqwest::{Client, Result as ReqwestResult};
-use reqwest::mime;
-use reqwest::header::{Headers, UserAgent, ContentType, Accept, Authorization, qitem};
-use forecast::{ApiClient as DSClient, ApiResponse, ForecastRequestBuilder, Lang, Units};
+use forecast::{
+    ApiClient as DSClient,
+    ApiResponse,
+    ForecastRequestBuilder,
+    Lang,
+    Units
+};
 use geocoding::Opencage;
+use kitsu::model::{
+    Response,
+    Anime,Manga
+};
+use kitsu::{
+    KitsuReqwestRequester,
+    Error as KitsuErr
+};
+use reqwest::header::{
+    Headers,
+    UserAgent,
+    ContentType,
+    Accept,
+    Authorization,
+    qitem
+};
+use reqwest::mime;
+use reqwest::{
+    Client,
+    Result as ReqwestResult
+};
 use std::env;
 
 const UA: &str = "momiji-bot";

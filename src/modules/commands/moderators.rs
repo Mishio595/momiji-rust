@@ -1,9 +1,16 @@
-use core::utils::*;
-use core::model::TC;
-use core::consts::{DAY, DB as db};
-use core::colours;
-use serenity::model::id::{RoleId, ChannelId, UserId};
 use chrono::Utc;
+use core::colours;
+use core::consts::{
+    DAY,
+    DB as db
+};
+use core::model::TC;
+use core::utils::*;
+use serenity::model::id::{
+    RoleId,
+    ChannelId,
+    UserId
+};
 
 // Rank 1
 

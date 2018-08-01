@@ -1,12 +1,16 @@
-use core::utils::*;
-use core::consts::DB as db;
-use core::colours;
-use serenity::prelude::*;
-use serenity::model::Permissions;
-use serenity::model::id::*;
-use serenity::model::channel::{Message, PermissionOverwrite, PermissionOverwriteType};
-use serenity::builder::GetMessages;
 use chrono::Utc;
+use core::colours;
+use core::consts::DB as db;
+use core::utils::*;
+use serenity::builder::GetMessages;
+use serenity::model::Permissions;
+use serenity::model::channel::{
+    Message,
+    PermissionOverwrite,
+    PermissionOverwriteType
+};
+use serenity::model::id::*;
+use serenity::prelude::*;
 use std::str::FromStr;
 
 // Rank 2

@@ -1,5 +1,5 @@
-use core::utils::parse_guild;
 use core::consts::DB as db;
+use core::utils::parse_guild;
 use std::path::Path;
 
 // Rank 4

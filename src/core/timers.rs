@@ -1,17 +1,21 @@
-use std::thread;
-use std::sync::Arc;
-use std::sync::mpsc::{Sender, Receiver, channel};
-use threadpool::ThreadPool;
-use std::time::Duration;
-use std::str::FromStr;
 use chrono::Utc;
-use serenity::prelude::Mutex;
-use serenity::model::id::*;
-use serenity::model::channel::Channel;
-use core::utils::*;
-use core::consts::DB as db;
-use core::consts::*;
 use core::colours;
+use core::consts::*;
+use core::consts::DB as db;
+use core::utils::*;
+use serenity::model::channel::Channel;
+use serenity::model::id::*;
+use serenity::prelude::Mutex;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::mpsc::{
+    Sender,
+    Receiver,
+    channel
+};
+use std::thread;
+use std::time::Duration;
+use threadpool::ThreadPool;
 
 pub struct TimerClient {
     pub recv: Arc<Mutex<Receiver<String>>>,

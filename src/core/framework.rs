@@ -1,16 +1,22 @@
-use core::consts::DB as db;
-use core::consts::*;
+use chrono::Utc;
 use core::colours;
+use core::consts::*;
+use core::consts::DB as db;
 use core::utils::check_rank;
 use modules::commands::*;
 use serenity::framework::{
     StandardFramework,
-    standard::{help_commands, HelpBehaviour},
+    standard::{
+        help_commands,
+        HelpBehaviour
+    }
 };
-use serenity::model::id::{GuildId, UserId};
 use serenity::model::channel::Channel;
+use serenity::model::id::{
+    GuildId,
+    UserId
+};
 use std::collections::HashSet;
-use chrono::Utc;
 
 pub fn new(owners: HashSet<UserId>) -> StandardFramework {
     StandardFramework::new()

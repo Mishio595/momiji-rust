@@ -1,24 +1,28 @@
-use core::utils::*;
-use core::model::*;
-use core::consts::DB as db;
-use core::consts::*;
-use core::colours;
-use serenity::CACHE;
-use serenity::prelude::*;
-use serenity::model::id::*;
-use serenity::model::guild::Role;
-use serenity::client::bridge::gateway::ShardId;
-use sysinfo;
-use sysinfo::{ProcessExt, SystemExt};
-use sys_info;
-use rand::prelude::*;
 use chrono::Utc;
-use regex::Regex;
-use fuzzy_match::fuzzy_match;
+use core::colours;
+use core::consts::*;
+use core::consts::DB as db;
+use core::model::*;
+use core::utils::*;
+use forecast::Icon::*;
 use fuzzy_match::algorithms::*;
+use fuzzy_match::fuzzy_match;
+use rand::prelude::*;
+use regex::Regex;
+use serenity::CACHE;
+use serenity::client::bridge::gateway::ShardId;
+use serenity::model::guild::Role;
+use serenity::model::id::*;
+use serenity::prelude::*;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
-use forecast::Icon::*;
+use sys_info;
+use sysinfo::{
+    ProcessExt,
+    SystemExt,
+    System,
+    get_current_pid
+};
 
 lazy_static! {
     static ref DICE_MATCH: Regex = Regex::new(r"(?P<count>\d+)d?(?P<sides>\d*)").expect("Failed to create Regex");
@@ -31,8 +35,8 @@ command!(bot_info(ctx, message, _args) {
     let cache = CACHE.read();
     let shard_count = cache.shard_count;
     let owner = data.get::<Owner>().expect("Failed to get owner").get()?;
-    let sys = sysinfo::System::new();
-    if let Some(process) = sys.get_process(sysinfo::get_current_pid()) {
+    let sys = System::new();
+    if let Some(process) = sys.get_process(get_current_pid()) {
         message.channel_id.send_message(|m| m
             .embed(|e| e
                 .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")

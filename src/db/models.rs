@@ -1,7 +1,7 @@
 use chrono::{DateTime, TimeZone, Utc};
-use super::schema::*;
-use std::fmt::{Display, Formatter, Result as FmtResult};
 use serenity::model::id::{UserId, RoleId};
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use super::schema::*;
 
 // QUERYABLES
 
