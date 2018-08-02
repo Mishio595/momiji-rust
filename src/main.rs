@@ -3,6 +3,7 @@
 extern crate chrono;
 extern crate fern;
 extern crate kankyo;
+extern crate parking_lot;
 
 use fern::colors::{
     Color,
@@ -10,9 +11,31 @@ use fern::colors::{
 };
 use momiji::MomijiClient;
 
+use std::thread;
+use std::time::Duration;
+use parking_lot::deadlock;
+
 fn main() {
     kankyo::load().expect("Failed to load .env file");
     fern_setup().expect("Failed to apply fern settings.");
+    thread::spawn(move || {
+        loop {
+            thread::sleep(Duration::from_secs(10));
+            let deadlocks = deadlock::check_deadlock();
+            if deadlocks.is_empty() {
+                continue;
+            }
+
+            println!("{} deadlocks detected", deadlocks.len());
+            for (i, threads) in deadlocks.iter().enumerate() {
+                println!("Deadlock #{}", i);
+                for t in threads {
+                    println!("Thread Id {:#?}", t.thread_id());
+                    println!("{:#?}", t.backtrace());
+                }
+            }
+        }
+    });
     let mut client = MomijiClient::new();
     check_error!(client.start_autosharded());
 }
@@ -60,7 +83,7 @@ fn fern_setup() -> Result<(), log::SetLoggerError> {
 
     fern::Dispatch::new()
         .level(log::LevelFilter::Info)
-        //.level_for("serenity", log::LevelFilter::Trace)
+        .level_for("serenity", log::LevelFilter::Debug)
         .level_for("momiji", log::LevelFilter::Debug)
         .chain(term_out)
         .chain(file_out)

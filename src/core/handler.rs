@@ -81,6 +81,7 @@ impl EventHandler for Handler {
     }
 
     // Handle XP and last_message
+    /*
     fn message(&self, _: Context, message: Message) {
         // These are only relevant in a guild context
         if message.author.bot { return; }
@@ -96,6 +97,7 @@ impl EventHandler for Handler {
             }
         } else { failed!(GUILDID_FAIL); }
     }
+    */
 
     fn message_delete(&self, _: Context, channel_id: ChannelId, message_id: MessageId) {
         let cache = CACHE.read();
@@ -187,8 +189,30 @@ impl EventHandler for Handler {
         match event.presence.user {
             Some(ref user_lock) => {
                 if let Some(guild_id) = event.guild_id {
-                    let user = user_lock.read();
+                    let user = user_lock.read().clone();
                     if !user.bot {
+                        let mut user_data = db.get_user(event.presence.user_id.0 as i64, guild_id.0 as i64).unwrap_or_else(|why| {
+                            // TODO figure out how this is failing due to unique violation
+                            debug!("{}", why);
+                            db.new_user(event.presence.user_id.0 as i64, guild_id.0 as i64).expect("Failed to create user entry")
+                        });
+                        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                            if guild_data.audit && guild_data.audit_channel > 0 {
+                                let audit_channel = ChannelId(guild_data.audit_channel as u64);
+                                if user.tag() != user_data.username {
+                                    audit_channel.send_message(|m| m
+                                        .embed(|e| e
+                                            .title("Username changed")
+                                            .colour(*colours::MAIN)
+                                            .thumbnail(user.face())
+                                            .description(format!("**Old:** {}\n**New:** {}", user_data.username, user.tag()))
+                                    )).expect("Failed to send Message");
+                                    user_data.username = user.tag();
+                                }
+                            }
+                        } else { failed!(DB_GUILD_FAIL); }
+                        db.update_user(event.presence.user_id.0 as i64, guild_id.0 as i64, user_data).expect("Failed to update user");
+
                         let cache = CACHE.read();
                         match cache.member(guild_id, user.id) {
                             Some(mut member) => {
@@ -208,27 +232,6 @@ impl EventHandler for Handler {
                                         },
                                     }
                                 }
-                                let mut user_data = db.get_user(event.presence.user_id.0 as i64, guild_id.0 as i64).unwrap_or_else(|why| {
-                                    // TODO figure out how this is failing due to unique violation
-                                    debug!("{}", why);
-                                    db.new_user(event.presence.user_id.0 as i64, guild_id.0 as i64).expect("Failed to create user entry")
-                                });
-                                if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                                    if guild_data.audit && guild_data.audit_channel > 0 {
-                                        let audit_channel = ChannelId(guild_data.audit_channel as u64);
-                                        if user.tag() != user_data.username {
-                                            audit_channel.send_message(|m| m
-                                                .embed(|e| e
-                                                    .title("Username changed")
-                                                    .colour(*colours::MAIN)
-                                                    .thumbnail(user.face())
-                                                    .description(format!("**Old:** {}\n**New:** {}", user_data.username, user.tag()))
-                                            )).expect("Failed to send Message");
-                                            user_data.username = user.tag();
-                                        }
-                                    }
-                                } else { failed!(DB_GUILD_FAIL); }
-                                db.update_user(event.presence.user_id.0 as i64, guild_id.0 as i64, user_data).expect("Failed to update user");
                             },
                             None => { failed!(MEMBER_FAIL); },
                         }

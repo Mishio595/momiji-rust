@@ -35,6 +35,10 @@ sysinfo = "0.5"
 threadpool = "1.7"
 typemap = "0.3"
 
+[dependencies.parking_lot]
+version = "0.6"
+features = ["deadlock_detection"]
+
 [dependencies.diesel]
 version = "1.0.0"
 features = ["postgres", "chrono"]
@@ -44,7 +48,7 @@ version = "0.5"
 features = ["colored"]
 
 [dependencies.serenity]
-git = "https://github.com/Mishio595/serenity.git"
-#path = "/home/lynn/builds/serenity"
+#git = "https://github.com/Mishio595/serenity.git"
+path = "/home/lynn/builds/serenity"
 default-features = false
 features = ["builder", "client", "cache", "framework", "standard_framework", "gateway", "http", "model", "utils", "voice"]
