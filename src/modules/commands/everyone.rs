@@ -14,6 +14,7 @@ use serenity::client::bridge::gateway::ShardId;
 use serenity::model::guild::Role;
 use serenity::model::id::*;
 use serenity::prelude::*;
+use std::f64::NAN;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use sys_info;
@@ -843,19 +844,19 @@ command!(weather(ctx, message, args) {
     let loc = args.full();
     message.channel_id.broadcast_typing()?;
     if let Some(api) = data.get::<ApiClient>() {
-        if let Some((city_info, res)) = api.weather(loc) {
-            if let Ok(body) = res {
+        match api.weather(loc) {
+            Some((city_info, Ok(body))) => {
                 if let Some(current) = body.currently {
                     if let Some(daily_data) = body.daily {
                         let daily = &daily_data.data[0];
-                        let temp = current.temperature.unwrap_or(0.0);
-                        let temp_high = current.temperature_high.unwrap_or(daily.temperature_high.unwrap_or(0.0));
-                        let temp_low = current.temperature_low.unwrap_or(daily.temperature_low.unwrap_or(0.0));
-                        let feels_like = current.apparent_temperature.unwrap_or(0.0);
-                        let wind = current.wind_speed.unwrap_or(0.0);
-                        let visi = current.visibility.unwrap_or(0.0);
-                        let pressure = current.pressure.unwrap_or(0.0);
-                        let humidity = current.humidity.unwrap_or(0.0)*100.0;
+                        let temp = current.temperature.unwrap_or(NAN);
+                        let temp_high = current.temperature_high.unwrap_or(daily.temperature_high.unwrap_or(NAN));
+                        let temp_low = current.temperature_low.unwrap_or(daily.temperature_low.unwrap_or(NAN));
+                        let feels_like = current.apparent_temperature.unwrap_or(NAN);
+                        let wind = current.wind_speed.unwrap_or(NAN);
+                        let visi = current.visibility.unwrap_or(NAN);
+                        let pressure = current.pressure.unwrap_or(NAN);
+                        let humidity = current.humidity.unwrap_or(NAN)*100.0;
                         let icon = match current.icon {
                             Some(ic) => {
                                 match ic {
@@ -895,7 +896,13 @@ command!(weather(ctx, message, args) {
                         ))?;
                     }
                 }
-            }
+            },
+            Some((_, Err(why))) => {
+                message.channel_id.say(format!("Something went wrong while getting the forecast.\n{}", why))?;
+            },
+            None => {
+                message.channel_id.say("An error occurred while resolving the location.")?;
+            },
         }
     } else { failed!(API_FAIL); }
 });

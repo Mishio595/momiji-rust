@@ -3,6 +3,8 @@ name = "momiji"
 version = "0.1.0"
 authors = ["Mishio595 <tenseiken595@gmail.com>"]
 license = "MIT AND ISC"
+repository = "https://gitlab.com/Mishio595/momiji-rust"
+readme = "./README.md"
 
 [profile.dev]
 opt-level = 0
@@ -42,7 +44,7 @@ version = "0.5"
 features = ["colored"]
 
 [dependencies.serenity]
-#git = "https://github.com/Mishio595/serenity.git"
-path = "/home/lynn/builds/serenity"
-default_features = false
+git = "https://github.com/Mishio595/serenity.git"
+#path = "/home/lynn/builds/serenity"
+default-features = false
 features = ["builder", "client", "cache", "framework", "standard_framework", "gateway", "http", "model", "utils", "voice"]

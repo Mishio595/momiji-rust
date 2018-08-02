@@ -31,10 +31,10 @@ fn fern_setup() -> Result<(), log::SetLoggerError> {
     let term_out = fern::Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(
-                "{time}  {level:level_width$}  {target:target_width$}\t> {msg}",
+                "{time}  {level:level_width$}  {target:target_width$}> {msg}",
                 time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
                 level = colors.color(record.level()),
-                target = record.target(),
+                target = format!("{}[#{}]", record.target(), record.line().unwrap_or(0)),
                 msg = message,
                 level_width = 8,
                 target_width = 60
@@ -44,12 +44,12 @@ fn fern_setup() -> Result<(), log::SetLoggerError> {
         .into_shared();
 
     let file_out = fern::Dispatch::new()
-        .format(move |out, message, record| {
+        .format(|out, message, record| {
             out.finish(format_args!(
-                "{time}  {level:level_width$}{target:target_width$}\t> {msg}",
+                "{time}  {level:level_width$}{target:target_width$}> {msg}",
                 time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
                 level = record.level(),
-                target = record.target(),
+                target = format!("{}[#{}]", record.target(), record.line().unwrap_or(0)),
                 msg = message,
                 level_width = 8,
                 target_width = 60

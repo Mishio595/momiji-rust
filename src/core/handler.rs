@@ -208,7 +208,9 @@ impl EventHandler for Handler {
                                         },
                                     }
                                 }
-                                let mut user_data = db.get_user(event.presence.user_id.0 as i64, guild_id.0 as i64).unwrap_or_else(|_| {
+                                let mut user_data = db.get_user(event.presence.user_id.0 as i64, guild_id.0 as i64).unwrap_or_else(|why| {
+                                    // TODO figure out how this is failing due to unique violation
+                                    debug!("{}", why);
                                     db.new_user(event.presence.user_id.0 as i64, guild_id.0 as i64).expect("Failed to create user entry")
                                 });
                                 if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
