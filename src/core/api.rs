@@ -119,13 +119,17 @@ pub struct FurPost {
 // The client
 pub struct ApiClient {
     pub client: Client,
+    pub oc_client: Opencage,
 }
 
 impl ApiClient {
     pub fn new() -> Self {
         let client = Client::new();
+        let oc_key = env::var("OPENCAGE_KEY").expect("No key for OpenCage in env");
+        let oc_client = Opencage::new(oc_key);
         ApiClient {
             client,
+            oc_client
         }
     }
 
@@ -229,22 +233,21 @@ impl ApiClient {
 
     // TODO choose units based on location
     pub fn weather(&self, input: &str) -> Option<(String, ReqwestResult<ApiResponse>)> {
-        let ds_key = env::var("DARKSKY_KEY").expect("No DarkSky API Key found in env");
-        let oc_key = env::var("OPENCAGE_KEY").expect("No key for OpenCage in env");
-        let ds_client = DSClient::new(&self.client);
-        let oc_client = Opencage::new(oc_key);
-        if let Ok(data) = oc_client.forward_full(input, &None) {
+        if let Ok(data) = self.oc_client.forward_full(input, &None) {
             if !data.results.is_empty() {
                 let first = data.results.first().unwrap();
-                let city_info = format!("{}, {}",
+                let city_info = format!("{}, {}, {}",
                     first.components.get("city").unwrap(),
+                    first.components.get("state").unwrap(),
                     first.components.get("country").unwrap()
                 );
+                let ds_key = env::var("DARKSKY_KEY").expect("No DarkSky API Key found in env");
                 let fc_req = Some(ForecastRequestBuilder::new(ds_key.as_str(), *first.geometry.get("lat").unwrap(), *first.geometry.get("lng").unwrap())
                     .lang(Lang::English)
                     .units(Units::UK)
                     .build());
                 if let Some(req) = fc_req {
+                    let ds_client = DSClient::new(&self.client);
                     match ds_client.get_forecast(req) {
                         Ok(mut res) => {
                            return Some((city_info, res.json::<ApiResponse>()));
