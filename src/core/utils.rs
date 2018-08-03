@@ -37,11 +37,12 @@ lazy_static! {
 /// # Panics
 /// This method will panic if `guild` is not a valid, cached GuildId
 pub fn parse_role(input: String, guild_id: GuildId) -> Option<(RoleId, Role)> {
-    let cache = CACHE.read();
     match ROLE_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = RoleId::from_str(&s[1]) {
-                if let Some(guild_lock) = cache.guild(&guild_id) {
+                debug!("Locking cache");
+                let guild_lock = CACHE.read().guild(&guild_id);
+                if let Some(guild_lock) = guild_lock {
                     let guild = guild_lock.read();
                     if let Some(role) = guild.roles.get(&id) {
                         return Some((id, role.clone()));
@@ -51,7 +52,9 @@ pub fn parse_role(input: String, guild_id: GuildId) -> Option<(RoleId, Role)> {
             None
         },
         None => {
-            if let Some(guild_lock) = cache.guild(&guild_id) {
+            debug!("Locking cache");
+            let guild_lock = CACHE.read().guild(&guild_id);
+            if let Some(guild_lock) = guild_lock {
                 let guild = guild_lock.read();
                 for (id, role) in guild.roles.iter() {
                     if role.name.to_lowercase() == input.to_lowercase() {
@@ -70,18 +73,21 @@ pub fn parse_role(input: String, guild_id: GuildId) -> Option<(RoleId, Role)> {
 /// # Panics
 /// This method will panic if `guild` is not a valid, cached GuildId
 pub fn parse_user(input: String, guild_id: GuildId) -> Option<(UserId, Member)> {
-    let cache = CACHE.read();
     match USER_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = UserId::from_str(&s[1]) {
-                if let Ok(member) = guild_id.member(&id) {
+                debug!("Locking cache");
+                let member = CACHE.read().member(&guild_id, &id);
+                if let Some(member) = member {
                     return Some((id, member.clone()));
                 }
             }
             None
         },
         None => {
-            if let Some(guild_lock) = cache.guild(&guild_id) {
+            debug!("Locking cache");
+            let guild_lock = CACHE.read().guild(&guild_id);
+            if let Some(guild_lock) = guild_lock {
                 let guild = guild_lock.read();
                 for (id, member) in guild.members.iter() {
                     let user = member.user.read();
@@ -101,11 +107,12 @@ pub fn parse_user(input: String, guild_id: GuildId) -> Option<(UserId, Member)> 
 /// # Panics
 /// This method will panic if `guild` is not a valid, cached GuildId
 pub fn parse_channel(input: String, guild_id: GuildId) -> Option<(ChannelId, GuildChannel)> {
-    let cache = CACHE.read();
     match CHANNEL_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = ChannelId::from_str(&s[1]) {
-                if let Some(ch_lock) = cache.guild_channel(&id) {
+                let ch_lock = CACHE.read().guild_channel(&id);
+                debug!("Locking cache");
+                if let Some(ch_lock) = ch_lock {
                     let ch = ch_lock.read();
                     return Some((id, ch.clone()));
                 }
@@ -113,7 +120,9 @@ pub fn parse_channel(input: String, guild_id: GuildId) -> Option<(ChannelId, Gui
             None
         },
         None => {
-            if let Some(guild_lock) = cache.guild(&guild_id) {
+            debug!("Locking cache");
+            let guild_lock = CACHE.read().guild(&guild_id);
+            if let Some(guild_lock) = guild_lock {
                 let guild = guild_lock.read();
                 for (id, ch_lock) in guild.channels.iter() {
                     let ch = ch_lock.read();
@@ -131,7 +140,6 @@ pub fn parse_channel(input: String, guild_id: GuildId) -> Option<(ChannelId, Gui
 /// If the string does not contain a valid snowflake, attempt to match as name to cached guild
 /// This method is case insensitive
 pub fn parse_guild(input: String) -> Option<(GuildId, Arc<RwLock<Guild>>)> {
-    let cache = CACHE.read();
     match GUILD_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = s[0].parse::<u64>() {
@@ -143,7 +151,9 @@ pub fn parse_guild(input: String) -> Option<(GuildId, Arc<RwLock<Guild>>)> {
             None
         },
         None => {
-            for (id, g_lock) in cache.guilds.iter() {
+            debug!("Locking cache");
+            let guilds = &CACHE.read().guilds;
+            for (id, g_lock) in guilds.iter() {
                 if g_lock.read().name.to_lowercase() == input.to_lowercase() {
                     return Some((*id, Arc::clone(g_lock)));
                 }

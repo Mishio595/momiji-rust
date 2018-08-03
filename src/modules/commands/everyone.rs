@@ -33,8 +33,10 @@ lazy_static! {
 
 command!(bot_info(ctx, message, _args) {
     let mut data = ctx.data.lock();
-    let cache = CACHE.read();
-    let shard_count = cache.shard_count;
+    let (guild_count, shard_count, thumbnail) = {
+        let cache = CACHE.read();
+        (cache.guilds.len(), cache.shard_count, cache.user.face())
+    };
     let owner = data.get::<Owner>().expect("Failed to get owner").get()?;
     let sys = System::new();
     if let Some(process) = sys.get_process(get_current_pid()) {
@@ -43,7 +45,7 @@ command!(bot_info(ctx, message, _args) {
                 .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
                 .field("Owner", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
                 .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Github](https://github.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
-                .field("Counts", format!("Guilds: {}\nShards: {}", cache.guilds.len(), shard_count), false)
+                .field("Counts", format!("Guilds: {}\nShards: {}", guild_count, shard_count), false)
                 .field("System Info", format!("OS: {} {}\nUptime: {}",
                     sys_info::os_type().unwrap_or(String::from("OS Not Found")),
                     sys_info::os_release().unwrap_or(String::from("Release Not Found")),
@@ -52,7 +54,7 @@ command!(bot_info(ctx, message, _args) {
                     process.memory()/1000, // convert to mB
                     (process.cpu_usage()*100.0).round()/100.0, // round to 2 decimals
                     seconds_to_hrtime((sys.get_uptime() - process.start_time()) as usize)), true)
-                .thumbnail(&cache.user.avatar_url().unwrap_or(cache.user.default_avatar_url()))
+                .thumbnail(thumbnail)
                 .colour(*colours::MAIN)
         ))?;
     } else {
@@ -61,8 +63,8 @@ command!(bot_info(ctx, message, _args) {
                 .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
                 .field("Owner", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
                 .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Github](https://github.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
-                .field("Counts", format!("Guilds: {}\nShards: {}", cache.guilds.len(), shard_count), false)
-                .thumbnail(&cache.user.avatar_url().unwrap_or(cache.user.default_avatar_url()))
+                .field("Counts", format!("Guilds: {}\nShards: {}", guild_count, shard_count), false)
+                .thumbnail(thumbnail)
                 .colour(*colours::MAIN)
         ))?;
     }

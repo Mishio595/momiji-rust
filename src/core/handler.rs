@@ -35,6 +35,7 @@ pub struct Handler;
 
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
+        debug!("Locking cache");
         CACHE.write().settings_mut().max_messages(MESSAGE_CACHE);
         let data = ctx.data.lock();
         if let Some(tc_lock) = data.get::<TC>() {
@@ -46,10 +47,11 @@ impl EventHandler for Handler {
 
     fn cached(&self, ctx: Context, guilds: Vec<GuildId>) {
         let data = ctx.data.lock();
-        let cache = CACHE.read();
         let mut users  = Vec::new();
         for guild_id in guilds.iter() {
-            if let Some(guild_lock) = &cache.guilds.get(&guild_id) {
+            debug!("Locking cache");
+            let guild_lock = CACHE.read().guild(guild_id);
+            if let Some(guild_lock) = guild_lock {
                 let guild = guild_lock.read();
                 let members = &guild.members;
                 // TODO implement mass user update to expedite startup
@@ -74,7 +76,8 @@ impl EventHandler for Handler {
 
         let guild_count = guilds.len();
         if let Some(api) = data.get::<ApiClient>() {
-            api.stats_update(cache.user.id.0, guild_count);
+            debug!("Locking cache");
+            api.stats_update(CACHE.read().user.id.0, guild_count);
         } else { failed!(API_FAIL); }
         ctx.set_game(Game::listening(&format!("{} guilds | m!help", guild_count)));
         info!("Caching complete");
@@ -100,45 +103,46 @@ impl EventHandler for Handler {
     */
 
     fn message_delete(&self, _: Context, channel_id: ChannelId, message_id: MessageId) {
-        let cache = CACHE.read();
-        if let Some(channel_lock) = cache.guild_channel(&channel_id) {
+        debug!("Locking cache");
+        let channel_lock = CACHE.read().guild_channel(&channel_id);
+        if let Some(channel_lock) = channel_lock {
             let channel = channel_lock.read();
             let guild_id = channel.guild_id;
             match db.get_guild(guild_id.0 as i64) {
                 Ok(guild_data) => {
                     let audit_channel = ChannelId(guild_data.audit_channel as u64);
                     if guild_data.audit && audit_channel.0 > 0 {
-                        if let Some(messages) = cache.messages.get(&channel_id) {
-                            if let Some(message) = messages.get(&message_id) {
-                                if message.author.bot { return; }
-                                check_error!(audit_channel.send_message(|m| m
-                                    .embed(|e| e
-                                        .title("Message Deleted")
-                                        .colour(*colours::RED)
-                                        .footer(|f| f.text(format!("ID: {}", message_id.0)))
-                                        .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - {}\n**Content:**\n{}",
-                                            message.author.tag(),
-                                            message.author.id.0,
-                                            message.author.mention(),
-                                            channel.name,
-                                            channel.id.0,
-                                            channel.mention(),
-                                            message.content_safe()))
-                                        .timestamp(now!())
-                                )));
-                            } else {
-                                check_error!(audit_channel.send_message(|m| m
-                                    .embed(|e| e
-                                        .title("Uncached Message Deleted")
-                                        .colour(*colours::RED)
-                                        .footer(|f| f.text(format!("ID: {}", message_id.0)))
-                                        .description(format!("**Channel:** {} ({}) - {}",
-                                            channel.name,
-                                            channel.id.0,
-                                            channel.mention()))
-                                        .timestamp(now!())
-                                )));
-                            }
+                        debug!("Locking cache");
+                        let message = CACHE.read().message(&channel_id, &message_id);
+                        if let Some(message) = message {
+                            if message.author.bot { return; }
+                            check_error!(audit_channel.send_message(|m| m
+                                .embed(|e| e
+                                    .title("Message Deleted")
+                                    .colour(*colours::RED)
+                                    .footer(|f| f.text(format!("ID: {}", message_id.0)))
+                                    .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - {}\n**Content:**\n{}",
+                                        message.author.tag(),
+                                        message.author.id.0,
+                                        message.author.mention(),
+                                        channel.name,
+                                        channel.id.0,
+                                        channel.mention(),
+                                        message.content_safe()))
+                                    .timestamp(now!())
+                            )));
+                        } else {
+                            check_error!(audit_channel.send_message(|m| m
+                                .embed(|e| e
+                                    .title("Uncached Message Deleted")
+                                    .colour(*colours::RED)
+                                    .footer(|f| f.text(format!("ID: {}", message_id.0)))
+                                    .description(format!("**Channel:** {} ({}) - {}",
+                                        channel.name,
+                                        channel.id.0,
+                                        channel.mention()))
+                                    .timestamp(now!())
+                            )));
                         }
                     }
                 },
@@ -151,8 +155,8 @@ impl EventHandler for Handler {
     fn message_update(&self, _: Context, old: Option<Message>, new: Message) {
         if new.author.bot { return; }
         if let Some(message) = old {
-            let cache = CACHE.read();
-            if let Some(channel_lock) = cache.guild_channel(&new.channel_id) {
+            let channel_lock = CACHE.read().guild_channel(&new.channel_id);
+            if let Some(channel_lock) = channel_lock {
                 let channel = channel_lock.read();
                 let guild_id = channel.guild_id;
                 match db.get_guild(guild_id.0 as i64) {
@@ -186,10 +190,12 @@ impl EventHandler for Handler {
 
     // Username changes and Now Live! role
     fn presence_update(&self, _: Context, event: PresenceUpdateEvent) {
-        match event.presence.user {
-            Some(ref user_lock) => {
-                if let Some(guild_id) = event.guild_id {
+        if let Some(guild_id) = event.guild_id {
+            match event.presence.user {
+                Some(ref user_lock) => {
+                    debug!("Getting user from lock: {:?} | {:?}", guild_id, event.presence.user_id);
                     let user = user_lock.read().clone();
+                    debug!("User cloned and lock released: {:?} | {:?}", guild_id, event.presence.user_id);
                     if !user.bot {
                         let mut user_data = db.get_user(event.presence.user_id.0 as i64, guild_id.0 as i64).unwrap_or_else(|why| {
                             // TODO figure out how this is failing due to unique violation
@@ -212,34 +218,32 @@ impl EventHandler for Handler {
                             }
                         } else { failed!(DB_GUILD_FAIL); }
                         db.update_user(event.presence.user_id.0 as i64, guild_id.0 as i64, user_data).expect("Failed to update user");
-
-                        let cache = CACHE.read();
-                        match cache.member(guild_id, user.id) {
-                            Some(mut member) => {
-                                if guild_id == TRANSCEND {
-                                    match event.presence.game {
-                                        Some(ref game) => {
-                                            if let GameType::Streaming = game.kind {
-                                                if member.roles.contains(&NOW_LIVE) {
-                                                    let _ = member.add_role(NOW_LIVE);
-                                               }
+                        if guild_id == TRANSCEND {
+                            debug!("Attempt to get member");
+                            let member = CACHE.read().member(guild_id, user.id);
+                            if let Some(mut member) = member {
+                                debug!("Got member");
+                                match event.presence.game {
+                                    Some(ref game) => {
+                                        if let GameType::Streaming = game.kind {
+                                            if member.roles.contains(&NOW_LIVE) {
+                                                let _ = member.add_role(NOW_LIVE);
                                             }
-                                        },
-                                        None => {
-                                            if !member.roles.contains(&NOW_LIVE) {
-                                                let _ = member.remove_role(NOW_LIVE);
-                                            }
-                                        },
-                                    }
+                                        }
+                                    },
+                                    None => {
+                                        if !member.roles.contains(&NOW_LIVE) {
+                                            let _ = member.remove_role(NOW_LIVE);
+                                        }
+                                    },
                                 }
-                            },
-                            None => { failed!(MEMBER_FAIL); },
+                            } else { failed!(MEMBER_FAIL); }
                         }
                     }
-                } else { failed!(GUILDID_FAIL); }
-            },
-            None => {}
-        }
+                },
+                None => {},
+            }
+        } else { failed!(GUILDID_FAIL); }
     }
 
     fn guild_create(&self, _: Context, guild: Guild, is_new: bool) {
