@@ -88,15 +88,13 @@ impl Database {
     /// Select a guild
     /// Returns the guild on success
     pub fn get_guild(&self, g_id: i64) -> QueryResult<Guild> {
-        use db::schema::guilds::dsl::*;
-        guilds.filter(id.eq(&g_id))
+        guilds::table.find(&g_id)
             .first(self.conn().deref())
     }
     /// Update a guild
     /// Returns the new guild on success
     pub fn update_guild(&self, g_id: i64, guild: Guild) -> QueryResult<Guild> {
-        use db::schema::guilds::dsl::*;
-        let target = guilds.filter(id.eq(&g_id));
+        let target = guilds::table.find(&g_id);
         diesel::update(target)
             .set(&guild)
             .get_result(self.conn().deref())
@@ -128,9 +126,7 @@ impl Database {
     /// Select a user
     /// Returns the user on success
     pub fn get_user(&self, u_id: i64, g_id: i64) -> QueryResult<User<Utc>> {
-        use db::schema::users::dsl::*;
-        users.filter(id.eq(&u_id))
-            .filter(guild_id.eq(&g_id))
+        users::table.find((u_id, g_id))
             .first(self.conn().deref())
     }
     /// Select all users in a guild
@@ -143,9 +139,7 @@ impl Database {
     /// Update a user
     /// Returns the new user on success
     pub fn update_user(&self, u_id: i64, g_id: i64, user: User<Utc>) -> QueryResult<User<Utc>> {
-        use db::schema::users::dsl::*;
-        let target = users.filter(id.eq(&u_id))
-            .filter(guild_id.eq(&g_id));
+        let target = users::table.find((u_id, g_id));
         diesel::update(target)
             .set(&user)
             .get_result(self.conn().deref())
@@ -202,9 +196,7 @@ impl Database {
     /// Select a role
     /// Returns the role on success
     pub fn get_role(&self, r_id: i64, g_id: i64) -> QueryResult<Role> {
-        use db::schema::roles::dsl::*;
-        roles.filter(id.eq(&r_id))
-            .filter(guild_id.eq(&g_id))
+        roles::table.find((r_id, g_id))
             .first(self.conn().deref())
     }
     /// Select all roles by guild id
@@ -217,9 +209,7 @@ impl Database {
     /// Update a role
     /// Returns the new role on success
     pub fn update_role(&self, r_id: i64, g_id: i64, role: Role) -> QueryResult<Role> {
-        use db::schema::roles::dsl::*;
-        let target = roles.filter(id.eq(&r_id))
-            .filter(guild_id.eq(&g_id));
+        let target = roles::table.find((r_id, g_id));
         diesel::update(target)
             .set(&role)
             .get_result(self.conn().deref())
@@ -255,10 +245,7 @@ impl Database {
     /// Select a note
     /// Returns the note on success
     pub fn get_note(&self, ind: i32, u_id: i64, g_id: i64) -> QueryResult<Note<Utc>> {
-        use db::schema::notes::dsl::*;
-        notes.filter(index.eq(&ind))
-            .filter(user_id.eq(&u_id))
-            .filter(guild_id.eq(&g_id))
+        notes::table.find((ind, u_id, g_id))
             .first(self.conn().deref())
     }*/
     /// Select all notes for a user
@@ -297,15 +284,13 @@ impl Database {
     /// Select a timer
     /// Returns the timer on success
     pub fn get_timer(&self, t_id: i32) -> QueryResult<Timer> {
-        use db::schema::timers::dsl::*;
-        timers.filter(id.eq(&t_id))
+        timers::table.find(t_id)
             .first(self.conn().deref())
     }*/
     /// Select all timers
     /// Returns a vec of timers on success
     pub fn get_timers(&self) -> QueryResult<Vec<Timer>> {
-        use db::schema::timers::dsl::*;
-        timers.get_results(self.conn().deref())
+        timers::table.get_results(self.conn().deref())
     }
 
     // Case Tools
@@ -336,10 +321,7 @@ impl Database {
     /// Select a case
     /// Returns the case on success
     pub fn get_case(&self, c_id: i32, u_id: i64, g_id: i64) -> QueryResult<Case<Utc>> {
-        use db::schema::cases::dsl::*;
-        cases.filter(id.eq(&c_id))
-            .filter(user_id.eq(&u_id))
-            .filter(guild_id.eq(&g_id))
+        cases::table.find((c_id, u_id, g_id))
             .first(self.conn().deref())
     }*/
     /// Select all cases for a user
@@ -377,9 +359,7 @@ impl Database {
     /// Select a Tag
     /// Returns the Tag on success
     pub fn get_tag(&self, g_id: i64, nm: String) -> QueryResult<Tag> {
-        use db::schema::tags::dsl::*;
-        tags.filter(name.eq(&nm))
-            .filter(guild_id.eq(&g_id))
+        tags::table.find((g_id, nm))
             .first(self.conn().deref())
     }
     /// Select all tags by guild
@@ -392,9 +372,7 @@ impl Database {
     /// Update a tag
     /// Returns the new tag on success
     pub fn update_tag(&self, g_id: i64, nm: String, tag: Tag) -> QueryResult<Tag> {
-        use db::schema::tags::dsl::*;
-        let target = tags.filter(name.eq(&nm))
-            .filter(guild_id.eq(&g_id));
+        let target = tags::table.find((g_id, nm));
         diesel::update(target)
             .set(&tag)
             .get_result(self.conn().deref())
@@ -425,15 +403,13 @@ impl Database {
     /// Returns the settings on success
     /// Will return Err if the guild is not premium
     pub fn get_premium(&self, g_id: i64) -> QueryResult<PremiumSettings> {
-        use db::schema::premium::dsl::*;
-        premium.filter(id.eq(&g_id))
+        premium::table.find(&g_id)
             .first(self.conn().deref())
     }
     /// Update PremiumSettings
     /// Returns the new settings on success
     pub fn update_premium(&self, g_id: i64, settings: PremiumSettings) -> QueryResult<PremiumSettings> {
-        use db::schema::premium::dsl::*;
-        let target = premium.filter(id.eq(&g_id));
+        let target = premium::table.find(&g_id);
         diesel::update(target)
             .set(&settings)
             .get_result(self.conn().deref())

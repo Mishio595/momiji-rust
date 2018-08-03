@@ -6,6 +6,7 @@ use super::schema::*;
 // QUERYABLES
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
+#[primary_key(id)]
 pub struct Guild {
     pub id: i64,
     pub admin_roles: Vec<i64>,
@@ -49,7 +50,7 @@ pub struct User<Tz: TimeZone> {
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
-#[primary_key(index)]
+#[primary_key(index, user_id, guild_id)]
 pub struct Note<Tz: TimeZone> {
     pub index: i32,
     pub user_id: i64,
@@ -69,6 +70,7 @@ pub struct Role {
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
+#[primary_key(id)]
 pub struct Timer {
     pub id: i32,
     pub starttime: i64,
@@ -77,6 +79,7 @@ pub struct Timer {
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
+#[primary_key(id, user_id, guild_id)]
 pub struct Case<Tz: TimeZone> {
     pub id: i32,
     pub user_id: i64,
@@ -87,7 +90,7 @@ pub struct Case<Tz: TimeZone> {
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
-#[primary_key(name, guild_id)]
+#[primary_key(guild_id, name)]
 pub struct Tag {
     pub author: i64,
     pub guild_id: i64,
@@ -177,6 +180,7 @@ pub struct NewPremium {
 
 #[derive(Insertable, AsChangeset, Debug)]
 #[table_name="users"]
+#[primary_key(id, guild_id)]
 pub struct UserUpdate {
     pub id: i64,
     pub guild_id: i64,
