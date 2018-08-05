@@ -11,31 +11,9 @@ use fern::colors::{
 };
 use momiji::MomijiClient;
 
-use std::thread;
-use std::time::Duration;
-use parking_lot::deadlock;
-
 fn main() {
     kankyo::load().expect("Failed to load .env file");
     fern_setup().expect("Failed to apply fern settings.");
-    thread::spawn(move || {
-        loop {
-            thread::sleep(Duration::from_secs(10));
-            let deadlocks = deadlock::check_deadlock();
-            if deadlocks.is_empty() {
-                continue;
-            }
-
-            println!("{} deadlocks detected", deadlocks.len());
-            for (i, threads) in deadlocks.iter().enumerate() {
-                println!("Deadlock #{}", i);
-                for t in threads {
-                    println!("Thread Id {:#?}", t.thread_id());
-                    println!("{:#?}", t.backtrace());
-                }
-            }
-        }
-    });
     let mut client = MomijiClient::new();
     check_error!(client.start_autosharded());
 }
@@ -57,7 +35,7 @@ fn fern_setup() -> Result<(), log::SetLoggerError> {
                 "{time}  {level:level_width$}  {target:target_width$}> {msg}",
                 time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
                 level = colors.color(record.level()),
-                target = format!("{}[#{}]", record.target(), record.line().unwrap_or(0)),
+                target = format!("{}:{}", record.target(), record.line().unwrap_or(0)),
                 msg = message,
                 level_width = 8,
                 target_width = 60
@@ -72,7 +50,7 @@ fn fern_setup() -> Result<(), log::SetLoggerError> {
                 "{time}  {level:level_width$}{target:target_width$}> {msg}",
                 time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
                 level = record.level(),
-                target = format!("{}[#{}]", record.target(), record.line().unwrap_or(0)),
+                target = format!("{}:{}", record.target(), record.line().unwrap_or(0)),
                 msg = message,
                 level_width = 8,
                 target_width = 60
