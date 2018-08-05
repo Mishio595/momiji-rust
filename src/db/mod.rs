@@ -414,4 +414,34 @@ impl Database {
             .set(&settings)
             .get_result(self.conn().deref())
     }
+
+    // Tag Tools
+    /// Add a Hackban
+    /// Returns the Hackban on success
+    pub fn new_hackban(&self, id: i64, guild_id: i64, reason: Option<String>) -> QueryResult<Hackban> {
+        let hb = Hackban {
+            id,
+            guild_id,
+            reason,
+        };
+        diesel::insert_into(hackbans::table)
+            .values(&hb)
+            .get_result(self.conn().deref())
+    }
+    /// Delete a Hackban
+    /// Returns the Hackban on success.
+    pub fn del_hackban(&self, h_id: i64, g_id: i64) -> QueryResult<Hackban> {
+        use db::schema::hackbans::columns::{id, guild_id};
+        diesel::delete(hackbans::table)
+            .filter(id.eq(&h_id))
+            .filter(guild_id.eq(&g_id))
+            .get_result(self.conn().deref())
+    }
+    /// Select all hackbans by guild
+    /// Returns Vec<Hackban> on success on success
+    pub fn get_hackbans(&self, g_id: i64) -> QueryResult<Vec<Hackban>> {
+        use db::schema::hackbans::columns::guild_id;
+        hackbans::table.filter(guild_id.eq(&g_id))
+            .get_results(self.conn().deref())
+    }
 }

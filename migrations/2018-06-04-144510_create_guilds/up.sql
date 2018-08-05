@@ -22,7 +22,6 @@ CREATE TABLE guilds (
 	welcome_message TEXT NOT NULL DEFAULT '',
 	welcome_type TEXT NOT NULL DEFAULT 'plain',
 	commands TEXT [] NOT NULL DEFAULT array[]::text[],
-	logging TEXT [] NOT NULL DEFAULT array[]::text[],
-	hackbans BIGINT [] NOT NULL DEFAULT array[]::bigint[]
+	logging TEXT [] NOT NULL DEFAULT array[]::text[]
 )
 

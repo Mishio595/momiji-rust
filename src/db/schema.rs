@@ -35,7 +35,14 @@ table! {
         welcome_type -> Text,
         commands -> Array<Text>,
         logging -> Array<Text>,
-        hackbans -> Array<Int8>,
+    }
+}
+
+table! {
+    hackbans (id, guild_id) {
+        id -> Int8,
+        guild_id -> Int8,
+        reason -> Nullable<Text>,
     }
 }
 
@@ -105,6 +112,7 @@ table! {
 allow_tables_to_appear_in_same_query!(
     cases,
     guilds,
+    hackbans,
     notes,
     premium,
     roles,

@@ -13,7 +13,6 @@ use serenity::model::channel::{
 };
 use serenity::model::id::*;
 use serenity::prelude::*;
-use std::str::FromStr;
 
 // Rank 2
 
@@ -337,44 +336,6 @@ command!(config_introduction(_ctx, message, args) {
                 ))
         ))?;
     } else { failed!(GUILDID_FAIL); }
-});
-
-// TODO add hackban and ignore lists views
-command!(hackban(_ctx, message, args) {
-    let guild_id = message.guild_id.unwrap();
-    let mut guild_data = db.get_guild(guild_id.0 as i64)?;
-    let user_id = match UserId::from_str(args.full()) {
-        Ok(id) => id,
-        Err(_) => {
-            message.channel_id.say("Unable to resolve ID").expect("Failed to send message");
-            panic!("Failed to resolve ID");
-        },
-    };
-    if !guild_data.hackbans.contains(&(user_id.0 as i64)) {
-        guild_data.hackbans.push(user_id.0 as i64);
-        match db.update_guild(guild_id.0 as i64, guild_data) {
-            Ok(_) => {
-                message.channel_id.say(format!("Added {} to the hackban list",
-                    user_id.0
-                ))?;
-            },
-            Err(_) =>{
-                message.channel_id.say("Failed to add hackban")?;
-            },
-        };
-    } else {
-        guild_data.hackbans.retain(|e| *e != user_id.0 as i64);
-        match db.update_guild(guild_id.0 as i64, guild_data) {
-            Ok(_) => {
-                message.channel_id.say(format!("Removed {} from the hackban list",
-                    user_id.0
-                ))?;
-            },
-            Err(_) =>{
-                message.channel_id.say("Failed to remove hackban")?;
-            },
-        };
-    }
 });
 
 // TODO rewrite as group {add, remove, list}

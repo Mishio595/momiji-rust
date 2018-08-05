@@ -32,7 +32,6 @@ pub struct Guild {
     pub welcome_type: String,
     pub commands: Vec<String>,
     pub logging: Vec<String>,
-    pub hackbans: Vec<i64>,
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
@@ -107,6 +106,15 @@ pub struct PremiumSettings {
     pub register_cooldown_role: Option<i64>,
     pub register_cooldown_duration: Option<i32>,
     pub cooldown_restricted_roles: Vec<i64>,
+}
+
+// This one would be the same for insertable or queryable, so it has both
+#[derive(Queryable, Identifiable, AsChangeset, Insertable, Clone, Debug)]
+#[primary_key(id, guild_id)]
+pub struct Hackban {
+    pub id: i64,
+    pub guild_id: i64,
+    pub reason: Option<String>,
 }
 
 // END QUERYABLES
@@ -191,7 +199,7 @@ pub struct UserUpdate {
 
 impl Display for Guild {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "**Admin Roles:** {}\n**Audit:** {}\n**Audit Channel:** {}\n**Audit Threshold:** {}\n**Autorole:** {}\n**Autoroles:** {}\n**Ignored Channels:** {}\n**Ignore Level:** {}\n**Introduction:** {}\n**Introduction Channel:** {}\n**Introduction Message:** {}\n**Mod Roles: ** {}\n**Modlog:** {}\n**Modlog Channel:** {}\n**Mute Setup:** {}\n**Prefix:** {}\n**Welcome:** {}\n**Welcome Channel:** {}\n**Welcome Message:** {}\n**Disabled Commands:** {}\n**Disabled Log Types:** {}\n**Hackbans:** {}",
+        write!(f, "**Admin Roles:** {}\n**Audit:** {}\n**Audit Channel:** {}\n**Audit Threshold:** {}\n**Autorole:** {}\n**Autoroles:** {}\n**Ignored Channels:** {}\n**Ignore Level:** {}\n**Introduction:** {}\n**Introduction Channel:** {}\n**Introduction Message:** {}\n**Mod Roles: ** {}\n**Modlog:** {}\n**Modlog Channel:** {}\n**Mute Setup:** {}\n**Prefix:** {}\n**Welcome:** {}\n**Welcome Channel:** {}\n**Welcome Message:** {}\n**Disabled Commands:** {}\n**Disabled Log Types:** {}",
             self.admin_roles.iter().map(|e| match RoleId(*e as u64).find() {
                 Some(role) => role.name,
                 None => format!("{}", e),
@@ -221,9 +229,8 @@ impl Display for Guild {
             format!("<#{}>", self.welcome_channel),
             self.welcome_message,
             self.commands.join(", "),
-            self.logging.join(", "),
-            self.hackbans.iter().map(|e| format!("{}", e)).collect::<Vec<String>>().join(", "))
-    }
+            self.logging.join(", ")
+    )}
 }
 
 impl Display for Note<Utc> {

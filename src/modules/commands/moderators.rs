@@ -13,7 +13,62 @@ use serenity::model::id::{
 
 // Rank 1
 
-//TODO obtain data safely
+command!(hackban_add(_ctx, message, args) {
+    let guild_id = message.guild_id.unwrap();
+    let hackbans = db.get_hackbans(guild_id.0 as i64)?;
+    let user_id = UserId(args.single::<u64>()?);
+    match hackbans.iter().find(|e| e.id as u64 == user_id.0) {
+        Some(_) => { message.channel_id.say("User is already hackbanned.")?; },
+        None => {
+            let reason = args.single::<String>().ok();
+            db.new_hackban(user_id.0 as i64, guild_id.0 as i64, reason.clone())?;
+            message.channel_id.say(format!(
+                "Added {} to the hackban list{}",
+                user_id.0,
+                match reason {
+                    Some(r) => format!(" with reason `{}`", r),
+                    None => String::new(),
+                }
+            ))?;
+        }
+    }
+});
+
+command!(hackban_del(_ctx, message, args) {
+    let guild_id = message.guild_id.unwrap();
+    let hackbans = db.get_hackbans(guild_id.0 as i64)?;
+    let user_id = UserId(args.single::<u64>()?);
+    match hackbans.iter().find(|e| e.id as u64 == user_id.0) {
+        None => { message.channel_id.say("User isn't hackbanned.")?; },
+        Some(_) => {
+            db.del_hackban(user_id.0 as i64, guild_id.0 as i64)?;
+            message.channel_id.say(format!(
+                "Removed {} from the hackban list",
+                user_id.0
+            ))?;
+        }
+    }
+});
+
+command!(hackban_list(_ctx, message, _args) {
+    let guild_id = message.guild_id.unwrap();
+    let hackbans = db.get_hackbans(guild_id.0 as i64)?;
+    message.channel_id.send_message(|m| m
+        .embed(|e| e
+            .title("Hackbans")
+            .description(
+                hackbans.iter().cloned().map(|e| format!(
+                    "{}{}",
+                    e.id,
+                    format!(": `{}`", e.reason.unwrap_or(String::new()))
+                ))
+                .collect::<Vec<String>>()
+                .join("\n")
+            )
+            .colour(*colours::MAIN)
+    ))?;
+});
+
 command!(mod_info(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
         match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {

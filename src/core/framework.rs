@@ -324,6 +324,25 @@ impl MomijiFramework {
                     .example("418130449089691658 00ff00")
                     .batch_known_as(vec!["rc", "rolecolor"])
                     .min_args(2)))
+            .group("Hackbans (Mod+)", |g| g
+                .prefixes(vec!["hackban", "hb"])
+                .guild_only(true)
+                .help_available(true)
+                .check(mod_check)
+                .command("add", |c| c
+                    .cmd(hackban_add)
+                    .desc("Adds a user to the hackban list. Users on this list will be banned on joining.")
+                    .usage("<user_id> [reason]")
+                    .example("242675474927583232 makes links for raiders"))
+                .command("remove", |c| c
+                    .cmd(hackban_del)
+                    .desc("Removes a user from the hackban list.")
+                    .usage("<user_id>")
+                    .example("242675474927583232"))
+                .command("list", |c| c
+                    .cmd(hackban_list)
+                    .desc("Lets users on the hackban list along with their reasons, if provided.")
+                    .usage("")))
             .group("Notes (Mod+)", |g| g
                 .prefix("note")
                 .guild_only(true)

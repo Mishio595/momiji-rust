@@ -33,6 +33,7 @@ use std::time::Duration;
 
 pub struct Handler;
 
+// TODO logging disables, needs command too
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
         CACHE.write().settings_mut().max_messages(MESSAGE_CACHE);
@@ -297,42 +298,60 @@ impl EventHandler for Handler {
 
     // Join log and welcome message
     fn guild_member_addition(&self, _: Context, guild_id: GuildId, member: Member) {
-        match db.get_guild(guild_id.0 as i64) {
-            Ok(guild_data) => {
-                let (user_id, user_face, user_tag) = {
-                    let u = member.user.read();
-                    (u.id, u.face(), u.tag())
-                };
-                match db.new_user(user_id.0 as i64, guild_id.0 as i64) {
-                    Ok(mut user_data) => {
-                        if guild_data.audit && guild_data.audit_channel > 0 {
-                            let audit_channel = ChannelId(guild_data.audit_channel as u64);
-                            check_error!(audit_channel.send_message(|m| m
-                                .embed(|e| e
-                                    .title("Member Joined")
-                                    .colour(*colours::GREEN)
-                                    .thumbnail(user_face)
-                                    .timestamp(now!())
-                                    .description(format!("<@{}>\n{}\n{}", user_id, user_tag, user_id))
-                            )));
-                        }
-                        if guild_data.welcome && guild_data.welcome_channel > 0 {
-                            let channel = ChannelId(guild_data.welcome_channel as u64);
-                            if guild_data.welcome_type.as_str() == "embed" {
-                                check_error!(send_welcome_embed(guild_data.welcome_message, &member, channel));
-                            } else {
-                                check_error!(channel.say(parse_welcome_items(guild_data.welcome_message, &member)));
-                            }
-                        }
-                        user_data.username = user_tag;
-                        user_data.nickname = member.display_name().into_owned();
-                        user_data.roles = member.roles.iter().map(|e| e.0 as i64).collect::<Vec<i64>>();
-                        check_error!(db.update_user(user_id.0 as i64, guild_id.0 as i64, user_data));
-                    },
-                    Err(why) => { failed!(DB_USER_ENTRY_FAIL, why); }
+        let mut banned = false;
+        let mut reason = None;
+        if let Ok(hackbans) = db.get_hackbans(guild_id.0 as i64) {
+            hackbans.iter().for_each(|e| {
+                if e.id as u64 == member.user.read().id.0 {
+                    banned = true;
+                    reason = e.reason.clone();
                 }
-            },
-            Err(why) => { failed!(DB_GUILD_FAIL, why); }
+            });
+        }
+        if banned {
+            if let Some(ref r) = reason {
+                check_error!(member.ban::<String>(r));
+            } else {
+                check_error!(member.ban(&0));
+            }
+        } else {
+            match db.get_guild(guild_id.0 as i64) {
+                Ok(guild_data) => {
+                    let (user_id, user_face, user_tag) = {
+                        let u = member.user.read();
+                        (u.id, u.face(), u.tag())
+                    };
+                    match db.new_user(user_id.0 as i64, guild_id.0 as i64) {
+                        Ok(mut user_data) => {
+                            if guild_data.audit && guild_data.audit_channel > 0 {
+                                let audit_channel = ChannelId(guild_data.audit_channel as u64);
+                                check_error!(audit_channel.send_message(|m| m
+                                    .embed(|e| e
+                                        .title("Member Joined")
+                                        .colour(*colours::GREEN)
+                                        .thumbnail(user_face)
+                                        .timestamp(now!())
+                                        .description(format!("<@{}>\n{}\n{}", user_id, user_tag, user_id))
+                                )));
+                            }
+                            if guild_data.welcome && guild_data.welcome_channel > 0 {
+                                let channel = ChannelId(guild_data.welcome_channel as u64);
+                                if guild_data.welcome_type.as_str() == "embed" {
+                                    check_error!(send_welcome_embed(guild_data.welcome_message, &member, channel));
+                                } else {
+                                    check_error!(channel.say(parse_welcome_items(guild_data.welcome_message, &member)));
+                                }
+                            }
+                            user_data.username = user_tag;
+                            user_data.nickname = member.display_name().into_owned();
+                            user_data.roles = member.roles.iter().map(|e| e.0 as i64).collect::<Vec<i64>>();
+                            check_error!(db.update_user(user_id.0 as i64, guild_id.0 as i64, user_data));
+                        },
+                        Err(why) => { failed!(DB_USER_ENTRY_FAIL, why); }
+                    }
+                },
+                Err(why) => { failed!(DB_GUILD_FAIL, why); }
+            }
         }
     }
 
@@ -498,15 +517,14 @@ impl EventHandler for Handler {
                                     .colour(*colours::GREEN)
                                     .thumbnail(user.face())
                                     .timestamp(now!())
-                                    .description(format!("**Member:** {} ({}) - {}\n**Responsible Moderator:** {}\n**Reason:** {}",
+                                    .description(format!("**Member:** {} ({}) - {}\n**Responsible Moderator:** {}",
                                         user.tag(),
                                         user.id.0,
                                         user.mention(),
                                         match audit.user_id.get() {
                                             Ok(u) => u.tag(),
                                             Err(_) => format!("{}", audit.user_id.0)
-                                        },
-                                        audit.reason.clone().unwrap_or("None".to_string())
+                                        }
                                     ))
                             )));
                         }
