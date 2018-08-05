@@ -91,6 +91,7 @@ impl MomijiFramework {
                         .colour(*colours::MAIN)
                 )));
                 if let Err(why) = error {
+                    check_error!(message.channel_id.say(format!("Something went wrong with the command. Here's the error: {:?}", why)));
                     check_error!(ERROR_LOG.send_message(|m| m
                         .embed(|e| e
                             .description(format!("{:?}", why))
