@@ -40,8 +40,8 @@ table! {
 }
 
 table! {
-    notes (index) {
-        index -> Int4,
+    notes (id, user_id, guild_id) {
+        id -> Int4,
         user_id -> Int8,
         guild_id -> Int8,
         note -> Text,

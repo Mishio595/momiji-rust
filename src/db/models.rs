@@ -50,9 +50,9 @@ pub struct User<Tz: TimeZone> {
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
-#[primary_key(index, user_id, guild_id)]
+#[primary_key(id, user_id, guild_id)]
 pub struct Note<Tz: TimeZone> {
-    pub index: i32,
+    pub id: i32,
     pub user_id: i64,
     pub guild_id: i64,
     pub note: String,
@@ -231,7 +231,7 @@ impl Display for Note<Utc> {
         write!(f, "{} wrote on {} (ID: {})\n`{}`",
             UserId(self.moderator as u64).get().unwrap().tag(),
             self.timestamp.format("%a, %d %h %Y @ %H:%M:%S").to_string(),
-            self.index,
+            self.id,
             self.note)
     }
 }

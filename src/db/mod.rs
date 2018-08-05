@@ -49,7 +49,7 @@ impl Database {
     // Guild Tools
     /// Add a guild with a given ID.
     /// Returns the Ok(Some(Guild)) on success or Ok(None) if there is a conflict.
-    /// Uses default values.
+    /// May return Err(DatabaseError) in the event of some other failure.
     pub fn new_guild(&self, id: i64) -> QueryResult<Option<Guild>> {
         let guild = NewGuild {
             id,
@@ -62,6 +62,7 @@ impl Database {
     }
     /// Add multiple guilds with a vector of IDs
     /// Does nothing on conflict
+    /// Returns Result<count, err>
     pub fn new_guilds(&self, ids: &[i64]) -> QueryResult<usize> {
         let guilds = {
             ids.iter().map(|e| {
@@ -76,23 +77,22 @@ impl Database {
             .execute(self.conn().deref())
     }
     /// Delete a guild by the ID.
-    /// Returns the ID on success.
+    /// Returns Result<guild_id, err>
     pub fn del_guild(&self, g_id: i64) -> QueryResult<i64> {
-        use db::schema::guilds::dsl::*;
-        use db::schema::guilds::columns;
-        diesel::delete(guilds)
+        use db::schema::guilds::columns::id;
+        diesel::delete(guilds::table)
             .filter(id.eq(&g_id))
-            .returning(columns::id)
+            .returning(id)
             .get_result(self.conn().deref())
     }
     /// Select a guild
-    /// Returns the guild on success
+    /// Returns Result<Guild, Err>
     pub fn get_guild(&self, g_id: i64) -> QueryResult<Guild> {
         guilds::table.find(&g_id)
             .first(self.conn().deref())
     }
     /// Update a guild
-    /// Returns the new guild on success
+    /// Returns Result<Guild, Err>
     pub fn update_guild(&self, g_id: i64, guild: Guild) -> QueryResult<Guild> {
         let target = guilds::table.find(&g_id);
         diesel::update(target)
@@ -115,12 +115,11 @@ impl Database {
     /// Delete a user by user ID and guild ID.
     /// Returns the ID on success.
     pub fn del_user(&self, u_id: i64, g_id: i64) -> QueryResult<i64> {
-        use db::schema::users::dsl::*;
-        use db::schema::users::columns;
-        diesel::delete(users)
+        use db::schema::users::columns::{id, guild_id};
+        diesel::delete(users::table)
             .filter(id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
-            .returning(columns::id)
+            .returning(id)
             .get_result(self.conn().deref())
     }
     /// Select a user
@@ -132,8 +131,8 @@ impl Database {
     /// Select all users in a guild
     /// Returns a vector of users on success
     pub fn get_users(&self, g_id: i64) -> QueryResult<Vec<User<Utc>>> {
-        use db::schema::users::dsl::*;
-        users.filter(guild_id.eq(&g_id))
+        use db::schema::users::columns::guild_id;
+        users::table.filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
     }
     /// Update a user
@@ -147,15 +146,16 @@ impl Database {
     /// Upsert a user
     /// Returns the new user on success
     pub fn upsert_user(&self, user: UserUpdate) -> QueryResult<User<Utc>> {
-        use db::schema::users::columns;
+        use db::schema::users::columns::{id, guild_id};
         diesel::insert_into(users::table)
             .values(&user)
-            .on_conflict((columns::id, columns::guild_id))
+            .on_conflict((id, guild_id))
             .do_update()
             .set(&user)
             .get_result(self.conn().deref())
     }
     /// Upserts multiple users with a vector of UserUpdates
+    /// Returns Result<count, err>
     pub fn upsert_users(&self, users: &[UserUpdate]) -> QueryResult<usize> {
         use db::schema::users::columns::*;
         diesel::insert_into(users::table)
@@ -166,6 +166,11 @@ impl Database {
                 username.eq(excluded(username)),
                 roles.eq(excluded(roles))))
             .execute(self.conn().deref())
+    }
+    /// Gets a user, if it exists. Otherwise makes a new row and returns it
+    pub fn get_or_new_user(&self, u_id: i64, g_id: i64) -> QueryResult<User<Utc>> {
+        self.get_user(u_id, g_id).or_else(|_|
+            self.new_user(u_id, g_id))
     }
 
     // Role Tools
@@ -185,12 +190,11 @@ impl Database {
     /// Delete a role by role ID and guild ID.
     /// Returns the ID on success.
     pub fn del_role(&self, r_id: i64, g_id: i64) -> QueryResult<i64> {
-        use db::schema::roles::dsl::*;
-        use db::schema::roles::columns;
-        diesel::delete(roles)
+        use db::schema::roles::columns::{id, guild_id};
+        diesel::delete(roles::table)
             .filter(id.eq(&r_id))
             .filter(guild_id.eq(&g_id))
-            .returning(columns::id)
+            .returning(id)
             .get_result(self.conn().deref())
     }
     /// Select a role
@@ -202,8 +206,8 @@ impl Database {
     /// Select all roles by guild id
     /// Returns a vector of roles on success
     pub fn get_roles(&self, g_id: i64) -> QueryResult<Vec<Role>> {
-        use db::schema::roles::dsl::*;
-        roles.filter(guild_id.eq(&g_id))
+        use db::schema::roles::columns::guild_id;
+        roles::table.filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
     }
     /// Update a role
@@ -231,28 +235,27 @@ impl Database {
     }
     /// Delete a note by index, user ID, and guild ID.
     /// Returns the Note.note on success.
-    pub fn del_note(&self, ind: i32, u_id: i64, g_id: i64) -> QueryResult<String> {
-        use db::schema::notes::dsl::*;
-        use db::schema::notes::columns;
-        diesel::delete(notes)
+    pub fn del_note(&self, n_id: i32, u_id: i64, g_id: i64) -> QueryResult<String> {
+        use db::schema::notes::columns::{user_id, guild_id, id, note};
+        diesel::delete(notes::table)
             .filter(user_id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
-            .filter(index.eq(&ind))
-            .returning(columns::note)
+            .filter(id.eq(&n_id))
+            .returning(note)
             .get_result(self.conn().deref())
     }
     /*
     /// Select a note
     /// Returns the note on success
-    pub fn get_note(&self, ind: i32, u_id: i64, g_id: i64) -> QueryResult<Note<Utc>> {
-        notes::table.find((ind, u_id, g_id))
+    pub fn get_note(&self, n_id: i32, u_id: i64, g_id: i64) -> QueryResult<Note<Utc>> {
+        notes::table.find((n_id, u_id, g_id))
             .first(self.conn().deref())
     }*/
     /// Select all notes for a user
     /// Returns a vec of notes on success
     pub fn get_notes(&self, u_id: i64, g_id: i64) -> QueryResult<Vec<Note<Utc>>> {
-        use db::schema::notes::dsl::*;
-        notes.filter(user_id.eq(&u_id))
+        use db::schema::notes::columns::{user_id, guild_id};
+        notes::table.filter(user_id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
     }
@@ -273,11 +276,10 @@ impl Database {
     /// Delete a timer with the given ID.
     /// Returns the note data on success.
     pub fn del_timer(&self, t_id: i32) -> QueryResult<String> {
-        use db::schema::timers::dsl::*;
-        use db::schema::timers::columns;
-        diesel::delete(timers)
+        use db::schema::timers::columns::{id, data};
+        diesel::delete(timers::table)
             .filter(id.eq(&t_id))
-            .returning(columns::data)
+            .returning(data)
             .get_result(self.conn().deref())
     }
     /*
@@ -311,7 +313,7 @@ impl Database {
     /// Delete a case
     /// Returns the case on success.
     pub fn del_case(&self, c_id: i32, u_id: i64, g_id: i64) -> QueryResult<Case<Utc>> {
-        use db::schema::cases::dsl::*;
+        use db::schema::cases::columns::{id, user_id, guild_id};
         diesel::delete(cases)
             .filter(id.eq(&c_id))
             .filter(user_id.eq(&u_id))
@@ -327,8 +329,8 @@ impl Database {
     /// Select all cases for a user
     /// Returns a vector of cases on success
     pub fn get_cases(&self, u_id: i64, g_id: i64) -> QueryResult<Vec<Case<Utc>>> {
-        use db::schema::cases::dsl::*;
-        cases.filter(user_id.eq(&u_id))
+        use db::schema::cases::columns::{guild_id, user_id};
+        cases::table.filter(user_id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
     }
@@ -350,8 +352,8 @@ impl Database {
     /// Delete a Tag
     /// Returns the Tag on success.
     pub fn del_tag(&self, g_id: i64, nm: String) -> QueryResult<Tag> {
-        use db::schema::tags::dsl::*;
-        diesel::delete(tags)
+        use db::schema::tags::columns::{name, guild_id};
+        diesel::delete(tags::table)
             .filter(name.eq(&nm))
             .filter(guild_id.eq(&g_id))
             .get_result(self.conn().deref())
@@ -365,8 +367,8 @@ impl Database {
     /// Select all tags by guild
     /// Returns Vec<Tag> on success on success
     pub fn get_tags(&self, g_id: i64) -> QueryResult<Vec<Tag>> {
-        use db::schema::tags::dsl::*;
-        tags.filter(guild_id.eq(&g_id))
+        use db::schema::tags::columns::guild_id;
+        tags::table.filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
     }
     /// Update a tag
@@ -377,7 +379,6 @@ impl Database {
             .set(&tag)
             .get_result(self.conn().deref())
     }
-    // TODO add premium abstractions
     // Premium Tools
     /// Add premium with a given guild ID.
     /// Returns the PremiumSettings on success.
@@ -392,11 +393,10 @@ impl Database {
     /// Delete premium by a guild ID.
     /// Returns the ID on success.
     pub fn del_premium(&self, g_id: i64) -> QueryResult<i64> {
-        use db::schema::premium::dsl::*;
-        use db::schema::premium::columns;
-        diesel::delete(premium)
+        use db::schema::premium::columns::id;
+        diesel::delete(premium::table)
             .filter(id.eq(&g_id))
-            .returning(columns::id)
+            .returning(id)
             .get_result(self.conn().deref())
     }
     /// Select PremiumSettings by guild ID
