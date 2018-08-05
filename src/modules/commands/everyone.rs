@@ -32,7 +32,7 @@ lazy_static! {
 // Rank 0
 
 command!(bot_info(ctx, message, _args) {
-    let mut data = ctx.data.lock();
+    let data = ctx.data.lock();
     let (guild_count, shard_count, thumbnail) = {
         let cache = CACHE.read();
         (cache.guilds.len(), cache.shard_count, cache.user.face())
@@ -71,20 +71,13 @@ command!(bot_info(ctx, message, _args) {
 });
 
 command!(cat(ctx, message, _args) {
-    let mut data = ctx.data.lock();
+    let data = ctx.data.lock();
     if let Some(api) = data.get::<ApiClient>() {
-        match api.cat() {
-            Ok(res) => {
-                message.channel_id.send_message(|m| m
-                    .embed(|e| e
-                        .image(res.file)
-                ))?;
-            },
-            Err(why) => {
-                failed!(API_GET_FAIL, why);
-                message.channel_id.say(format!("Something went wrong while fetching the data.\nError: {}", why))?;
-            },
-        }
+        let res = api.cat()?;
+        message.channel_id.send_message(|m| m
+            .embed(|e| e
+                .image(res.file)
+        ))?;
     } else { failed!(API_FAIL); }
 });
 
@@ -97,62 +90,41 @@ command!(danbooru(ctx, message, args) {
 */
 
 command!(dog(ctx, message, _args) {
-    let mut data = ctx.data.lock();
+    let data = ctx.data.lock();
     if let Some(api) = data.get::<ApiClient>() {
-        match api.dog() {
-            Ok(res) => {
-                message.channel_id.send_message(|m| m
-                    .embed(|e| e
-                        .image(res.message)
-                ))?;
-            },
-            Err(why) => {
-                failed!(API_GET_FAIL, why);
-                message.channel_id.say(format!("Something went wrong while fetching the data.\nError: {}", why))?;
-            },
-        }
+        let res = api.dog()?;
+        message.channel_id.send_message(|m| m
+            .embed(|e| e
+                .image(res.message)
+        ))?;
     } else { failed!(API_FAIL); }
 });
 
 command!(dad_joke(ctx, message, _args) {
-    let mut data = ctx.data.lock();
+    let data = ctx.data.lock();
     if let Some(api) = data.get::<ApiClient>() {
-        match api.joke() {
-            Ok(res) => {
-                message.channel_id.say(res)?;
-            },
-            Err(why) => {
-                failed!(API_GET_FAIL, why);
-                message.channel_id.say(format!("Something went wrong while fetching the data.\nError: {}", why))?;
-            },
-        }
+        let res = api.joke()?;
+        message.channel_id.say(res)?;
     } else { failed!(API_FAIL); }
 });
 
 command!(e621(ctx, message, args) {
-    let mut data = ctx.data.lock();
+    let data = ctx.data.lock();
     message.channel_id.broadcast_typing()?;
     if let Some(api) = data.get::<ApiClient>() {
-        match api.furry(args.full(), 1) {
-            Ok(res) => {
-            let post = &res[0];
-            message.channel_id.send_message(|m| m
-                .embed(|e| e
-                    .image(&post.file_url)
-                    .description(format!("**Tags:** {}\n**Post:** [{}]({})\n**Artist:** {}\n**Score:** {}",
-                        &post.tags,
-                        &post.id,
-                        format!("https://e621.net/post/show/{}", &post.id),
-                        &post.artist[0],
-                        &post.score
-                    ))
-            ))?;
-            },
-            Err(why) => {
-                failed!(API_GET_FAIL, why);
-                message.channel_id.say(format!("Something went wrong while fetching the data.\nError: {}", why))?;
-            },
-        }
+        let res = api.furry(args.full(), 1)?;
+        let post = &res[0];
+        message.channel_id.send_message(|m| m
+            .embed(|e| e
+                .image(&post.file_url)
+                .description(format!("**Tags:** {}\n**Post:** [{}]({})\n**Artist:** {}\n**Score:** {}",
+                    &post.tags,
+                    &post.id,
+                    format!("https://e621.net/post/show/{}", &post.id),
+                    &post.artist[0],
+                    &post.score
+                ))
+        ))?;
     } else { failed!(API_FAIL); }
 });
 
@@ -161,51 +133,44 @@ command!(anime_search(ctx, message, args) {
     let data = ctx.data.lock();
     message.channel_id.broadcast_typing()?;
     if let Some(api) = data.get::<ApiClient>() {
-        match  api.anime(args.full()) {
-            Ok(res) => {
-                if let Some(anime) = res.data.first() {
-                    let status = match anime.attributes.status {
-                        Some(stat) => { match stat {
-                            Current => "Current",
-                            Finished => "Complete",
-                            TBA => "To Be Announced",
-                            Unreleased => "Unreleased",
-                            Upcoming => "Upcoming",
-                        }},
-                        None => "Status Not Found",
-                    };
-                    let cover_url = match anime.attributes.cover_image.clone() {
-                        Some(cover) => { match cover.original {
-                            Some(url) => url,
-                            None => String::new(),
-                        }},
-                        None => String::new(),
-                    };
-                    message.channel_id.send_message(|m| m
-                        .embed(|e| e
-                            .title(format!("**{}**", anime.attributes.canonical_title.clone()))
-                            .url(anime.url())
-                            .description(format!("{}\n\n{}\n**Score:** {}\n**Status:** {}",
-                                anime.attributes.synopsis,
-                                if let Some(count) = anime.attributes.episode_count {
-                                    let mut out = format!("**Episodes:** {}", count);
-                                    if let Some(length) = anime.attributes.episode_length {
-                                        out.push_str(format!(" ({} min/ep)", length).as_str());
-                                    }
-                                    out
-                                } else { String::from("Episode Information Not Found") },
-                                anime.attributes.average_rating.clone().unwrap_or(String::from("Not Found")),
-                                status
-                            ))
-                            .thumbnail(cover_url)
-                            .colour(*colours::MAIN)
-                    ))?;
-                }
-            },
-            Err(why) => {
-                failed!(API_GET_FAIL, why);
-                message.channel_id.say(format!("Something went wrong while fetching the data.\nError: {}", why))?;
-            },
+        let res = api.anime(args.full())?;
+        if let Some(anime) = res.data.first() {
+            let status = match anime.attributes.status {
+                Some(stat) => { match stat {
+                    Current => "Current",
+                    Finished => "Complete",
+                    TBA => "To Be Announced",
+                    Unreleased => "Unreleased",
+                    Upcoming => "Upcoming",
+                }},
+                None => "Status Not Found",
+            };
+            let cover_url = match anime.attributes.cover_image.clone() {
+                Some(cover) => { match cover.original {
+                    Some(url) => url,
+                    None => String::new(),
+                }},
+                None => String::new(),
+            };
+            message.channel_id.send_message(|m| m
+                .embed(|e| e
+                    .title(format!("**{}**", anime.attributes.canonical_title.clone()))
+                    .url(anime.url())
+                    .description(format!("{}\n\n{}\n**Score:** {}\n**Status:** {}",
+                        anime.attributes.synopsis,
+                        if let Some(count) = anime.attributes.episode_count {
+                            let mut out = format!("**Episodes:** {}", count);
+                            if let Some(length) = anime.attributes.episode_length {
+                                out.push_str(format!(" ({} min/ep)", length).as_str());
+                            }
+                            out
+                        } else { String::from("Episode Information Not Found") },
+                        anime.attributes.average_rating.clone().unwrap_or(String::from("Not Found")),
+                        status
+                    ))
+                    .thumbnail(cover_url)
+                    .colour(*colours::MAIN)
+            ))?;
         }
     } else { failed!(API_FAIL); }
 });
@@ -215,46 +180,39 @@ command!(manga_search(ctx, message, args) {
     let data = ctx.data.lock();
     message.channel_id.broadcast_typing()?;
     if let Some(api) = data.get::<ApiClient>() {
-        match api.manga(args.full()) {
-            Ok(res) => {
-                if let Some(manga) = res.data.first() {
-                    let status = match manga.attributes.status {
-                        Some(stat) => { match stat {
-                            Current => "Current",
-                            Finished => "Complete",
-                            TBA => "To Be Announced",
-                            Unreleased => "Unreleased",
-                            Upcoming => "Upcoming",
-                        }},
-                        None => "Status Not Found",
-                    };
-                    let cover_url = match manga.attributes.cover_image.clone() {
-                        Some(cover) => { match cover.original {
-                            Some(url) => url,
-                            None => String::new(),
-                        }},
-                        None => String::new(),
-                    };
-                    message.channel_id.send_message(|m| m
-                        .embed(|e| e
-                            .title(format!("**{}**", manga.attributes.canonical_title.clone()))
-                            .url(manga.url())
-                            .description(format!("{}\n\n**Volumes:** {}\n**Chapters:** {}\n**Score:** {}\n**Status:** {}",
-                                manga.attributes.synopsis,
-                                manga.attributes.volume_count.map_or(String::from("Not Found"), |count| format!("{}", count)),
-                                manga.attributes.chapter_count.map_or(String::from("Not Found"), |count| format!("{}", count)),
-                                manga.attributes.average_rating.clone().unwrap_or(String::from("Not Found")),
-                                status
-                            ))
-                            .thumbnail(cover_url)
-                            .colour(*colours::MAIN)
-                    ))?;
-                }
-            },
-            Err(why) => {
-                failed!(API_GET_FAIL, why);
-                message.channel_id.say(format!("Something went wrong while fetching the data.\nError: {}", why))?;
-            },
+        let res = api.manga(args.full())?;
+        if let Some(manga) = res.data.first() {
+            let status = match manga.attributes.status {
+                Some(stat) => { match stat {
+                    Current => "Current",
+                    Finished => "Complete",
+                    TBA => "To Be Announced",
+                    Unreleased => "Unreleased",
+                    Upcoming => "Upcoming",
+                }},
+                None => "Status Not Found",
+            };
+            let cover_url = match manga.attributes.cover_image.clone() {
+                Some(cover) => { match cover.original {
+                    Some(url) => url,
+                    None => String::new(),
+                }},
+                None => String::new(),
+            };
+            message.channel_id.send_message(|m| m
+                .embed(|e| e
+                    .title(format!("**{}**", manga.attributes.canonical_title.clone()))
+                    .url(manga.url())
+                    .description(format!("{}\n\n**Volumes:** {}\n**Chapters:** {}\n**Score:** {}\n**Status:** {}",
+                        manga.attributes.synopsis,
+                        manga.attributes.volume_count.map_or(String::from("Not Found"), |count| format!("{}", count)),
+                        manga.attributes.chapter_count.map_or(String::from("Not Found"), |count| format!("{}", count)),
+                        manga.attributes.average_rating.clone().unwrap_or(String::from("Not Found")),
+                        status
+                    ))
+                    .thumbnail(cover_url)
+                    .colour(*colours::MAIN)
+            ))?;
         }
     } else { failed!(API_FAIL); }
 });
@@ -294,14 +252,13 @@ command!(ping(ctx, message, _args) {
             }
         }
     }
-    if let Ok(mut m) = message.channel_id.send_message(|m| m.embed(|e| e.title("Pong!"))) {
-        let t = m.timestamp.timestamp_millis() - message.timestamp.timestamp_millis();
-        m.edit(|m| m.embed(|e| e
-            .title("Pong!")
-            .description(format!("**Shard Latency:** {}\n**Response Time:** {} ms", if lat==0 { String::from("Failed to retrieve") } else { format!("{} ms", lat) }, t))
-            .colour(*colours::MAIN)
-        ))?;
-    };
+    let mut m = message.channel_id.send_message(|m| m.embed(|e| e.title("Pong!")))?;
+    let t = m.timestamp.timestamp_millis() - message.timestamp.timestamp_millis();
+    m.edit(|m| m.embed(|e| e
+        .title("Pong!")
+        .description(format!("**Shard Latency:** {}\n**Response Time:** {} ms", if lat==0 { String::from("Failed to retrieve") } else { format!("{} ms", lat) }, t))
+        .colour(*colours::MAIN)
+    ))?;
 });
 
 command!(prefix(_ctx, message, _args) {
@@ -333,21 +290,15 @@ command!(remind(ctx, message, args) {
         if dur>0 {
             let end_time = start_time + dur;
             let mut reminder_fmt = format!("REMINDER||{}||{}||{}||{}", channel_id.0, user_id.0, dur, reminder);
-            match db.new_timer(start_time, end_time, reminder_fmt.clone()) {
-                Ok(timer) => {
-                    reminder_fmt.push_str(format!("||{}", timer.id).as_str());
-                    tc.request(reminder_fmt, dur as u64);
-                    message.channel_id.say(format!("Got it! I'll remind you to {} in {}",
-                        reminder,
-                        seconds_to_hrtime(dur as usize)
-                    ))?;
-                },
-                Err(why) => {
-                    message.channel_id.say(format!("Sorry, I couldn't make the reminder. Here's why: {:?}", why))?;
-                },
-            }
+            let timer =  db.new_timer(start_time, end_time, reminder_fmt.clone())?;
+            reminder_fmt.push_str(format!("||{}", timer.id).as_str());
+            tc.request(reminder_fmt, dur as u64);
+            message.channel_id.say(format!("Got it! I'll remind you to {} in {}",
+                reminder,
+                seconds_to_hrtime(dur as usize)
+            ))?;
         } else {
-            message.channel_id.say("Sorry, I wasn't able to find a timer there. Make sure you to add `/t time_resolvable` after your reminder text.")?;
+            message.channel_id.say("Sorry, I wasn't able to find a time there. Make sure you to add `/t time_resolvable` after your reminder text.")?;
         }
     } else { failed!(TC_FAIL); }
 });
@@ -355,69 +306,65 @@ command!(remind(ctx, message, args) {
 command!(asr(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
         if let Some(mut member) = message.member() {
-            match db.get_roles(guild_id.0 as i64) {
-                Ok(roles) => {
-                    if !roles.is_empty() {
-                        let list = args.rest().split(",").map(|s| s.trim().to_string());
-                        let mut to_add = Vec::new();
-                        let mut failed = Vec::new();
-                        let role_names = roles.iter().filter_map(|r| match RoleId(r.id as u64).find() {
-                            Some(role) => Some(role.clone()),
-                            None => None,
-                        }).collect::<Vec<Role>>();
-                        for r1 in list {
-                            if let Some((r, r2)) = parse_role(r1.clone(), guild_id) {
-                                if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
-                                    to_add.push(r);
-                                } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
-                            } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
-                                to_add.push(RoleId(roles[i].id as u64));
-                            } else {
-                                failed.push(format!("Failed to find match \"{}\". {}", r1,
-                                    if let Some(i) = fuzzy_match(&r1, role_names.iter().enumerate().map(|(i,r)| (r.name.as_str(), i)).collect()) {
-                                        let ref val = role_names[i];
-                                        format!("Closest match: {}", val.name.clone())
-                                    } else { String::new() }
-                                ));
-                            }
-                        }
-                        for (i, role_id) in to_add.clone().iter().enumerate() {
-                            if member.roles.contains(role_id) {
-                                to_add.remove(i);
-                                failed.push(format!("You already have {}", match role_names.iter().find(|r| &r.id == role_id) {
-                                    Some(s) => s.name.clone(),
-                                    None => format!("{}", role_id.0),
-                                }));
-                            }
-                            if let Err(_) = member.add_role(*role_id) {
-                                to_add.remove(i);
-                                failed.push(format!("Failed to add {}", match role_names.iter().find(|r| &r.id == role_id) {
-                                    Some(s) => s.name.clone(),
-                                    None => format!("{}", role_id.0),
-                                }));
-                            };
-                        }
-                        let mut fields = Vec::new();
-                        if !to_add.is_empty() {
-                            fields.push(("Added Roles", format!("{}", to_add.iter().filter_map(|r| match r.find() {
-                                Some(r) => Some(r.name.clone()),
-                                None => None,
-                            }).collect::<Vec<String>>().join("\n")), false));
-                        }
-                        if !failed.is_empty() {
-                            fields.push(("Failed to Add", format!("{}", failed.join("\n")), false));
-                        }
-                        message.channel_id.send_message(|m| m
-                            .embed(|e| e
-                                .title("Add Self Role Summary")
-                                .fields(fields)
-                                .colour(member.colour().unwrap_or(*colours::GREEN))
-                        ))?;
+            let roles = db.get_roles(guild_id.0 as i64)?;
+            if !roles.is_empty() {
+                let list = args.rest().split(",").map(|s| s.trim().to_string());
+                let mut to_add = Vec::new();
+                let mut failed = Vec::new();
+                let role_names = roles.iter().filter_map(|r| match RoleId(r.id as u64).find() {
+                    Some(role) => Some(role.clone()),
+                    None => None,
+                }).collect::<Vec<Role>>();
+                for r1 in list {
+                    if let Some((r, r2)) = parse_role(r1.clone(), guild_id) {
+                        if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
+                            to_add.push(r);
+                        } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
+                    } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
+                        to_add.push(RoleId(roles[i].id as u64));
                     } else {
-                        message.channel_id.say("There are no self roles.")?;
+                        failed.push(format!("Failed to find match \"{}\". {}", r1,
+                            if let Some(i) = fuzzy_match(&r1, role_names.iter().enumerate().map(|(i,r)| (r.name.as_str(), i)).collect()) {
+                                let ref val = role_names[i];
+                                format!("Closest match: {}", val.name.clone())
+                            } else { String::new() }
+                        ));
                     }
-                },
-                Err(why) => { failed!(DB_ROLES_FAIL, why); } // This branch should never occur
+                }
+                for (i, role_id) in to_add.clone().iter().enumerate() {
+                    if member.roles.contains(role_id) {
+                        to_add.remove(i);
+                        failed.push(format!("You already have {}", match role_names.iter().find(|r| &r.id == role_id) {
+                            Some(s) => s.name.clone(),
+                            None => format!("{}", role_id.0),
+                        }));
+                    }
+                    if let Err(_) = member.add_role(*role_id) {
+                        to_add.remove(i);
+                        failed.push(format!("Failed to add {}", match role_names.iter().find(|r| &r.id == role_id) {
+                            Some(s) => s.name.clone(),
+                            None => format!("{}", role_id.0),
+                        }));
+                    };
+                }
+                let mut fields = Vec::new();
+                if !to_add.is_empty() {
+                    fields.push(("Added Roles", format!("{}", to_add.iter().filter_map(|r| match r.find() {
+                        Some(r) => Some(r.name.clone()),
+                        None => None,
+                    }).collect::<Vec<String>>().join("\n")), false));
+                }
+                if !failed.is_empty() {
+                    fields.push(("Failed to Add", format!("{}", failed.join("\n")), false));
+                }
+                message.channel_id.send_message(|m| m
+                    .embed(|e| e
+                        .title("Add Self Role Summary")
+                        .fields(fields)
+                        .colour(member.colour().unwrap_or(*colours::GREEN))
+                ))?;
+            } else {
+                message.channel_id.say("There are no self roles.")?;
             }
         } else { failed!(MEMBER_FAIL); }
     } else { failed!(GUILDID_FAIL); }
@@ -426,69 +373,65 @@ command!(asr(_ctx, message, args) {
 command!(rsr(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
         if let Some(mut member) = message.member() {
-            match db.get_roles(guild_id.0 as i64) {
-                Ok(roles) => {
-                    if !roles.is_empty() {
-                        let list = args.rest().split(",").map(|s| s.trim().to_string());
-                        let mut to_remove = Vec::new();
-                        let mut failed = Vec::new();
-                        let role_names = roles.iter().filter_map(|r| match RoleId(r.id as u64).find() {
-                            Some(role) => Some(role.clone()),
-                            None => None,
-                        }).collect::<Vec<Role>>();
-                        for r1 in list {
-                            if let Some((r, r2)) = parse_role(r1.clone(), guild_id) {
-                                if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
-                                    to_remove.push(r);
-                                } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
-                            } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
-                                to_remove.push(RoleId(roles[i].id as u64));
-                            } else {
-                                failed.push(format!("Failed to find match \"{}\". {}", r1,
-                                    if let Some(i) = fuzzy_match(&r1, role_names.iter().enumerate().map(|(i,r)| (r.name.as_str(), i)).collect()) {
-                                        let ref val = role_names[i];
-                                        format!("Closest match: {}", val.name.clone())
-                                    } else { String::new() }
-                                ));
-                            }
-                        }
-                        for (i, role_id) in to_remove.clone().iter().enumerate() {
-                            if !member.roles.contains(role_id) {
-                                to_remove.remove(i);
-                                failed.push(format!("You already have {}", match role_names.iter().find(|r| &r.id == role_id) {
-                                    Some(s) => s.name.clone(),
-                                    None => format!("{}", role_id.0),
-                                }));
-                            }
-                            if let Err(_) = member.remove_role(*role_id) {
-                                to_remove.remove(i);
-                                failed.push(format!("Failed to remove {}", match role_names.iter().find(|r| &r.id == role_id) {
-                                    Some(s) => s.name.clone(),
-                                    None => format!("{}", role_id.0),
-                                }));
-                            };
-                        }
-                        let mut fields = Vec::new();
-                        if !to_remove.is_empty() {
-                            fields.push(("Added Roles", format!("{}", to_remove.iter().filter_map(|r| match r.find() {
-                                Some(r) => Some(r.name.clone()),
-                                None => None,
-                            }).collect::<Vec<String>>().join("\n")), false));
-                        }
-                        if !failed.is_empty() {
-                            fields.push(("Failed to Remove", format!("{}", failed.join("\n")), false));
-                        }
-                        message.channel_id.send_message(|m| m
-                            .embed(|e| e
-                                .title("Remove Self Role Summary")
-                                .fields(fields)
-                                .colour(member.colour().unwrap_or(*colours::RED))
-                        ))?;
+            let roles = db.get_roles(guild_id.0 as i64)?;
+            if !roles.is_empty() {
+                let list = args.rest().split(",").map(|s| s.trim().to_string());
+                let mut to_remove = Vec::new();
+                let mut failed = Vec::new();
+                let role_names = roles.iter().filter_map(|r| match RoleId(r.id as u64).find() {
+                    Some(role) => Some(role.clone()),
+                    None => None,
+                }).collect::<Vec<Role>>();
+                for r1 in list {
+                    if let Some((r, r2)) = parse_role(r1.clone(), guild_id) {
+                        if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
+                            to_remove.push(r);
+                        } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
+                    } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
+                        to_remove.push(RoleId(roles[i].id as u64));
                     } else {
-                        message.channel_id.say("There are no self roles.")?;
+                        failed.push(format!("Failed to find match \"{}\". {}", r1,
+                            if let Some(i) = fuzzy_match(&r1, role_names.iter().enumerate().map(|(i,r)| (r.name.as_str(), i)).collect()) {
+                                let ref val = role_names[i];
+                                format!("Closest match: {}", val.name.clone())
+                            } else { String::new() }
+                        ));
                     }
-                },
-                Err(why) => { failed!(DB_ROLES_FAIL, why); } // This branch should never occur
+                }
+                for (i, role_id) in to_remove.clone().iter().enumerate() {
+                    if !member.roles.contains(role_id) {
+                        to_remove.remove(i);
+                        failed.push(format!("You already have {}", match role_names.iter().find(|r| &r.id == role_id) {
+                            Some(s) => s.name.clone(),
+                            None => format!("{}", role_id.0),
+                        }));
+                    }
+                    if let Err(_) = member.remove_role(*role_id) {
+                        to_remove.remove(i);
+                        failed.push(format!("Failed to remove {}", match role_names.iter().find(|r| &r.id == role_id) {
+                            Some(s) => s.name.clone(),
+                            None => format!("{}", role_id.0),
+                        }));
+                    };
+                }
+                let mut fields = Vec::new();
+                if !to_remove.is_empty() {
+                    fields.push(("Added Roles", format!("{}", to_remove.iter().filter_map(|r| match r.find() {
+                        Some(r) => Some(r.name.clone()),
+                        None => None,
+                    }).collect::<Vec<String>>().join("\n")), false));
+                }
+                if !failed.is_empty() {
+                    fields.push(("Failed to Remove", format!("{}", failed.join("\n")), false));
+                }
+                message.channel_id.send_message(|m| m
+                    .embed(|e| e
+                        .title("Remove Self Role Summary")
+                        .fields(fields)
+                        .colour(member.colour().unwrap_or(*colours::RED))
+                ))?;
+            } else {
+                message.channel_id.say("There are no self roles.")?;
             }
         } else { failed!(MEMBER_FAIL); }
     } else { failed!(GUILDID_FAIL); }
@@ -497,41 +440,37 @@ command!(rsr(_ctx, message, args) {
 // TODO view a single category
 command!(lsr(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
-        match db.get_roles(guild_id.0 as i64) {
-            Ok(roles) => {
-                if !roles.is_empty() {
-                    if args.is_empty() {
-                        let mut map: BTreeMap<String, Vec<String>> = BTreeMap::new();
-                        for role in roles.iter() {
-                            match RoleId(role.id as u64).find() {
-                                Some(r) => {
-                                    map.entry(role.category.clone()).or_insert(Vec::new()).push(r.name);
-                                },
-                                None => {
-                                    // Clean up roles that don't exist
-                                    db.del_role(role.id, guild_id.0 as i64)?;
-                                },
-                            }
-                        }
-                        let mut fields = Vec::new();
-                        for (key, val) in map.iter_mut() {
-                            val.sort();
-                            fields.push((key, val.join("\n"), true));
-                        }
-                        message.channel_id.send_message(|m| m
-                            .embed(|e| e
-                                .title("Self Roles")
-                                .fields(fields)
-                                .colour(*colours::MAIN)
-                        ))?;
-                    } else {
-                        // single cat
+        let roles = db.get_roles(guild_id.0 as i64)?;
+        if !roles.is_empty() {
+            if args.is_empty() {
+                let mut map: BTreeMap<String, Vec<String>> = BTreeMap::new();
+                for role in roles.iter() {
+                    match RoleId(role.id as u64).find() {
+                        Some(r) => {
+                            map.entry(role.category.clone()).or_insert(Vec::new()).push(r.name);
+                        },
+                        None => {
+                            // Clean up roles that don't exist
+                            db.del_role(role.id, guild_id.0 as i64)?;
+                        },
                     }
-                } else {
-                    message.channel_id.say("There are no self roles.")?;
                 }
-            },
-            Err(why) => { failed!(DB_ROLES_FAIL, why); } // This branch should never happen
+                let mut fields = Vec::new();
+                for (key, val) in map.iter_mut() {
+                    val.sort();
+                    fields.push((key, val.join("\n"), true));
+                }
+                message.channel_id.send_message(|m| m
+                    .embed(|e| e
+                        .title("Self Roles")
+                        .fields(fields)
+                        .colour(*colours::MAIN)
+                ))?;
+            } else {
+                // single cat
+            }
+        } else {
+            message.channel_id.say("There are no self roles.")?;
         }
     } else { failed!(GUILDID_FAIL); }
 });
@@ -540,10 +479,7 @@ command!(role_info(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
         match parse_role(args.rest().to_string(), guild_id) {
             Some((role_id, role)) => {
-                let role_data = match db.get_role(role_id.0 as i64, guild_id.0 as i64) {
-                    Ok(r) => Some(r),
-                    _ => None,
-                };
+                let role_data = db.get_role(role_id.0 as i64, guild_id.0 as i64).ok();
                 let mut fields = vec![
                     ("Name", role.name.clone(), true),
                     ("ID", format!("{}", role_id.0), true),
@@ -593,8 +529,8 @@ command!(roll(_ctx, message, args) {
                         .colour(*colours::MAIN)
                         .field(format!("{} 🎲 [1-{}]", count, sides), format!("You rolled {}", total), true)
                 ))?;
-            } else { message.channel_id.say("Sides out of bounds")?; }
-        } else { message.channel_id.say("Count out of bounds")?; }
+            } else { message.channel_id.say("Sides out of bounds. Max: 100")?; }
+        } else { message.channel_id.say("Count out of bounds. Max: 1000")?; }
     } else { message.channel_id.say("Sorry, I didn't understand your input.")?; }
 });
 
@@ -683,98 +619,86 @@ command!(server_info(_ctx, message, args) {
 
 command!(tag_list(_ctx, message, _args) {
     if let Some(guild_id) = message.guild_id {
-        if let Ok(tags) = db.get_tags(guild_id.0 as i64) {
-            if !tags.is_empty() {
-                message.channel_id.say(tags.iter().map(|e| e.name.as_str()).collect::<Vec<&str>>().join("\n"))?;
-            } else {
-                message.channel_id.say("No tags founds.")?;
-            }
-        } else { failed!(DB_TAGS_FAIL); }
+        let tags = db.get_tags(guild_id.0 as i64)?;
+        if !tags.is_empty() {
+            message.channel_id.say(tags.iter().map(|e| e.name.as_str()).collect::<Vec<&str>>().join("\n"))?;
+        } else {
+            message.channel_id.say("No tags founds.")?;
+        }
     } else { failed!(GUILDID_FAIL); }
 });
 
 command!(tag_single(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
         let tag_input = args.full().trim().to_string();
-        if let Ok(tags) = db.get_tags(guild_id.0 as i64) {
-            if !tags.is_empty() {
-                if let Some(tag) = tags.iter().find(|e| e.name == tag_input) {
-                    message.channel_id.say(&tag.data)?;
-                } else {
-                    let mut sdc = SorensenDice::new();
-                    let mut matches = Vec::new();
-                    for tag in tags.iter() {
-                        let dist = sdc.get_similarity(tag.name.as_str(), &tag_input);
-                        matches.push((tag, dist));
-                    }
-                    matches.retain(|e| e.1 > 0.2);
-                    matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
-                    matches.truncate(5);
-                    let matches = matches.iter().map(|e| e.0.name.clone()).collect::<Vec<String>>();
-                    message.channel_id.say(format!("No tag found. Did you mean...\n{}", matches.join("\n")))?;
+        let tags = db.get_tags(guild_id.0 as i64)?;
+        if !tags.is_empty() {
+            if let Some(tag) = tags.iter().find(|e| e.name == tag_input) {
+                message.channel_id.say(&tag.data)?;
+            } else {
+                let mut sdc = SorensenDice::new();
+                let mut matches = Vec::new();
+                for tag in tags.iter() {
+                    let dist = sdc.get_similarity(tag.name.as_str(), &tag_input);
+                    matches.push((tag, dist));
                 }
-            } else { message.channel_id.say("There are no tags yet.")?; }
-        } else { failed!(DB_TAGS_FAIL); }
+                matches.retain(|e| e.1 > 0.2);
+                matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+                matches.truncate(5);
+                let matches = matches.iter().map(|e| e.0.name.clone()).collect::<Vec<String>>();
+                message.channel_id.say(format!("No tag found. Did you mean...\n{}", matches.join("\n")))?;
+            }
+        } else { message.channel_id.say("There are no tags yet.")?; }
     } else { failed!(GUILDID_FAIL); }
 });
 
 command!(tag_add(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
-        if let Ok(tag_input) = args.single_quoted::<String>() {
-            let value = args.rest().to_string();
-            match db.new_tag(message.author.id.0 as i64, guild_id.0 as i64, tag_input.clone(), value) {
-                Ok(tag) => { message.channel_id.say(format!("Successfully created tag `{}`", tag.name))?; },
-                Err(why) => { message.channel_id.say(format!("Failed to create tag `{}`. Here's why: {:?}", tag_input, why))?; },
-            }
-        } else { message.channel_id.say("I couldn't understand your input.")?; }
+        let tag_input = args.single_quoted::<String>()?;
+        let value = args.rest().to_string();
+        let tag = db.new_tag(message.author.id.0 as i64, guild_id.0 as i64, tag_input.clone(), value)?;
+        message.channel_id.say(format!("Successfully created tag `{}`", tag.name))?;
     } else { failed!(GUILDID_FAIL); }
 });
 
 command!(tag_del(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
-        if let Ok(tag_input) = args.single_quoted::<String>() {
-            if let Ok(tag) = db.get_tag(guild_id.0 as i64, tag_input.clone()) {
-                let mut rank_check = false;
-                if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                    if let Ok(member) = guild_id.member(&message.author.id) {
-                        if check_rank(guild_data.admin_roles, &member.roles) { rank_check = true }
-                        if check_rank(guild_data.mod_roles, &member.roles) { rank_check = true }
-                    }
-                }
-                if message.author.id.0 as i64 == tag.author || rank_check {
-                    match db.del_tag(guild_id.0 as i64, tag_input.clone()) {
-                        Ok(tag) => { message.channel_id.say(format!("Successfully deleted tag `{}`", tag.name))?; },
-                        Err(why) => { message.channel_id.say(format!("Failed to delete tag `{}`. Here's why: {:?}", tag_input, why))?; },
-                    }
-                } else { message.channel_id.say("You must own this tag in order to delete it.")?; }
-            } else { message.channel_id.say("Tag not found.")?; }
-        } else { message.channel_id.say("I couldn't understand your input.")?; }
+        let tag_input = args.single_quoted::<String>()?;
+        let tag = db.get_tag(guild_id.0 as i64, tag_input.clone())?;
+        let mut rank_check = false;
+        let guild_data = db.get_guild(guild_id.0 as i64)?;
+        if let Ok(member) = guild_id.member(&message.author.id) {
+            if check_rank(guild_data.admin_roles, &member.roles) { rank_check = true }
+            if check_rank(guild_data.mod_roles, &member.roles) { rank_check = true }
+        }
+        if message.author.id.0 as i64 == tag.author || rank_check {
+            let tag = db.del_tag(guild_id.0 as i64, tag_input.clone())?;
+            message.channel_id.say(format!("Successfully deleted tag `{}`", tag.name))?;
+        } else { message.channel_id.say("You must own this tag in order to delete it.")?; }
     } else { failed!(GUILDID_FAIL); }
 });
 
 command!(tag_edit(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
-        if let Ok(tag_input) = args.single_quoted::<String>() {
-            let value = args.rest().to_string();
-            if let Ok(mut tag) = db.get_tag(guild_id.0 as i64, tag_input.clone()) {
-                if message.author.id.0 as i64 == tag.author {
-                    tag.data = value.clone();
-                    match db.update_tag(guild_id.0 as i64, tag_input.clone(), tag) {
-                        Ok(t) => { message.channel_id.say(format!("Successfully edited tag `{}`", t.name))?; },
-                        Err(why) => { message.channel_id.say(format!("Failed to edit tag `{}`. Here's why: {:?}", tag_input, why))?; },
-                    }
-                } else { message.channel_id.say("You must own this tag in order to edit it.")?; }
-            } else { message.channel_id.say("Tag not found.")?; }
-        } else { message.channel_id.say("I couldn't understand your input.")?; }
+        let tag_input = args.single_quoted::<String>()?;
+        let value = args.rest().to_string();
+        let mut tag = db.get_tag(guild_id.0 as i64, tag_input.clone())?;
+        if message.author.id.0 as i64 == tag.author {
+            tag.data = value.clone();
+            let t = db.update_tag(guild_id.0 as i64, tag_input.clone(), tag)?;
+            message.channel_id.say(format!("Successfully edited tag `{}`", t.name))?;
+        } else { message.channel_id.say("You must own this tag in order to edit it.")?; }
     } else { failed!(GUILDID_FAIL); }
 });
 
 command!(urban(ctx, message, args) {
     let data = ctx.data.lock();
     let term = args.single_quoted::<String>().unwrap_or(String::new());
-    if let Ok(mut res) = data.get::<ApiClient>().expect("Failed to get API Client").urban(term.as_str()) {
+    if let Some(api) = data.get::<ApiClient>() {
+        let mut res = api.urban(term.as_str())?;
         if !res.list.is_empty() {
             let count = args.single::<u32>().unwrap_or(1);
+            res.tags.sort();
             res.tags.dedup();
             if count == 1 {
                 message.channel_id.send_message(|m| m
@@ -801,7 +725,7 @@ command!(urban(ctx, message, args) {
                 ))?;
             }
         }
-    };
+    } else { failed!(API_FAIL); }
 });
 
 command!(user_info(_ctx, message, args) {
@@ -811,15 +735,21 @@ command!(user_info(_ctx, message, args) {
             Err(_) => false,
         };
         let (user, member) = match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
-            Some((id, member)) => (id.get().unwrap(), member),
-            None => (message.author.clone(), message.member().unwrap().clone()),
+            Some((id, member)) => (id.get()?, member),
+            None => (message.author.clone(), message.member().ok_or("Failed to get member.")?),
         };
         let user_data = db.get_user(user.id.0 as i64, guild_id.0 as i64)?;
-        let mut roles = member.roles.iter().map(|c| c.find().unwrap().name).collect::<Vec<String>>();
+        let mut roles = member.roles.iter()
+            .map(|c| match c.find() {
+                Some(r) => r.name,
+                None => format!("{}", c.0),
+            })
+            .collect::<Vec<String>>();
         roles.sort();
-        let dates = format!("Created: {}\nJoined: {}{}",
+        let dates = format!(
+            "Created: {}\nJoined: {}{}",
             user.created_at().format("%a, %d %h %Y @ %H:%M:%S").to_string(),
-            member.joined_at.unwrap().format("%a, %d %h %Y @ %H:%M:%S").to_string(),
+            member.joined_at.and_then(|t| Some(t.with_timezone(&Utc))).unwrap_or(Utc::now()).format("%a, %d %h %Y @ %H:%M:%S").to_string(),
             if premium {
                 let r = user_data.registered;
                 if r.is_some() { format!("\nRegistered: {}", r.unwrap().format("%a, %d %h %Y @ %H:%M:%S").to_string()) }
@@ -828,7 +758,7 @@ command!(user_info(_ctx, message, args) {
         );
         message.channel_id.send_message(|m| m
             .embed(|e| e
-                .colour(member.colour().unwrap())
+                .colour(member.colour().unwrap_or(*colours::MAIN))
                 .thumbnail(user.face())
                 .title(&user.tag())
                 .field("ID", user.id, true)
@@ -837,7 +767,7 @@ command!(user_info(_ctx, message, args) {
                 .field("Dates", dates, false)
                 .field(format!("Roles [{}]", member.roles.len()), roles.join(", "), false)
         ))?;
-    };
+    }
 });
 
 // TODO fix float math on pressure
