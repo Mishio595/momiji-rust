@@ -61,7 +61,7 @@ fn fern_setup() -> Result<(), log::SetLoggerError> {
 
     fern::Dispatch::new()
         .level(log::LevelFilter::Info)
-        .level_for("serenity", log::LevelFilter::Debug)
+        .level_for("serenity", log::LevelFilter::Error)
         .level_for("momiji", log::LevelFilter::Debug)
         .chain(term_out)
         .chain(file_out)

@@ -629,6 +629,7 @@ command!(tag_list(_ctx, message, _args) {
 });
 
 command!(tag_single(_ctx, message, args) {
+    debug!("{:#?}", args);
     if let Some(guild_id) = message.guild_id {
         let tag_input = args.full().trim().to_string();
         let tags = db.get_tags(guild_id.0 as i64)?;

@@ -40,7 +40,6 @@ pub fn parse_role(input: String, guild_id: GuildId) -> Option<(RoleId, Role)> {
     match ROLE_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = RoleId::from_str(&s[1]) {
-                debug!("Locking cache");
                 let guild_lock = CACHE.read().guild(&guild_id);
                 if let Some(guild_lock) = guild_lock {
                     let guild = guild_lock.read();
@@ -52,7 +51,6 @@ pub fn parse_role(input: String, guild_id: GuildId) -> Option<(RoleId, Role)> {
             None
         },
         None => {
-            debug!("Locking cache");
             let guild_lock = CACHE.read().guild(&guild_id);
             if let Some(guild_lock) = guild_lock {
                 let guild = guild_lock.read();
@@ -76,7 +74,6 @@ pub fn parse_user(input: String, guild_id: GuildId) -> Option<(UserId, Member)> 
     match USER_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = UserId::from_str(&s[1]) {
-                debug!("Locking cache");
                 let member = CACHE.read().member(&guild_id, &id);
                 if let Some(member) = member {
                     return Some((id, member.clone()));
@@ -85,7 +82,6 @@ pub fn parse_user(input: String, guild_id: GuildId) -> Option<(UserId, Member)> 
             None
         },
         None => {
-            debug!("Locking cache");
             let guild_lock = CACHE.read().guild(&guild_id);
             if let Some(guild_lock) = guild_lock {
                 let guild = guild_lock.read();
@@ -111,7 +107,6 @@ pub fn parse_channel(input: String, guild_id: GuildId) -> Option<(ChannelId, Gui
         Some(s) => {
             if let Ok(id) = ChannelId::from_str(&s[1]) {
                 let ch_lock = CACHE.read().guild_channel(&id);
-                debug!("Locking cache");
                 if let Some(ch_lock) = ch_lock {
                     let ch = ch_lock.read();
                     return Some((id, ch.clone()));
@@ -120,7 +115,6 @@ pub fn parse_channel(input: String, guild_id: GuildId) -> Option<(ChannelId, Gui
             None
         },
         None => {
-            debug!("Locking cache");
             let guild_lock = CACHE.read().guild(&guild_id);
             if let Some(guild_lock) = guild_lock {
                 let guild = guild_lock.read();
@@ -151,7 +145,6 @@ pub fn parse_guild(input: String) -> Option<(GuildId, Arc<RwLock<Guild>>)> {
             None
         },
         None => {
-            debug!("Locking cache");
             let guilds = &CACHE.read().guilds;
             for (id, g_lock) in guilds.iter() {
                 if g_lock.read().name.to_lowercase() == input.to_lowercase() {
