@@ -772,7 +772,6 @@ command!(user_info(_ctx, message, args) {
     }
 });
 
-// TODO fix float math on pressure
 command!(weather(ctx, message, args) {
     let mut data = ctx.data.lock();
     if let Some(api) = data.get::<ApiClient>() {

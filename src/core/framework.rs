@@ -203,9 +203,9 @@ impl MomijiFramework {
                 .command("weather", |c| c
                     .cmd(weather)
                     .bucket("weather")
-                    .desc("Check on the current weather.")
-                    .usage("<city name>")
-                    .example("london")))
+                    .desc("Check on the current weather at a given city. By default this will use the units used at that location, but units can be manually selected. Options are si, us, uk, ca")
+                    .usage("<city name> [/unit]")
+                    .example("london /us")))
             .group("Tags", |g| g
                 .help_available(true)
                 .guild_only(true)
