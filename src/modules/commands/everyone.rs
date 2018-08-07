@@ -482,7 +482,7 @@ command!(lsr(_ctx, message, args) {
                         .embed(|e| e
                             .title(category)
                             .description(roles_out)
-                            .colour(*colour::MAIN)
+                            .colour(*colours::MAIN)
                     ))?;
                 } else {
                     message.channel_id.say(format!("The category `{}` does not exist.", category))?;

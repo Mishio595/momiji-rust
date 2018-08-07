@@ -338,36 +338,65 @@ command!(config_introduction(_ctx, message, args) {
     } else { failed!(GUILDID_FAIL); }
 });
 
-// TODO rewrite as group {add, remove, list}
-command!(ignore(_ctx, message, args) {
-    let guild_id = message.guild_id.unwrap();
-    let mut guild_data = db.get_guild(guild_id.0 as i64)?;
-    let (channel_id, channel) = parse_channel(args.full().to_string(), guild_id).unwrap();
-    if !guild_data.ignored_channels.contains(&(channel_id.0 as i64)) {
-        guild_data.ignored_channels.push(channel_id.0 as i64);
-        match db.update_guild(guild_id.0 as i64, guild_data) {
-            Ok(_) => {
-                message.channel_id.say(format!("I will now ignore messages in {}",
+command!(ignore_add(_ctx, message, args) {
+    if let Some(guild_id) = message.guild_id {
+        let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+        if let Some((channel_id, channel)) = parse_channel(args.full().to_string(), guild_id) {
+            if !guild_data.ignored_channels.contains(&(channel_id.0 as i64)) {
+                guild_data.ignored_channels.push(channel_id.0 as i64);
+                db.update_guild(guild_id.0 as i64, guild_data)?;
+                message.channel_id.say(format!(
+                    "I will now ignore messages in {}",
                     channel.name
                 ))?;
-            },
-            Err(_) =>{
-                message.channel_id.say("Failed to add channel to ignore list")?;
-            },
-        };
-    } else {
-        guild_data.ignored_channels.retain(|e| *e != channel_id.0 as i64);
-        match db.update_guild(guild_id.0 as i64, guild_data) {
-            Ok(_) => {
-                message.channel_id.say(format!("I will no longer ignore messages in {}",
+            } else {
+                message.channel_id.say("That channel is already being ignored.")?;
+            }
+        } else {
+            message.channel_id.say("I couldn't find that channel.")?;
+        }
+    } else { failed!(GUILDID_FAIL); }
+});
+
+command!(ignore_del(_ctx, message, args) {
+    if let Some(guild_id) = message.guild_id {
+        let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+        if let Some((channel_id, channel)) = parse_channel(args.full().to_string(), guild_id) {
+            if guild_data.ignored_channels.contains(&(channel_id.0 as i64)) {
+                guild_data.ignored_channels.retain(|e| *e != channel_id.0 as i64);
+                db.update_guild(guild_id.0 as i64, guild_data)?;
+                message.channel_id.say(format!(
+                    "I will no longer ignore messages in {}",
                     channel.name
                 ))?;
-            },
-            Err(_) =>{
-                message.channel_id.say("Failed to remove channel to ignore list")?;
-            },
-        };
-    }
+            } else {
+                message.channel_id.say("That channel isn't being ignored.")?;
+            }
+        } else {
+            message.channel_id.say("I couldn't find that channel.")?;
+        }
+    } else { failed!(GUILDID_FAIL); }
+});
+
+command!(ignore_list(_ctx, message, _args) {
+    if let Some(guild_id) = message.guild_id {
+        let guild_data = db.get_guild(guild_id.0 as i64)?;
+        if !guild_data.ignored_channels.is_empty() {
+            let channel_out = guild_data.ignored_channels.clone()
+                .iter()
+                .map(|c| format!("<#{}>", c))
+                .collect::<Vec<String>>()
+                .join("\n");
+            message.channel_id.send_message(|m| m
+                .embed(|e| e
+                    .title("Ignored Channels")
+                    .description(channel_out)
+                    .colour(*colours::MAIN)
+            ))?;
+        } else {
+            message.channel_id.say("I'm not ignoring any channels.")?;
+        }
+    } else { failed!(GUILDID_FAIL); }
 });
 
 command!(csr(_ctx, message, args) {

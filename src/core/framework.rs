@@ -394,16 +394,30 @@ impl MomijiFramework {
                     .cmd(setup_mute)
                     .desc("Sets up mute for the server. This command requires the Manage Channels and Manage Roles permissions. It creates the Muted role if it doesn't exist, then iterates through every channel and category to disable Send Messages, Speak, and Add Reactions.")
                     .usage(""))
-                .command("ignore", |c| c
-                    .cmd(ignore)
-                    .desc("Tell the bot to ignore a channel, or being listening to one that was previously ignored.")
-                    .usage("<channel_resolvable>")
-                    .example("#general"))
                 .command("prune", |c| c
                     .cmd(prune)
                     .desc("Bulk delete messages. Filter is one of bot, attachment, !pin, mention, or a user_resolvable.\n`bot` will prune only messages from bots.\n`attachment` will prune only messages with attachments.\n`!pin` will prune all but pinned messages.\n`mention` will prune only messages that mention a user or everyone.\nMentioning a user will prune only that user's messages.")
                     .usage("<count> [filter]")
                     .example("20 bot")))
+            .group("Ignore Channels (Admin+)", |g| g
+                .guild_only(true)
+                .help_available(true)
+                .check(admin_check)
+                .prefix("ignore")
+                .default_cmd(ignore_list)
+                .command("add", |c| c
+                    .cmd(ignore_add)
+                    .desc("Tell the bot to ignore a channel.")
+                    .usage("<channel_resolvable>")
+                    .example("#general"))
+                .command("remove", |c| c
+                    .cmd(ignore_del)
+                    .desc("Tell the bot to stop ignoring a channel.")
+                    .usage("<channel_resolvable>")
+                    .example("#general"))
+                .command("list", |c| c
+                    .cmd(ignore_list)
+                    .desc("List all ignored channels.")))
             .group("Premium (Admin+)", |g| g
                 .guild_only(true)
                 .help_available(true)
