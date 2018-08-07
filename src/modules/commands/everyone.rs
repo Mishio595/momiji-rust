@@ -5,6 +5,7 @@ use core::consts::DB as db;
 use core::model::*;
 use core::utils::*;
 use forecast::Icon::*;
+use forecast::Units;
 use fuzzy_match::algorithms::*;
 use fuzzy_match::fuzzy_match;
 use rand::prelude::*;
@@ -774,69 +775,111 @@ command!(user_info(_ctx, message, args) {
 // TODO fix float math on pressure
 command!(weather(ctx, message, args) {
     let mut data = ctx.data.lock();
-    let loc = args.full();
-    message.channel_id.broadcast_typing()?;
     if let Some(api) = data.get::<ApiClient>() {
-        match api.weather(loc) {
-            Some((city_info, Ok(body))) => {
-                if let Some(current) = body.currently {
-                    if let Some(daily_data) = body.daily {
-                        let daily = &daily_data.data[0];
-                        let temp = current.temperature.unwrap_or(NAN);
-                        let temp_high = current.temperature_high.unwrap_or(daily.temperature_high.unwrap_or(NAN));
-                        let temp_low = current.temperature_low.unwrap_or(daily.temperature_low.unwrap_or(NAN));
-                        let feels_like = current.apparent_temperature.unwrap_or(NAN);
-                        let wind = current.wind_speed.unwrap_or(NAN);
-                        let visi = current.visibility.unwrap_or(NAN);
-                        let pressure = current.pressure.unwrap_or(NAN);
-                        let humidity = current.humidity.unwrap_or(NAN)*100.0;
-                        let icon = match current.icon {
-                            Some(ic) => {
-                                match ic {
-                                    ClearDay => "The sky is clear",
-                                    ClearNight => "The sky is clear",
-                                    Rain => "It is raining",
-                                    Snow => "It is snowing",
-                                    Sleet => "It is sleeting",
-                                    Wind => "It is windy",
-                                    Fog => "It is foggy",
-                                    Cloudy => "The sky is cloudy",
-                                    PartlyCloudyDay => "The sky is partly cloudy",
-                                    PartlyCloudyNight => "The sky is partly cloudy",
-                                    Hail => "It is hailing",
-                                    Thunderstorm => "There is a thunderstorm",
-                                    Tornado => "There is a tornado",
-                                }
-                            },
-                            None => "The sky is clear",
-                        };
-                        message.channel_id.send_message(|m| m
-                            .embed(|e| e
-                                .title(format!("Weather in {}", city_info))
-                                .description(format!("_It is currently **{}°C** with wind of **{} mph** making it feel like **{}°C**. {} with a visibility of about **{} mi**._",
-                                    temp,
-                                    wind,
-                                    feels_like,
-                                    icon,
-                                    visi
-                                ))
-                                .field("Temperature", format!("Current: **{}°C**\nLow/High: **{}°C / {}°C**", temp, temp_low, temp_high), true)
-                                .field("Wind Chill", format!("Feels Like: **{}°C**\nWind Speed: **{} mph**", feels_like, wind), true)
-                                .field("Atmosphere", format!("Humidity: **{}%**\nPressure: **{} mb**", humidity, pressure), true)
-                                .colour(*colours::MAIN)
-                                .timestamp(now!())
-                                .footer(|f| f.text("Forecast by Dark Sky"))
-                        ))?;
-                    }
+        let switches = get_switches(args.full().to_string());
+        let rest = switches.get("rest");
+        let mut units = Units::Auto;
+        if switches.len() > 1 {
+            switches.keys().for_each(|k| {
+                match k.as_str() {
+                    "uk" => { units = Units::UK; },
+                    "c"  => { units = Units::CA; },
+                    "si" => { units = Units::SI; },
+                    "us" => { units = Units::Imperial; },
+                    "ca" => { units = Units::CA; },
+                    _ => {},
                 }
-            },
-            Some((_, Err(why))) => {
-                message.channel_id.say(format!("Something went wrong while getting the forecast.\n{}", why))?;
-            },
-            None => {
-                message.channel_id.say("An error occurred while resolving the location.")?;
-            },
+            });
         }
+        message.channel_id.broadcast_typing()?;
+        if let Some(loc) = rest {
+            match api.weather(loc, units) {
+                Some((city_info, Ok(body))) => {
+                    if let Some(current) = body.currently {
+                        if let Some(daily_data) = body.daily {
+                            let daily = &daily_data.data[0];
+                            let temp = current.temperature.unwrap_or(NAN);
+                            let temp_high = current.temperature_high.unwrap_or(daily.temperature_high.unwrap_or(NAN));
+                            let temp_low = current.temperature_low.unwrap_or(daily.temperature_low.unwrap_or(NAN));
+                            let feels_like = current.apparent_temperature.unwrap_or(NAN);
+                            let wind = current.wind_speed.unwrap_or(NAN);
+                            let visi = current.visibility.unwrap_or(NAN);
+                            let pressure = current.pressure.unwrap_or(NAN);
+                            let humidity = current.humidity.unwrap_or(NAN)*100.0;
+                            let icon = match current.icon {
+                                Some(ic) => {
+                                    match ic {
+                                        ClearDay => "The sky is clear",
+                                        ClearNight => "The sky is clear",
+                                        Rain => "It is raining",
+                                        Snow => "It is snowing",
+                                        Sleet => "It is sleeting",
+                                        Wind => "It is windy",
+                                        Fog => "It is foggy",
+                                        Cloudy => "The sky is cloudy",
+                                        PartlyCloudyDay => "The sky is partly cloudy",
+                                        PartlyCloudyNight => "The sky is partly cloudy",
+                                        Hail => "It is hailing",
+                                        Thunderstorm => "There is a thunderstorm",
+                                        Tornado => "There is a tornado",
+                                    }
+                                },
+                                None => "The sky is clear",
+                            };
+                            let response_units = body.flags.and_then(|e| Some(e.units)).unwrap_or(Units::Imperial);
+                            let (temp_unit, speed_unit, dist_unit) = match response_units {
+                                Units::SI => { ("C", "m/s", "km") },
+                                Units::CA => { ("C", "kmph", "km") },
+                                Units::UK => { ("C", "mph", "mi") },
+                                _ => { ("F", "mph", "mi") },
+                            };
+                            message.channel_id.send_message(|m| m
+                                .embed(|e| e
+                                    .title(format!("Weather in {}", city_info))
+                                    .description(format!("_It is currently **{}°{temp}** with wind of **{} {speed}** making it feel like **{}°{temp}**. {} with a visibility of about **{} {dist}**._",
+                                        temp,
+                                        wind,
+                                        feels_like,
+                                        icon,
+                                        visi,
+                                        temp = temp_unit,
+                                        speed = speed_unit,
+                                        dist = dist_unit
+                                    ))
+                                    .field("Temperature", format!(
+                                        "Current: **{}°{temp}**\nLow/High: **{}°{temp} / {}°{temp}**",
+                                        temp,
+                                        temp_low,
+                                        temp_high,
+                                        temp = temp_unit
+                                    ), true)
+                                    .field("Wind Chill", format!(
+                                        "Feels Like: **{}°{temp}**\nWind Speed: **{} {speed}**",
+                                        feels_like,
+                                        wind,
+                                        temp = temp_unit,
+                                        speed = speed_unit
+                                    ), true)
+                                    .field("Atmosphere", format!(
+                                        "Humidity: **{}%**\nPressure: **{} mbar**",
+                                        humidity,
+                                        pressure,
+                                    ), true)
+                                    .colour(*colours::MAIN)
+                                    .timestamp(now!())
+                                    .footer(|f| f.text("Forecast by Dark Sky"))
+                            ))?;
+                        }
+                    }
+                },
+                Some((_, Err(why))) => {
+                    message.channel_id.say(format!("Something went wrong while getting the forecast.\n{}", why))?;
+                },
+                None => {
+                    message.channel_id.say("An error occurred while resolving the location.")?;
+                },
+            }
+        } else { message.channel_id.say("Please enter a location.")?; }
     } else { failed!(API_FAIL); }
 });
 

@@ -231,8 +231,7 @@ impl ApiClient {
         self.client.search_manga(|f| f.filter("text", input.into().trim()))
     }
 
-    // TODO choose units based on location
-    pub fn weather(&self, input: &str) -> Option<(String, ReqwestResult<ApiResponse>)> {
+    pub fn weather(&self, input: &str, units: Units) -> Option<(String, ReqwestResult<ApiResponse>)> {
         match self.oc_client.forward_full(input, &None) {
             Ok(data) => {
                 if !data.results.is_empty() {
@@ -245,7 +244,7 @@ impl ApiClient {
                     let ds_key = env::var("DARKSKY_KEY").expect("No DarkSky API Key found in env");
                     let fc_req = Some(ForecastRequestBuilder::new(ds_key.as_str(), *first.geometry.get("lat").unwrap(), *first.geometry.get("lng").unwrap())
                         .lang(Lang::English)
-                        .units(Units::UK)
+                        .units(units)
                         .build());
                     if let Some(req) = fc_req {
                         let ds_client = DSClient::new(&self.client);
