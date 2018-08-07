@@ -438,10 +438,9 @@ command!(rsr(_ctx, message, args) {
     } else { failed!(GUILDID_FAIL); }
 });
 
-// TODO view a single category
 command!(lsr(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
-        let roles = db.get_roles(guild_id.0 as i64)?;
+        let mut roles = db.get_roles(guild_id.0 as i64)?;
         if !roles.is_empty() {
             if args.is_empty() {
                 let mut map: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -468,7 +467,26 @@ command!(lsr(_ctx, message, args) {
                         .colour(*colours::MAIN)
                 ))?;
             } else {
-                // single cat
+                let category = args.full().to_string();
+                roles.retain(|e| *e.category.to_lowercase() == category.to_lowercase());
+                if !roles.is_empty() {
+                    let roles_out = roles
+                        .iter()
+                        .map(|e| match RoleId(e.id as u64).find() {
+                            Some(r) => r.name,
+                            None => format!("{}", e.id),
+                        })
+                        .collect::<Vec<String>>()
+                        .join("\n");
+                    message.channel_id.send_message(|m| m
+                        .embed(|e| e
+                            .title(category)
+                            .description(roles_out)
+                            .colour(*colour::MAIN)
+                    ))?;
+                } else {
+                    message.channel_id.say(format!("The category `{}` does not exist.", category))?;
+                }
             }
         } else {
             message.channel_id.say("There are no self roles.")?;

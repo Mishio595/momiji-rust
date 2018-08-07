@@ -273,8 +273,8 @@ impl MomijiFramework {
                     .batch_known_as(vec!["removeselfrole", "rsr"]))
                 .command("roles", |c| c
                     .cmd(lsr)
-                    .desc("List all the self roles for the current server.")
-                    .usage("")
+                    .desc("List all the self roles for the current server. Optionally, you can view a single category.")
+                    .usage("[category]")
                     .batch_known_as(vec!["listselfroles", "lsr"])))
             .group("For Moderators", |g| g
                 .guild_only(true)
