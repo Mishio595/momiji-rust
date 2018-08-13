@@ -7,7 +7,6 @@ use diesel::pg::PgConnection;
 use diesel::pg::upsert::excluded;
 use diesel::prelude::*;
 use diesel;
-use kankyo;
 use r2d2;
 use r2d2_diesel::ConnectionManager;
 use self::models::*;
@@ -26,8 +25,6 @@ impl Database {
     /// Create a new database with a connection.
     /// Returns a new Database.
     pub fn connect() -> Self {
-        kankyo::load().expect("Failed to load .env");
-
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
         let manager = ConnectionManager::<PgConnection>::new(database_url);
         let pool = r2d2::Pool::builder()

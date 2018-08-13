@@ -9,7 +9,6 @@ extern crate chrono;
 extern crate forecast;
 extern crate fuzzy_match;
 extern crate geocoding;
-extern crate kankyo;
 extern crate kitsu;
 extern crate levenshtein;
 extern crate r2d2;
