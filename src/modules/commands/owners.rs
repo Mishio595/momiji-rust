@@ -8,7 +8,7 @@ command!(git(_ctx, message, args) {
 });*/
 
 command!(log(_ctx, message, _args) {
-    message.channel_id.send_files(vec![Path::new("./log.txt")], |m| m)?;
+    message.channel_id.send_files(vec![Path::new("./output.log")], |m| m)?;
 });
 
 command!(set_premium(_ctx, message, args) {
