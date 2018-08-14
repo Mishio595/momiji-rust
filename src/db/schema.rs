@@ -74,6 +74,8 @@ table! {
         guild_id -> Int8,
         category -> Text,
         aliases -> Array<Text>,
+        required_roles -> Array<Int8>,
+        forbidden_roles -> Array<Int8>,
     }
 }
 

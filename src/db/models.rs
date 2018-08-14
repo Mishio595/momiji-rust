@@ -66,6 +66,8 @@ pub struct Role {
     pub guild_id: i64,
     pub category: String,
     pub aliases: Vec<String>,
+    pub required_roles: Vec<i64>,
+    pub forbidden_roles: Vec<i64>,
 }
 
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
