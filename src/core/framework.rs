@@ -54,7 +54,10 @@ impl MomijiFramework {
                 if let false = message.is_private() {
                     let guild_id = message.guild_id.unwrap_or(GuildId(0));
                     if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                        return !guild_data.ignored_channels.contains(&(message.channel_id.0 as i64));
+                        if guild_data.ignored_channels.contains(&(message.channel_id.0 as i64)) ||
+                            guild_data.commands.contains(&command_name.to_string()) {
+                            return false;
+                        }
                     }
                 }
                 true
@@ -237,7 +240,7 @@ impl MomijiFramework {
             .group("NSFW", |g| g
                 .help_available(true)
                 .check(|_,message,_,_| {
-                    if let Ok(channel) = message.channel_id.get() {
+                    if let Ok(channel) = message.channel_id.to_channel() {
                         if channel.is_nsfw() {
                             true
                         } else {
