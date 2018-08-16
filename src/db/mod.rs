@@ -295,11 +295,12 @@ impl Database {
     // Case Tools
     /// Add a Case
     /// Returns the Case on success
-    pub fn new_case(&self, user_id: i64, guild_id: i64, casetype: String, moderator: i64) -> QueryResult<Case<Utc>> {
+    pub fn new_case(&self, user_id: i64, guild_id: i64, casetype: String, reason: Option<String>, moderator: i64) -> QueryResult<Case<Utc>> {
         let case = NewCase {
             user_id,
             guild_id,
             casetype,
+            reason,
             moderator,
         };
         diesel::insert_into(cases::table)

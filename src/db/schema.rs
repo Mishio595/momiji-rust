@@ -4,6 +4,7 @@ table! {
         user_id -> Int8,
         guild_id -> Int8,
         casetype -> Text,
+        reason -> Text,
         moderator -> Int8,
         timestamp -> Timestamptz,
     }

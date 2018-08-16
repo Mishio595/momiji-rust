@@ -86,6 +86,7 @@ pub struct Case<Tz: TimeZone> {
     pub user_id: i64,
     pub guild_id: i64,
     pub casetype: String,
+    pub reason: String,
     pub moderator: i64,
     pub timestamp: DateTime<Tz>
 }
@@ -167,6 +168,7 @@ pub struct NewCase {
     pub user_id: i64,
     pub guild_id: i64,
     pub casetype: String,
+    pub reason: Option<String>,
     pub moderator: i64,
 }
 

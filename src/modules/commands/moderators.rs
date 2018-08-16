@@ -113,7 +113,7 @@ command!(mute(ctx, message, args) {
                         let user = {
                             member.user.read().clone()
                         };
-                        let case = db.new_case(user.id.0 as i64, guild.id.0 as i64, "Mute".to_string(), message.author.id.0 as i64)?;
+                        let case = db.new_case(user.id.0 as i64, guild.id.0 as i64, "Mute".to_string(), Some(reason.clone()), message.author.id.0 as i64)?;
                         let mut fields = Vec::new();
                         fields.push(("User", format!("{}\n{}", user.tag(), user.id.0), true));
                         fields.push(("Moderator", format!("{}\n{}", message.author.tag(), message.author.id.0), true));
