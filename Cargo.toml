@@ -1,6 +1,6 @@
 [package]
 name = "momiji"
-version = "1.0.0"
+version = "1.1.0"
 authors = ["Mishio595 <tenseiken595@gmail.com>"]
 license = "MIT AND ISC"
 repository = "https://gitlab.com/Mishio595/momiji-rust"
