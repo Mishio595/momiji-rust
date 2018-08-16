@@ -80,7 +80,7 @@ command!(mod_info(_ctx, message, args) {
                     .embed(|e| e
                         .title("Moderator info")
                         .field("Watchlist", { if user.watchlist { "Yes" } else { "No" } }, false)
-                        .field("Cases", case_fmt, false)
+                        .field("Cases", if case_fmt.is_empty() { "None" } else { case_fmt.as_str() }, false)
                 ))?;
             },
             None => { message.channel_id.say("I couldn't find that user.")?; }
