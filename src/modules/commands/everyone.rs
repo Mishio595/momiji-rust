@@ -38,7 +38,7 @@ command!(bot_info(ctx, message, _args) {
         let cache = CACHE.read();
         (cache.guilds.len(), cache.shard_count, cache.user.face())
     };
-    let owner = data.get::<Owner>().expect("Failed to get owner").get()?;
+    let owner = data.get::<Owner>().expect("Failed to get owner").to_user()?;
     let sys = System::new();
     if let Some(process) = sys.get_process(get_current_pid()) {
         message.channel_id.send_message(|m| m
@@ -312,7 +312,7 @@ command!(asr(_ctx, message, args) {
                 let list = args.rest().split(",").map(|s| s.trim().to_string());
                 let mut to_add = Vec::new();
                 let mut failed = Vec::new();
-                let role_names = roles.iter().filter_map(|r| match RoleId(r.id as u64).find() {
+                let role_names = roles.iter().filter_map(|r| match RoleId(r.id as u64).to_role_cached() {
                     Some(role) => Some(role.clone()),
                     None => None,
                 }).collect::<Vec<Role>>();
@@ -350,7 +350,7 @@ command!(asr(_ctx, message, args) {
                 }
                 let mut fields = Vec::new();
                 if !to_add.is_empty() {
-                    fields.push(("Added Roles", format!("{}", to_add.iter().filter_map(|r| match r.find() {
+                    fields.push(("Added Roles", format!("{}", to_add.iter().filter_map(|r| match r.to_role_cached() {
                         Some(r) => Some(r.name.clone()),
                         None => None,
                     }).collect::<Vec<String>>().join("\n")), false));
@@ -379,7 +379,7 @@ command!(rsr(_ctx, message, args) {
                 let list = args.rest().split(",").map(|s| s.trim().to_string());
                 let mut to_remove = Vec::new();
                 let mut failed = Vec::new();
-                let role_names = roles.iter().filter_map(|r| match RoleId(r.id as u64).find() {
+                let role_names = roles.iter().filter_map(|r| match RoleId(r.id as u64).to_role_cached() {
                     Some(role) => Some(role.clone()),
                     None => None,
                 }).collect::<Vec<Role>>();
@@ -417,7 +417,7 @@ command!(rsr(_ctx, message, args) {
                 }
                 let mut fields = Vec::new();
                 if !to_remove.is_empty() {
-                    fields.push(("Added Roles", format!("{}", to_remove.iter().filter_map(|r| match r.find() {
+                    fields.push(("Added Roles", format!("{}", to_remove.iter().filter_map(|r| match r.to_role_cached() {
                         Some(r) => Some(r.name.clone()),
                         None => None,
                     }).collect::<Vec<String>>().join("\n")), false));
@@ -445,7 +445,7 @@ command!(lsr(_ctx, message, args) {
             if args.is_empty() {
                 let mut map: BTreeMap<String, Vec<String>> = BTreeMap::new();
                 for role in roles.iter() {
-                    match RoleId(role.id as u64).find() {
+                    match RoleId(role.id as u64).to_role_cached() {
                         Some(r) => {
                             map.entry(role.category.clone()).or_insert(Vec::new()).push(r.name);
                         },
@@ -472,7 +472,7 @@ command!(lsr(_ctx, message, args) {
                 if !roles.is_empty() {
                     let roles_out = roles
                         .iter()
-                        .map(|e| match RoleId(e.id as u64).find() {
+                        .map(|e| match RoleId(e.id as u64).to_role_cached() {
                             Some(r) => r.name,
                             None => format!("{}", e.id),
                         })
@@ -585,7 +585,7 @@ command!(server_info(_ctx, message, args) {
                 }
                 let mut members = (0,0,0);
                 for (user_id, _) in guild.members.iter() {
-                    match user_id.get() {
+                    match user_id.to_user() {
                         Ok(u) => {
                             if u.bot {
                                 members.1 += 1;
@@ -755,12 +755,12 @@ command!(user_info(_ctx, message, args) {
             Err(_) => false,
         };
         let (user, member) = match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
-            Some((id, member)) => (id.get()?, member),
+            Some((id, member)) => (id.to_user()?, member),
             None => (message.author.clone(), message.member().ok_or("Failed to get member.")?),
         };
         let user_data = db.get_user(user.id.0 as i64, guild_id.0 as i64)?;
         let mut roles = member.roles.iter()
-            .map(|c| match c.find() {
+            .map(|c| match c.to_role_cached() {
                 Some(r) => r.name,
                 None => format!("{}", c.0),
             })

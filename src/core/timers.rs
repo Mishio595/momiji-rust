@@ -41,7 +41,7 @@ impl TimerClient {
                             "REMINDER" => {
                                 // type, channel_id, user_id, dur, reminder, id
                                 if let Ok(channel_id) = ChannelId::from_str(parts[1].as_str()) {
-                                    let check = match channel_id.get() {
+                                    let check = match channel_id.to_channel() {
                                         Ok(ch) => { match ch {
                                             Channel::Private(_) => true,
                                             _ => false,
@@ -61,7 +61,7 @@ impl TimerClient {
                             "UNMUTE" => {
                                 // type, user_id, guild_id, mute_role, channel_id, dur, id
                                 if let Ok(user_id) = UserId::from_str(parts[1].as_str()) {
-                                    match user_id.get() {
+                                    match user_id.to_user() {
                                         Ok(user) => {
                                             if let Ok(guild_id) = parts[2].parse::<u64>() {
                                                 let guild_id = GuildId(guild_id);

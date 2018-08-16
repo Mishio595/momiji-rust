@@ -296,7 +296,7 @@ command!(register(ctx, message, args) {
                     member.add_role(RoleId(role as u64))?;
                 }
                 let desc = if !to_add.is_empty() {
-                    format!("{}", to_add.iter().map(|r| match r.find() {
+                    format!("{}", to_add.iter().map(|r| match r.to_role_cached() {
                         Some(role) => role.name,
                         None => format!("{}", r.0),
                     })
@@ -337,7 +337,7 @@ command!(ar(_ctx, message, args) {
                     to_add.remove(i);
                     failed.push(format!(
                         "You already have {}",
-                        match role_id.find() {
+                        match role_id.to_role_cached() {
                             Some(role) => role.name,
                             None => format!("{}", role_id.0),
                     }));
@@ -346,7 +346,7 @@ command!(ar(_ctx, message, args) {
                     to_add.remove(i);
                     failed.push(format!(
                         "Failed to add {}",
-                        match role_id.find() {
+                        match role_id.to_role_cached() {
                             Some(role) => role.name,
                             None => format!("{}", role_id.0),
                     }));
@@ -355,7 +355,7 @@ command!(ar(_ctx, message, args) {
             let mut fields = Vec::new();
             if !to_add.is_empty() {
                 fields.push(("Added Roles", format!("{}", to_add.iter()
-                    .map(|r| match r.find() {
+                    .map(|r| match r.to_role_cached() {
                         Some(role) => role.name,
                         None => format!("{}", r.0),
                     })
@@ -394,7 +394,7 @@ command!(rr(_ctx, message, args) {
                     to_remove.remove(i);
                     failed.push(format!(
                         "You don't have {}",
-                        match role_id.find() {
+                        match role_id.to_role_cached() {
                             Some(role) => role.name,
                             None => format!("{}", role_id.0),
                     }));
@@ -403,7 +403,7 @@ command!(rr(_ctx, message, args) {
                     to_remove.remove(i);
                     failed.push(format!(
                         "Failed to remove {}",
-                        match role_id.find() {
+                        match role_id.to_role_cached() {
                             Some(role) => role.name,
                             None => format!("{}", role_id.0),
                     }));
@@ -412,7 +412,7 @@ command!(rr(_ctx, message, args) {
             let mut fields = Vec::new();
             if !to_remove.is_empty() {
                 fields.push(("Removed Roles", format!("{}", to_remove.iter()
-                    .map(|r| match r.find() {
+                    .map(|r| match r.to_role_cached() {
                         Some(role) => role.name,
                         None => format!("{}", r.0),
                     })
@@ -484,7 +484,7 @@ command!(watchlist_list(_ctx, message, _args) {
         let user_map = users.iter()
             .filter(|e| e.watchlist)
             .map(|u| {
-                match UserId(u.id as u64).get() {
+                match UserId(u.id as u64).to_user() {
                     Ok(user) => user.tag(),
                     Err(_) => format!("<#{}>", u.id),
                 }

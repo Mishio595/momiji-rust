@@ -202,7 +202,7 @@ pub struct UserUpdate {
 impl Display for Guild {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "**Admin Roles:** {}\n**Audit:** {}\n**Audit Channel:** {}\n**Audit Threshold:** {}\n**Autorole:** {}\n**Autoroles:** {}\n**Ignored Channels:** {}\n**Ignore Level:** {}\n**Introduction:** {}\n**Introduction Channel:** {}\n**Introduction Message:** {}\n**Mod Roles: ** {}\n**Modlog:** {}\n**Modlog Channel:** {}\n**Mute Setup:** {}\n**Prefix:** {}\n**Welcome:** {}\n**Welcome Channel:** {}\n**Welcome Message:** {}\n**Disabled Commands:** {}\n**Disabled Log Types:** {}",
-            self.admin_roles.iter().map(|e| match RoleId(*e as u64).find() {
+            self.admin_roles.iter().map(|e| match RoleId(*e as u64).to_role_cached() {
                 Some(role) => role.name,
                 None => format!("{}", e),
             }).collect::<Vec<String>>().join(", "),
@@ -210,7 +210,7 @@ impl Display for Guild {
             format!("<#{}>", self.audit_channel),
             self.audit_threshold,
             self.autorole,
-            self.autoroles.iter().map(|e| match RoleId(*e as u64).find() {
+            self.autoroles.iter().map(|e| match RoleId(*e as u64).to_role_cached() {
                 Some(role) => role.name,
                 None => format!("{}", e),
             }).collect::<Vec<String>>().join(", "),
@@ -219,7 +219,7 @@ impl Display for Guild {
             self.introduction,
             format!("<#{}>", self.introduction_channel),
             self.introduction_message,
-            self.mod_roles.iter().map(|e| match RoleId(*e as u64).find() {
+            self.mod_roles.iter().map(|e| match RoleId(*e as u64).to_role_cached() {
                 Some(role) => role.name,
                 None => format!("{}", e),
             }).collect::<Vec<String>>().join(", "),
@@ -238,7 +238,10 @@ impl Display for Guild {
 impl Display for Note<Utc> {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{} wrote on {} (ID: {})\n`{}`",
-            UserId(self.moderator as u64).get().unwrap().tag(),
+            match UserId(self.moderator as u64).to_user() {
+                Ok(user) => user.tag(),
+                Err(_) => format!("{}", self.moderator),
+            },
             self.timestamp.format("%a, %d %h %Y @ %H:%M:%S").to_string(),
             self.id,
             self.note)

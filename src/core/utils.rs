@@ -138,7 +138,7 @@ pub fn parse_guild(input: String) -> Option<(GuildId, Arc<RwLock<Guild>>)> {
         Some(s) => {
             if let Ok(id) = s[0].parse::<u64>() {
                 let id = GuildId(id);
-                if let Some(g_lock) = id.find() {
+                if let Some(g_lock) = id.to_guild_cached() {
                     return Some((id, g_lock));
                 }
             }
@@ -254,7 +254,7 @@ pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member) -> String
                 ret = input.replace(&word[0], user.name.as_str());
             },
             "{guild}" => {
-                if let Ok(guild) = member.guild_id.get() {
+                if let Ok(guild) = member.guild_id.to_partial_guild() {
                     ret = input.replace(&word[0], guild.name.as_str());
                 }
             },
@@ -266,7 +266,7 @@ pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member) -> String
 
 pub fn send_welcome_embed(input: String, member: &Member, channel: ChannelId) -> Result<Message, Error> {
     let user = member.user.read();
-    if let Ok(guild) = member.guild_id.get() {
+    if let Ok(guild) = member.guild_id.to_partial_guild() {
         channel.send_message(|m| { m .embed(|mut e| {
             for item in EMBED_ITEM.captures_iter(input.as_str()) {
                 if let Some(caps) = EMEBED_PARTS.captures(&item[0]) {
