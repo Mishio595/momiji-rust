@@ -46,7 +46,6 @@ impl EventHandler for Handler {
     }
 
     fn cached(&self, ctx: Context, guilds: Vec<GuildId>) {
-        let data = ctx.data.lock();
         let mut users  = Vec::new();
         for guild_id in guilds.iter() {
             let guild_lock = CACHE.read().guild(guild_id);
@@ -73,6 +72,7 @@ impl EventHandler for Handler {
         }
 
         let guild_count = guilds.len();
+        let data = ctx.data.lock();
         if let Some(api) = data.get::<ApiClient>() {
             api.stats_update(CACHE.read().user.id.0, guild_count);
         } else { failed!(API_FAIL); }
@@ -84,6 +84,7 @@ impl EventHandler for Handler {
     fn message(&self, _: Context, message: Message) {
         // These are only relevant in a guild context and for non-bots
         if message.author.bot { return; }
+        if message.is_private() { return; }
         if let Some(guild_id) = message.guild_id {
             if let Ok(mut user_data) = db.get_or_new_user(message.author.id.0 as i64, guild_id.0 as i64) {
                 let now = message.timestamp.with_timezone(&Utc);
@@ -109,6 +110,7 @@ impl EventHandler for Handler {
         };
         match db.get_guild(guild_id.0 as i64) {
             Ok(guild_data) => {
+                if guild_data.logging.contains(&String::from("message_delete")) { return; }
                 let audit_channel = ChannelId(guild_data.audit_channel as u64);
                 if guild_data.audit && audit_channel.0 > 0 {
                     let message = CACHE.read().message(&channel_id, &message_id);
@@ -165,6 +167,7 @@ impl EventHandler for Handler {
                 };
                 match db.get_guild(guild_id.0 as i64) {
                     Ok(guild_data) => {
+                        if guild_data.logging.contains(&String::from("message_edit")) { return; }
                         let audit_channel = ChannelId(guild_data.audit_channel as u64);
                         let distance = levenshtein(message.content.as_str(), new.content.as_str());
                         if guild_data.audit && audit_channel.0 > 0 && distance >= guild_data.audit_threshold as usize {
@@ -224,6 +227,7 @@ impl EventHandler for Handler {
                         if let Ok(mut user_data) = db.get_or_new_user(event.presence.user_id.0 as i64, guild_id.0 as i64) {
                             if user_tag != user_data.username {
                                 if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+                                    if guild_data.logging.contains(&String::from("username_change")) { return; }
                                     if guild_data.audit && guild_data.audit_channel > 0 {
                                     let audit_channel = ChannelId(guild_data.audit_channel as u64);
                                         audit_channel.send_message(|m| m
@@ -250,7 +254,7 @@ impl EventHandler for Handler {
         if is_new {
             match db.new_guild(guild.id.0 as i64) {
                 Ok(_) => {
-                    match guild.owner_id.get() {
+                    match guild.owner_id.to_user() {
                         Ok(owner) => {
                         check_error!(GUILD_LOG.send_message(|m| m
                             .embed(|e| e
@@ -275,7 +279,7 @@ impl EventHandler for Handler {
     fn guild_delete(&self, _: Context, partial_guild: PartialGuild, _: Option<Arc<RwLock<Guild>>>) {
         match db.del_guild(partial_guild.id.0 as i64) {
             Ok(_) => {
-                match partial_guild.owner_id.get() {
+                match partial_guild.owner_id.to_user() {
                     Ok(owner) => {
                         check_error!(GUILD_LOG.send_message(|m| m
                             .embed(|e| e
@@ -317,6 +321,7 @@ impl EventHandler for Handler {
         } else {
             match db.get_guild(guild_id.0 as i64) {
                 Ok(guild_data) => {
+                    if guild_data.logging.contains(&String::from("member_join")) { return; }
                     let (user_id, user_face, user_tag) = {
                         let u = member.user.read();
                         (u.id, u.face(), u.tag())
@@ -359,6 +364,8 @@ impl EventHandler for Handler {
     fn guild_member_removal(&self, _: Context, guild_id: GuildId, user: User, _: Option<Member>) {
         match db.get_guild(guild_id.0 as i64) {
             Ok(guild_data) => {
+                check_error!(db.del_user(user.id.0 as i64, guild_id.0 as i64));
+                if guild_data.logging.contains(&String::from("member_leave")) { return; }
                 if guild_data.audit && guild_data.audit_channel > 0 {
                     let audit_channel = ChannelId(guild_data.audit_channel as u64);
                     check_error!(audit_channel.send_message(|m| m
@@ -370,7 +377,7 @@ impl EventHandler for Handler {
                             .description(format!("<@{}>\n{}\n{}", user.id, user.tag(), user.id))
                     )));
                 }
-                check_error!(db.del_user(user.id.0 as i64, guild_id.0 as i64));
+                if guild_data.logging.contains(&String::from("member_kick")) { return; }
                 thread::sleep(Duration::from_secs(3));
                 if let Ok(audits) = guild_id.audit_logs(Some(20), None, None, Some(1)) {
                     if let Some((audit_id, audit)) = audits.entries.iter().next() {
@@ -386,7 +393,7 @@ impl EventHandler for Handler {
                                         user.tag(),
                                         user.id.0,
                                         user.mention(),
-                                        match audit.user_id.get() {
+                                        match audit.user_id.to_user() {
                                             Ok(u) => u.tag(),
                                             Err(_) => format!("{}", audit.user_id.0)
                                         },
@@ -414,12 +421,13 @@ impl EventHandler for Handler {
                     db.new_user(user_id.0 as i64, guild_id.0 as i64).expect("Failed to create user")
                 });
                 if guild_data.audit && guild_data.audit_channel > 0 {
+                    if guild_data.logging.contains(&String::from("nickname_change")) { return; }
                     let audit_channel = ChannelId(guild_data.audit_channel as u64);
                     if let Some(nick) = new.nick {
                         if nick != user_data.nickname {
                             check_error!(audit_channel.send_message(|m| m
                                 .embed(|e| e
-                                    .title("Username changed")
+                                    .title("Nickname changed")
                                     .colour(*colours::MAIN)
                                     .thumbnail(&user_face)
                                     .description(format!("**User: ** {}\n**Old:** {}\n**New:** {}", user_tag, user_data.nickname, nick))
@@ -427,6 +435,7 @@ impl EventHandler for Handler {
                             user_data.nickname = nick;
                         }
                     };
+                    if guild_data.logging.contains(&String::from("role_change")) { return; }
                     let roles = new.roles.iter().map(|e| e.0 as i64).collect::<Vec<i64>>();
                     let mut roles_added = roles.clone();
                     roles_added.retain(|e| !user_data.roles.contains(e));
@@ -434,7 +443,7 @@ impl EventHandler for Handler {
                     roles_removed.retain(|e| !roles.contains(e));
                     if !roles_added.is_empty() {
                         let roles_added = roles_added.iter().map(|r| {
-                            match RoleId(*r as u64).find() {
+                            match RoleId(*r as u64).to_role_cached() {
                                 Some(role) => role.name,
                                 None => format!("{}", r),
                             }
@@ -449,7 +458,7 @@ impl EventHandler for Handler {
                     }
                     if !roles_removed.is_empty() {
                         let roles_removed = roles_added.iter().map(|r| {
-                            match RoleId(*r as u64).find() {
+                            match RoleId(*r as u64).to_role_cached() {
                                 Some(role) => role.name,
                                 None => format!("{}", r),
                             }
@@ -476,6 +485,7 @@ impl EventHandler for Handler {
             if let Some(audit) = audits.entries.values().next() {
                 match db.get_guild(guild_id.0 as i64) {
                     Ok(guild_data) => {
+                        if guild_data.logging.contains(&String::from("member_ban")) { return; }
                         if guild_data.modlog && guild_data.modlog_channel > 0 && audit.target_id == user.id.0 {
                             let modlog_channel = ChannelId(guild_data.modlog_channel as u64);
                             check_error!(modlog_channel.send_message(|m| m
@@ -488,7 +498,7 @@ impl EventHandler for Handler {
                                         user.tag(),
                                         user.id.0,
                                         user.mention(),
-                                        match audit.user_id.get() {
+                                        match audit.user_id.to_user() {
                                             Ok(u) => u.tag(),
                                             Err(_) => format!("{}", audit.user_id.0)
                                         },
@@ -509,6 +519,7 @@ impl EventHandler for Handler {
             if let Some(audit) = audits.entries.values().next() {
                 match db.get_guild(guild_id.0 as i64) {
                     Ok(guild_data) => {
+                        if guild_data.logging.contains(&String::from("member_unban")) { return; }
                         if guild_data.modlog && guild_data.modlog_channel > 0 && audit.target_id == user.id.0 {
                             let modlog_channel = ChannelId(guild_data.modlog_channel as u64);
                             check_error!(modlog_channel.send_message(|m| m
@@ -521,7 +532,7 @@ impl EventHandler for Handler {
                                         user.tag(),
                                         user.id.0,
                                         user.mention(),
-                                        match audit.user_id.get() {
+                                        match audit.user_id.to_user() {
                                             Ok(u) => u.tag(),
                                             Err(_) => format!("{}", audit.user_id.0)
                                         }
