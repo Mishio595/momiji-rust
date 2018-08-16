@@ -2,6 +2,7 @@ use chrono::Utc;
 use core::colours;
 use core::consts::*;
 use core::consts::DB as db;
+use core::model::Owner;
 use core::utils::check_rank;
 use modules::commands::*;
 use serenity::framework::{
@@ -49,13 +50,17 @@ impl MomijiFramework {
                     }
                     None
                 }))
-            .before(|_, message, command_name| {
+            .before(|ctx, message, command_name| {
                 debug!("Received command {} from {}", command_name, message.author.tag());
                 if let false = message.is_private() {
                     let guild_id = message.guild_id.unwrap_or(GuildId(0));
                     if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
-                        if guild_data.ignored_channels.contains(&(message.channel_id.0 as i64)) ||
-                            guild_data.commands.contains(&command_name.to_string()) {
+                        if guild_data.ignored_channels.contains(&(message.channel_id.0 as i64)) {
+                            if get_highest_rank(ctx, message) < guild_data.ignore_level {
+                                return false;
+                            }
+                        }
+                        if guild_data.commands.contains(&command_name.to_string()) {
                             return false;
                         }
                     }
@@ -570,4 +575,32 @@ fn admin_check(_ctx: &mut Context, message: &Message, _args: &mut Args, _options
         }
     }
     false
+}
+
+fn get_highest_rank(ctx: &mut Context, message: &Message) -> i16 {
+    {
+        let data = ctx.data.lock();
+        if let Some(owner) = data.get::<Owner>() {
+            if *owner == message.author.id {
+                return 4;
+            }
+        }
+    }
+    if let Some(guild_lock) = message.guild() {
+        let (guild_id, owner_id) = {
+            let guild = guild_lock.read();
+            (guild.id, guild.owner_id)
+        };
+        if message.author.id == owner_id { return 3; }
+        if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
+            if let Ok(member) = guild_id.member(message.author.id.clone()) {
+                if check_rank(guild_data.admin_roles, &member.roles) {
+                    return 2;
+                } else if check_rank(guild_data.mod_roles, &member.roles) {
+                    return 1;
+                }
+            }
+        }
+    }
+    0
 }
