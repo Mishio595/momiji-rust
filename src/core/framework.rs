@@ -519,7 +519,17 @@ impl MomijiFramework {
                     .cmd(config_introduction)
                     .desc("Change introduction message settings. This is exactly like welcome: `help config welcome` for more info. This is a premium only feature related to the Register command.")
                     .usage("<option> <value>")
-                    .example("message Hey there {user}, mind introducting yourself?")))
+                    .example("message Hey there {user}, mind introducting yourself?"))
+                .command("command", |c| c
+                    .cmd(config_command)
+                    .desc("Change which commands are disabled. A command name must be provided.")
+                    .usage("<enable|disable> <command_name>")
+                    .example("disable e621"))
+                .command("log", |c| c
+                    .cmd(config_logs)
+                    .desc("Change which log messages are disabled. A log type must be provided.")
+                    .usage("<enable|disable|types> [type]")
+                    .example("disable message_edit")))
             .group("Owner Only", |g| g
                 .owners_only(true)
                 .help_available(false)

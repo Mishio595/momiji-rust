@@ -3,6 +3,17 @@ use serenity::model::id::{GuildId, ChannelId, RoleId};
 
 lazy_static!{
     pub static ref DB: Database = Database::connect();
+    pub static ref LOG_TYPES: Vec<&'static str> = vec![
+        "member_ban",
+        "member_join",
+        "member_kick",
+        "member_leave",
+        "member_unban",
+        "message_delete",
+        "message_edit",
+        "nickname_change",
+        "role_change",
+        "username_change"];
 }
 
 pub const WEEK: usize = 60*60*24*7;

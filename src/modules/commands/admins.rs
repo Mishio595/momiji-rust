@@ -338,6 +338,77 @@ command!(config_introduction(_ctx, message, args) {
     } else { failed!(GUILDID_FAIL); }
 });
 
+command!(config_command(_ctx, message, args) {
+    if let Some(guild_id) = message.guild_id {
+        let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+        let op = args.single::<String>().unwrap_or(String::new());
+        let val = args.rest().to_string();
+        match op.to_lowercase().as_str() {
+            "enable" => {
+                guild_data.commands.retain(|e| *e != val);
+            },
+            "disable" => {
+                if !val.starts_with("conf") {
+                    guild_data.commands.push(val.clone());
+                } else {
+                    message.channel_id.say("Config commands cannot be disabled.")?;
+                    return Ok(());
+                }
+            },
+            _ => { message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config command`")?; },
+        }
+        db.update_guild(guild_id.0 as i64, guild_data)?;
+        message.channel_id.send_message(|m| m
+            .embed(|e| e
+                .title("Config Command Summary")
+                .colour(*colours::MAIN)
+                .description(format!("**Operation:** {}\n**Value:** {}",
+                    op,
+                    val,
+                ))
+        ))?;
+    } else { failed!(GUILDID_FAIL); }
+});
+
+command!(config_logs(_ctx, message, args) {
+    if let Some(guild_id) = message.guild_id {
+        let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+        let op = args.single::<String>().unwrap_or(String::new());
+        let val = args.rest().to_string();
+        match op.to_lowercase().as_str() {
+            "enable" => {
+                guild_data.logging.retain(|e| *e != val);
+            },
+            "disable" => {
+                if LOG_TYPES.contains(&val.as_str()) {
+                    guild_data.logging.push(val.clone());
+                } else {
+                    message.channel_id.say("Invalid log type. See `config log types` for valid types.")?;
+                    return Ok(());
+                }
+            },
+            "types" => {
+                message.channel_id.say(LOG_TYPES.iter()
+                    .map(|e| format!("`{}`", e))
+                    .collect::<Vec<String>>()
+                    .join(", "))?;
+                return Ok(());
+            },
+            _ => { message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config log`")?; },
+        }
+        db.update_guild(guild_id.0 as i64, guild_data)?;
+        message.channel_id.send_message(|m| m
+            .embed(|e| e
+                .title("Config Log Summary")
+                .colour(*colours::MAIN)
+                .description(format!("**Operation:** {}\n**Value:** {}",
+                    op,
+                    val,
+                ))
+        ))?;
+    } else { failed!(GUILDID_FAIL); }
+});
+
 command!(ignore_add(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
         let mut guild_data = db.get_guild(guild_id.0 as i64)?;
