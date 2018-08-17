@@ -21,9 +21,9 @@ use std::sync::Arc;
 lazy_static! {
     static ref CHANNEL_MATCH: Regex = Regex::new(r"(?:<#)?(\d{17,})>*?").expect("Failed to create Regex");
     static ref EMBED_ITEM: Regex    = Regex::new(r"\$[^\$]*").expect("Failed to create Regex");
-    static ref EMEBED_PARTS: Regex  = Regex::new(r"\$?(?P<field>\S+):(?P<value>.*)").expect("Failed to create Regex");
+    static ref EMBED_PARTS: Regex  = Regex::new(r"\$?(?P<field>\S+):(?P<value>.*)").expect("Failed to create Regex");
     static ref GUILD_MATCH: Regex   = Regex::new(r"\d{17,}").expect("Failed to create Regex");
-    static ref PLAIN_PARTS: Regex   = Regex::new(r"\{.*\}").expect("Failed to create Regex");
+    static ref PLAIN_PARTS: Regex   = Regex::new(r"\{.*?\}").expect("Failed to create Regex");
     static ref ROLE_MATCH: Regex    = Regex::new(r"(?:<@)?&?(\d{17,})>*?").expect("Failed to create Regex");
     static ref SWITCH_PARTS: Regex  = Regex::new(r"/\s*(\S+)([^/]*)").expect("Failed to create Regex");
     static ref SWITCH_REST: Regex   = Regex::new(r"^[^/]+").expect("Failed to create Regex");
@@ -245,17 +245,17 @@ pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member) -> String
     for word in PLAIN_PARTS.captures_iter(input.as_str()) {
         match word[0].to_lowercase().as_str() {
             "{user}" => {
-                ret = input.replace(&word[0], user.mention().as_str());
+                ret = ret.replace(&word[0], user.mention().as_str());
             },
             "{usertag}" => {
-                ret = input.replace(&word[0], user.tag().as_str());
+                ret = ret.replace(&word[0], user.tag().as_str());
             },
             "{username}" => {
-                ret = input.replace(&word[0], user.name.as_str());
+                ret = ret.replace(&word[0], user.name.as_str());
             },
             "{guild}" => {
                 if let Ok(guild) = member.guild_id.to_partial_guild() {
-                    ret = input.replace(&word[0], guild.name.as_str());
+                    ret = ret.replace(&word[0], guild.name.as_str());
                 }
             },
             _ => {},
@@ -269,7 +269,7 @@ pub fn send_welcome_embed(input: String, member: &Member, channel: ChannelId) ->
     if let Ok(guild) = member.guild_id.to_partial_guild() {
         channel.send_message(|m| { m .embed(|mut e| {
             for item in EMBED_ITEM.captures_iter(input.as_str()) {
-                if let Some(caps) = EMEBED_PARTS.captures(&item[0]) {
+                if let Some(caps) = EMBED_PARTS.captures(&item[0]) {
                     match caps["field"].to_lowercase().as_str() {
                         "title" => {
                             e = e.title(parse_welcome_items(&caps["value"], member));
@@ -278,7 +278,7 @@ pub fn send_welcome_embed(input: String, member: &Member, channel: ChannelId) ->
                             e = e.description(parse_welcome_items(&caps["value"], member));
                         },
                         "thumbnail" => {
-                            match caps["value"].to_lowercase().as_str() {
+                            match caps["value"].to_lowercase().trim() {
                                 "user" => {
                                     e = e.thumbnail(user.face());
                                 },
@@ -294,7 +294,7 @@ pub fn send_welcome_embed(input: String, member: &Member, channel: ChannelId) ->
                             }
                         },
                         "color" => {
-                            e = e.colour(u64::from_str_radix(&caps["value"].replace("#",""), 16).unwrap_or(0));
+                            e = e.colour(u64::from_str_radix(&caps["value"].trim().replace("#",""), 16).unwrap_or(0));
                         },
                         "colour" => {
                             e = e.colour(u64::from_str_radix(&caps["value"].replace("#",""), 16).unwrap_or(0));

@@ -45,7 +45,7 @@ command!(bot_info(ctx, message, _args) {
             .embed(|e| e
                 .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
                 .field("Owner", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
-                .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Github](https://github.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
+                .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Git](https://gitlab.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
                 .field("Counts", format!("Guilds: {}\nShards: {}", guild_count, shard_count), false)
                 .field("System Info", format!("OS: {} {}\nUptime: {}",
                     sys_info::os_type().unwrap_or(String::from("OS Not Found")),
@@ -63,7 +63,7 @@ command!(bot_info(ctx, message, _args) {
             .embed(|e| e
                 .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
                 .field("Owner", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
-                .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Github](https://github.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
+                .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Git](https://gitlab.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
                 .field("Counts", format!("Guilds: {}\nShards: {}", guild_count, shard_count), false)
                 .thumbnail(thumbnail)
                 .colour(*colours::MAIN)
