@@ -629,10 +629,11 @@ command!(prune(_ctx, message, args) {
         let mut next_deletions;
         let mut num_del = 0;
         message.delete()?;
-        if count<1000 {
+        if count<=1000 {
             while count>0 {
                 deletions.retain(|m| filter(m));
                 let mut len = deletions.len();
+                if len<=0 { break; }
                 if len>count {
                     deletions.truncate(count);
                     len = count;
@@ -680,10 +681,13 @@ command!(prune(_ctx, message, args) {
                                 None => format!("{}", message.channel_id.0),
                             }))
                         .timestamp(now!())
+                        .colour(*colours::RED)
                 ))?;
             } else {
                 message.channel_id.say(format!("Pruned {} message!", num_del))?;
             }
+        } else {
+            message.channel_id.say("Please enter a number no greater than 1000.")?;
         }
     } else { failed!(GUILDID_FAIL); }
 });
