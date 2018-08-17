@@ -21,7 +21,7 @@ use std::sync::Arc;
 lazy_static! {
     static ref CHANNEL_MATCH: Regex = Regex::new(r"(?:<#)?(\d{17,})>*?").expect("Failed to create Regex");
     static ref EMBED_ITEM: Regex    = Regex::new(r"\$[^\$]*").expect("Failed to create Regex");
-    static ref EMBED_PARTS: Regex  = Regex::new(r"\$?(?P<field>\S+):(?P<value>.*)").expect("Failed to create Regex");
+    static ref EMBED_PARTS: Regex   = Regex::new(r"\$?(?P<field>\S+):(?P<value>.*)").expect("Failed to create Regex");
     static ref GUILD_MATCH: Regex   = Regex::new(r"\d{17,}").expect("Failed to create Regex");
     static ref PLAIN_PARTS: Regex   = Regex::new(r"\{.*?\}").expect("Failed to create Regex");
     static ref ROLE_MATCH: Regex    = Regex::new(r"(?:<@)?&?(\d{17,})>*?").expect("Failed to create Regex");
