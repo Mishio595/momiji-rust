@@ -321,7 +321,7 @@ command!(register(ctx, message, args) {
 
 command!(ar(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
-        if let Some(mut member) = message.member() {
+        if let Some((_, mut member)) = parse_user(args.single::<String>()?, guild_id) {
             let list = args.rest().split(",").map(|s| s.trim().to_string());
             let mut to_add = Vec::new();
             let mut failed = Vec::new();
@@ -372,13 +372,13 @@ command!(ar(_ctx, message, args) {
                     .fields(fields)
                     .colour(member.colour().unwrap_or(*colours::MAIN))
             ))?;
-        } else { failed!(MEMBER_FAIL); }
+        }
     } else { failed!(GUILDID_FAIL); }
 });
 
 command!(rr(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
-        if let Some(mut member) = message.member() {
+        if let Some((_, mut member)) = parse_user(args.single::<String>()?, guild_id) {
             let list = args.rest().split(",").map(|s| s.trim().to_string());
             let mut to_remove = Vec::new();
             let mut failed = Vec::new();
@@ -429,7 +429,7 @@ command!(rr(_ctx, message, args) {
                     .fields(fields)
                     .colour(member.colour().unwrap_or(*colours::MAIN))
             ))?;
-        } else { failed!(MEMBER_FAIL); }
+        }
     } else { failed!(GUILDID_FAIL); }
 });
 
