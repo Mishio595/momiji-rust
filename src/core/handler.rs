@@ -153,6 +153,7 @@ impl EventHandler for Handler {
     // Edit logs
     fn message_update(&self, _: Context, old: Option<Message>, new: Message) {
         if new.author.bot { return; }
+        if let None = new.edited_timestamp { return; }
         if let Some(message) = old {
             if let Some(guild_id) = new.guild_id {
                 let channel_id = new.channel_id;
