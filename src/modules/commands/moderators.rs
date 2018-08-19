@@ -313,6 +313,14 @@ command!(register(ctx, message, args) {
                         .colour(member.colour().unwrap_or(*colours::MAIN))
                         .timestamp(now!())
                 ))?;
+                if guild_data.introduction && guild_data.introduction_channel>0 {
+                    let channel = ChannelId(guild_data.introduction_channel as u64);
+                    if guild_data.introduction_type == "embed" {
+                        send_welcome_embed(guild_data.introduction_message, &member, channel)?;
+                    } else {
+                        channel.say(parse_welcome_items(guild_data.introduction_message, &member))?;
+                    }
+                }
             },
             None => { message.channel_id.say("I couldn't find that user.")?; }
         }
