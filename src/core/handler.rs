@@ -410,6 +410,7 @@ impl EventHandler for Handler {
     }
 
     // Nickname and Role changes
+    // TODO fix data racing
     fn guild_member_update(&self, _: Context, _: Option<Member>, new: Member) {
         let guild_id = new.guild_id;
         match db.get_guild(guild_id.0 as i64) {

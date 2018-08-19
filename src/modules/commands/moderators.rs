@@ -260,9 +260,7 @@ command!(register(ctx, message, args) {
                 for r1 in list {
                     if let Some((r, _)) = parse_role(r1.clone(), guild_id) {
                         if settings.cooldown_restricted_roles.contains(&(r.0 as i64)) { continue; }
-                        if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
-                            to_add.push(r);
-                        }
+                        to_add.push(r);
                     } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
                         to_add.push(RoleId(roles[i].id as u64));
                     }
@@ -270,6 +268,7 @@ command!(register(ctx, message, args) {
                 for (i, role_id) in to_add.clone().iter().enumerate() {
                     if member.roles.contains(role_id) {
                         to_add.remove(i);
+                        continue;
                     }
                     if let Err(_) = member.add_role(*role_id) {
                         to_add.remove(i);
