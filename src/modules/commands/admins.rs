@@ -321,7 +321,7 @@ command!(config_introduction(_ctx, message, args) {
                 guild_data.introduction_message = val.to_string();
             },
             "type" => {
-                guild_data.welcome_type = val.to_string();
+                guild_data.introduction_type = val.to_string();
             },
             _ => { message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config introduction`")?; },
         }

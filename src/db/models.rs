@@ -203,7 +203,7 @@ pub struct UserUpdate {
 
 impl Display for Guild {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "**Admin Roles:** {}\n**Audit:** {}\n**Audit Channel:** {}\n**Audit Threshold:** {}\n**Autorole:** {}\n**Autoroles:** {}\n**Ignored Channels:** {}\n**Ignore Level:** {}\n**Introduction:** {}\n**Introduction Channel:** {}\n**Introduction Message:** {}\n**Mod Roles: ** {}\n**Modlog:** {}\n**Modlog Channel:** {}\n**Mute Setup:** {}\n**Prefix:** {}\n**Welcome:** {}\n**Welcome Channel:** {}\n**Welcome Message:** {}\n**Disabled Commands:** {}\n**Disabled Log Types:** {}",
+        write!(f, "**Admin Roles:** {}\n**Audit:** {}\n**Audit Channel:** {}\n**Audit Threshold:** {}\n**Autorole:** {}\n**Autoroles:** {}\n**Ignored Channels:** {}\n**Ignore Level:** {}\n**Introduction:** {}\n**Introduction Channel:** {}\n**Introduction Type:** {}\n**Introduction Message:** {}\n**Mod Roles: ** {}\n**Modlog:** {}\n**Modlog Channel:** {}\n**Mute Setup:** {}\n**Prefix:** {}\n**Welcome:** {}\n**Welcome Channel:** {}\n**Welcome Type:** {}\n**Welcome Message:** {}\n**Disabled Commands:** {}\n**Disabled Log Types:** {}",
             self.admin_roles.iter().map(|e| match RoleId(*e as u64).to_role_cached() {
                 Some(role) => role.name,
                 None => format!("{}", e),
@@ -220,6 +220,7 @@ impl Display for Guild {
             self.ignore_level,
             self.introduction,
             format!("<#{}>", self.introduction_channel),
+            self.introduction_type,
             self.introduction_message,
             self.mod_roles.iter().map(|e| match RoleId(*e as u64).to_role_cached() {
                 Some(role) => role.name,
@@ -231,6 +232,7 @@ impl Display for Guild {
             self.prefix,
             self.welcome,
             format!("<#{}>", self.welcome_channel),
+            self.welcome_type,
             self.welcome_message,
             self.commands.join(", "),
             self.logging.join(", ")
