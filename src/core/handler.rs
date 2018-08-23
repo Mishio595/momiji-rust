@@ -23,7 +23,6 @@ use serenity::model::id::{
     ChannelId,
     GuildId,
     MessageId,
-    RoleId,
 };
 use serenity::model::user::User;
 use serenity::prelude::*;
@@ -57,8 +56,6 @@ impl EventHandler for Handler {
                     users.push(UserUpdate {
                         id: u.id.0 as i64,
                         guild_id: guild_id.0 as i64,
-                        roles: member.roles.iter().map(|e| e.0 as i64).collect::<Vec<i64>>(),
-                        nickname: member.display_name().into_owned(),
                         username: u.tag()
                     });
                 }
@@ -226,7 +223,7 @@ impl EventHandler for Handler {
                             } else { failed!(MEMBER_FAIL); }
                         }
                         if let Ok(mut user_data) = db.get_or_new_user(event.presence.user_id.0 as i64, guild_id.0 as i64) {
-                            if user_tag != user_data.username {
+                            if user_tag != user_data.username && user_data.username != String::new() {
                                 if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
                                     if guild_data.logging.contains(&String::from("username_change")) { return; }
                                     if guild_data.audit && guild_data.audit_channel > 0 {
@@ -410,74 +407,73 @@ impl EventHandler for Handler {
     }
 
     // Nickname and Role changes
-    // TODO fix data racing
-    fn guild_member_update(&self, _: Context, _: Option<Member>, new: Member) {
+    fn guild_member_update(&self, _: Context, old: Option<Member>, new: Member) {
         let guild_id = new.guild_id;
-        match db.get_guild(guild_id.0 as i64) {
-            Ok(guild_data) => {
-                let (user_id, user_face, user_tag) = {
-                    let u = new.user.read();
-                    (u.id, u.face(), u.tag())
-                };
-                let mut user_data = db.get_user(user_id.0 as i64, guild_id.0 as i64).unwrap_or_else(|_| {
-                    db.new_user(user_id.0 as i64, guild_id.0 as i64).expect("Failed to create user")
-                });
-                if guild_data.audit && guild_data.audit_channel > 0 {
-                    if guild_data.logging.contains(&String::from("nickname_change")) { return; }
-                    let audit_channel = ChannelId(guild_data.audit_channel as u64);
-                    if let Some(nick) = new.nick {
-                        if nick != user_data.nickname {
+        if let Some(old) = old {
+            match db.get_guild(guild_id.0 as i64) {
+                Ok(guild_data) => {
+                    let (user_face, user_tag) = {
+                        let u = new.user.read();
+                        (u.face(), u.tag())
+                    };
+                    if guild_data.audit && guild_data.audit_channel > 0 {
+                        if guild_data.logging.contains(&String::from("nickname_change")) { return; }
+                        let audit_channel = ChannelId(guild_data.audit_channel as u64);
+                        if new.nick != old.nick {
+                            let old_nick = old.nick.clone().unwrap_or("None".to_string());
+                            let new_nick = new.nick.clone().unwrap_or("None".to_string());
                             check_error!(audit_channel.send_message(|m| m
                                 .embed(|e| e
                                     .title("Nickname changed")
                                     .colour(*colours::MAIN)
                                     .thumbnail(&user_face)
-                                    .description(format!("**User: ** {}\n**Old:** {}\n**New:** {}", user_tag, user_data.nickname, nick))
+                                    .description(format!(
+                                        "**User: ** {}\n**Old:** {}\n**New:** {}",
+                                        user_tag,
+                                        old_nick,
+                                        new_nick
+                                    ))
                             )));
-                            user_data.nickname = nick;
+                        };
+                        if guild_data.logging.contains(&String::from("role_change")) { return; }
+                        let mut roles_added = new.roles.clone();
+                        roles_added.retain(|e| !old.roles.contains(e));
+                        let mut roles_removed = old.roles.clone();
+                        roles_removed.retain(|e| !new.roles.contains(e));
+                        if !roles_added.is_empty() {
+                            let roles_added = roles_added.iter()
+                                .map(|r| match r.to_role_cached() {
+                                    Some(role) => role.name,
+                                    None => format!("{}", r.0),
+                                })
+                                .collect::<Vec<String>>();
+                            check_error!(audit_channel.send_message(|m| m
+                                .embed(|e| e
+                                    .title("Roles changed")
+                                    .colour(*colours::MAIN)
+                                    .thumbnail(&user_face)
+                                    .description(format!("**User: ** {}\n**Added:** {}", user_tag, roles_added.join(", ")))
+                            )));
                         }
-                    };
-                    if guild_data.logging.contains(&String::from("role_change")) { return; }
-                    let roles = new.roles.iter().map(|e| e.0 as i64).collect::<Vec<i64>>();
-                    let mut roles_added = roles.clone();
-                    roles_added.retain(|e| !user_data.roles.contains(e));
-                    let mut roles_removed = user_data.roles.clone();
-                    roles_removed.retain(|e| !roles.contains(e));
-                    if !roles_added.is_empty() {
-                        let roles_added = roles_added.iter().map(|r| {
-                            match RoleId(*r as u64).to_role_cached() {
-                                Some(role) => role.name,
-                                None => format!("{}", r),
-                            }
-                        }).collect::<Vec<String>>();
-                        check_error!(audit_channel.send_message(|m| m
-                            .embed(|e| e
-                                .title("Roles changed")
-                                .colour(*colours::MAIN)
-                                .thumbnail(&user_face)
-                                .description(format!("**User: ** {}\n**Added:** {}", user_tag, roles_added.join(", ")))
-                        )));
+                        if !roles_removed.is_empty() {
+                            let roles_removed = roles_added.iter()
+                                .map(|r| match r.to_role_cached() {
+                                    Some(role) => role.name,
+                                    None => format!("{}", r.0),
+                                })
+                                .collect::<Vec<String>>();
+                            check_error!(audit_channel.send_message(|m| m
+                                .embed(|e| e
+                                    .title("Roles changed")
+                                    .colour(*colours::MAIN)
+                                    .thumbnail(&user_face)
+                                    .description(format!("**User: ** {}\n**Removed:** {}", user_tag, roles_removed.join(", ")))
+                            )));
+                        }
                     }
-                    if !roles_removed.is_empty() {
-                        let roles_removed = roles_added.iter().map(|r| {
-                            match RoleId(*r as u64).to_role_cached() {
-                                Some(role) => role.name,
-                                None => format!("{}", r),
-                            }
-                        }).collect::<Vec<String>>();
-                        check_error!(audit_channel.send_message(|m| m
-                            .embed(|e| e
-                                .title("Roles changed")
-                                .colour(*colours::MAIN)
-                                .thumbnail(&user_face)
-                                .description(format!("**User: ** {}\n**Removed:** {}", user_tag, roles_removed.join(", ")))
-                        )));
-                    }
-                    user_data.roles = roles;
-                }
-                check_error!(db.update_user(user_id.0 as i64, guild_id.0 as i64, user_data));
-            },
-            Err(why) => { failed!(DB_GUILD_FAIL, why); }
+                },
+                Err(why) => { failed!(DB_GUILD_FAIL, why); }
+            }
         }
     }
 
