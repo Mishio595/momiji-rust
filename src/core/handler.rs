@@ -444,7 +444,6 @@ impl EventHandler for Handler {
                                     None => format!("{}", r.0),
                                 })
                                 .collect::<Vec<String>>();
-                            debug!("Roles added: {:?}", roles_added);
                             check_error!(audit_channel.send_message(|m| m
                                 .embed(|e| e
                                     .title("Roles changed")
@@ -456,13 +455,12 @@ impl EventHandler for Handler {
                         let mut roles_removed = old.roles.clone();
                         roles_removed.retain(|e| !new.roles.contains(e));
                         if !roles_removed.is_empty() {
-                            let roles_removed = roles_added.iter()
+                            let roles_removed = roles_removed.iter()
                                 .map(|r| match r.to_role_cached() {
                                     Some(role) => role.name,
                                     None => format!("{}", r.0),
                                 })
                                 .collect::<Vec<String>>();
-                            debug!("Roles removed: {:?}", roles_removed);
                             check_error!(audit_channel.send_message(|m| m
                                 .embed(|e| e
                                     .title("Roles changed")

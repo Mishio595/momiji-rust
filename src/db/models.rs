@@ -34,6 +34,7 @@ pub struct Guild {
     pub logging: Vec<String>,
 }
 
+// Deprecated fields: nickname, roles
 #[derive(Queryable, Identifiable, AsChangeset, Debug)]
 #[primary_key(id, guild_id)]
 pub struct User<Tz: TimeZone> {
