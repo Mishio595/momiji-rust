@@ -417,7 +417,7 @@ command!(rsr(_ctx, message, args) {
                 }
                 let mut fields = Vec::new();
                 if !to_remove.is_empty() {
-                    fields.push(("Added Roles", format!("{}", to_remove.iter().filter_map(|r| match r.to_role_cached() {
+                    fields.push(("Removed Roles", format!("{}", to_remove.iter().filter_map(|r| match r.to_role_cached() {
                         Some(r) => Some(r.name.clone()),
                         None => None,
                     }).collect::<Vec<String>>().join("\n")), false));

@@ -32,7 +32,6 @@ use std::time::Duration;
 
 pub struct Handler;
 
-// TODO logging disables, needs command too
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
         CACHE.write().settings_mut().max_messages(MESSAGE_CACHE);
@@ -438,8 +437,6 @@ impl EventHandler for Handler {
                         if guild_data.logging.contains(&String::from("role_change")) { return; }
                         let mut roles_added = new.roles.clone();
                         roles_added.retain(|e| !old.roles.contains(e));
-                        let mut roles_removed = old.roles.clone();
-                        roles_removed.retain(|e| !new.roles.contains(e));
                         if !roles_added.is_empty() {
                             let roles_added = roles_added.iter()
                                 .map(|r| match r.to_role_cached() {
@@ -447,6 +444,7 @@ impl EventHandler for Handler {
                                     None => format!("{}", r.0),
                                 })
                                 .collect::<Vec<String>>();
+                            debug!("Roles added: {:?}", roles_added);
                             check_error!(audit_channel.send_message(|m| m
                                 .embed(|e| e
                                     .title("Roles changed")
@@ -455,6 +453,8 @@ impl EventHandler for Handler {
                                     .description(format!("**User: ** {}\n**Added:** {}", user_tag, roles_added.join(", ")))
                             )));
                         }
+                        let mut roles_removed = old.roles.clone();
+                        roles_removed.retain(|e| !new.roles.contains(e));
                         if !roles_removed.is_empty() {
                             let roles_removed = roles_added.iter()
                                 .map(|r| match r.to_role_cached() {
@@ -462,6 +462,7 @@ impl EventHandler for Handler {
                                     None => format!("{}", r.0),
                                 })
                                 .collect::<Vec<String>>();
+                            debug!("Roles removed: {:?}", roles_removed);
                             check_error!(audit_channel.send_message(|m| m
                                 .embed(|e| e
                                     .title("Roles changed")
