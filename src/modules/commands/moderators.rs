@@ -232,7 +232,7 @@ command!(note_list(_ctx, message, args) {
         match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
             Some((user_id, member)) => {
                 let notes = db.get_notes(user_id.0 as i64, guild_id.0 as i64)?;
-                let notes_fmt = notes.iter().map(|n| format!("{}", n)).collect::<Vec<String>>().join("\n\n");
+                let notes_fmt = notes.iter().map(|n| n.to_string()).collect::<Vec<String>>().join("\n\n");
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
                         .colour(*colours::MAIN)
@@ -295,12 +295,12 @@ command!(register(ctx, message, args) {
                     member.add_role(RoleId(role as u64))?;
                 }
                 let desc = if !to_add.is_empty() {
-                    format!("{}", to_add.iter().map(|r| match r.to_role_cached() {
+                    to_add.iter().map(|r| match r.to_role_cached() {
                         Some(role) => role.name,
-                        None => format!("{}", r.0),
+                        None => r.0.to_string(),
                     })
                     .collect::<Vec<String>>()
-                    .join("\n"))
+                    .join("\n")
                 } else { String::new() };
                 channel.send_message(|m| m
                     .embed(|e| e
@@ -346,7 +346,7 @@ command!(ar(_ctx, message, args) {
                         "You already have {}",
                         match role_id.to_role_cached() {
                             Some(role) => role.name,
-                            None => format!("{}", role_id.0),
+                            None => role_id.0.to_string(),
                     }));
                 }
                 if let Err(_) = member.add_role(*role_id) {
@@ -355,23 +355,23 @@ command!(ar(_ctx, message, args) {
                         "Failed to add {}",
                         match role_id.to_role_cached() {
                             Some(role) => role.name,
-                            None => format!("{}", role_id.0),
+                            None => role_id.0.to_string(),
                     }));
                 };
             }
             let mut fields = Vec::new();
             if !to_add.is_empty() {
-                fields.push(("Added Roles", format!("{}", to_add.iter()
+                fields.push(("Added Roles", to_add.iter()
                     .map(|r| match r.to_role_cached() {
                         Some(role) => role.name,
-                        None => format!("{}", r.0),
+                        None => r.0.to_string(),
                     })
                     .collect::<Vec<String>>()
-                    .join("\n")),
+                    .join("\n"),
                     false));
             }
             if !failed.is_empty() {
-                fields.push(("Failed to Add", format!("{}", failed.join("\n")), false));
+                fields.push(("Failed to Add", failed.join("\n"), false));
             }
             message.channel_id.send_message(|m| m
                 .embed(|e| e
@@ -403,7 +403,7 @@ command!(rr(_ctx, message, args) {
                         "You don't have {}",
                         match role_id.to_role_cached() {
                             Some(role) => role.name,
-                            None => format!("{}", role_id.0),
+                            None => role_id.0.to_string(),
                     }));
                 }
                 if let Err(_) = member.remove_role(*role_id) {
@@ -412,23 +412,23 @@ command!(rr(_ctx, message, args) {
                         "Failed to remove {}",
                         match role_id.to_role_cached() {
                             Some(role) => role.name,
-                            None => format!("{}", role_id.0),
+                            None => role_id.0.to_string(),
                     }));
                 };
             }
             let mut fields = Vec::new();
             if !to_remove.is_empty() {
-                fields.push(("Removed Roles", format!("{}", to_remove.iter()
+                fields.push(("Removed Roles", to_remove.iter()
                     .map(|r| match r.to_role_cached() {
                         Some(role) => role.name,
-                        None => format!("{}", r.0),
+                        None => r.0.to_string(),
                     })
                     .collect::<Vec<String>>()
-                    .join("\n")),
+                    .join("\n"),
                     false));
             }
             if !failed.is_empty() {
-                fields.push(("Failed to Remove", format!("{}", failed.join("\n")), false));
+                fields.push(("Failed to Remove", failed.join("\n"), false));
             }
             message.channel_id.send_message(|m| m
                 .embed(|e| e

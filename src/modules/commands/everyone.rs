@@ -206,8 +206,8 @@ command!(manga_search(ctx, message, args) {
                     .url(manga.url())
                     .description(format!("{}\n\n**Volumes:** {}\n**Chapters:** {}\n**Score:** {}\n**Status:** {}",
                         manga.attributes.synopsis,
-                        manga.attributes.volume_count.map_or(String::from("Not Found"), |count| format!("{}", count)),
-                        manga.attributes.chapter_count.map_or(String::from("Not Found"), |count| format!("{}", count)),
+                        manga.attributes.volume_count.map_or(String::from("Not Found"), |count| count.to_string()),
+                        manga.attributes.chapter_count.map_or(String::from("Not Found"), |count| count.to_string()),
                         manga.attributes.average_rating.clone().unwrap_or(String::from("Not Found")),
                         status
                     ))
@@ -337,26 +337,26 @@ command!(asr(_ctx, message, args) {
                         to_add.remove(i);
                         failed.push(format!("You already have {}", match role_names.iter().find(|r| &r.id == role_id) {
                             Some(s) => s.name.clone(),
-                            None => format!("{}", role_id.0),
+                            None => role_id.0.to_string(),
                         }));
                     }
                     if let Err(_) = member.add_role(*role_id) {
                         to_add.remove(i);
                         failed.push(format!("Failed to add {}", match role_names.iter().find(|r| &r.id == role_id) {
                             Some(s) => s.name.clone(),
-                            None => format!("{}", role_id.0),
+                            None => role_id.0.to_string(),
                         }));
                     };
                 }
                 let mut fields = Vec::new();
                 if !to_add.is_empty() {
-                    fields.push(("Added Roles", format!("{}", to_add.iter().filter_map(|r| match r.to_role_cached() {
+                    fields.push(("Added Roles", to_add.iter().filter_map(|r| match r.to_role_cached() {
                         Some(r) => Some(r.name.clone()),
                         None => None,
-                    }).collect::<Vec<String>>().join("\n")), false));
+                    }).collect::<Vec<String>>().join("\n").to_string(), false));
                 }
                 if !failed.is_empty() {
-                    fields.push(("Failed to Add", format!("{}", failed.join("\n")), false));
+                    fields.push(("Failed to Add", failed.join("\n"), false));
                 }
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
@@ -404,26 +404,26 @@ command!(rsr(_ctx, message, args) {
                         to_remove.remove(i);
                         failed.push(format!("You already have {}", match role_names.iter().find(|r| &r.id == role_id) {
                             Some(s) => s.name.clone(),
-                            None => format!("{}", role_id.0),
+                            None => role_id.0.to_string(),
                         }));
                     }
                     if let Err(_) = member.remove_role(*role_id) {
                         to_remove.remove(i);
                         failed.push(format!("Failed to remove {}", match role_names.iter().find(|r| &r.id == role_id) {
                             Some(s) => s.name.clone(),
-                            None => format!("{}", role_id.0),
+                            None => role_id.0.to_string(),
                         }));
                     };
                 }
                 let mut fields = Vec::new();
                 if !to_remove.is_empty() {
-                    fields.push(("Removed Roles", format!("{}", to_remove.iter().filter_map(|r| match r.to_role_cached() {
+                    fields.push(("Removed Roles", to_remove.iter().filter_map(|r| match r.to_role_cached() {
                         Some(r) => Some(r.name.clone()),
                         None => None,
-                    }).collect::<Vec<String>>().join("\n")), false));
+                    }).collect::<Vec<String>>().join("\n").to_string(), false));
                 }
                 if !failed.is_empty() {
-                    fields.push(("Failed to Remove", format!("{}", failed.join("\n")), false));
+                    fields.push(("Failed to Remove", failed.join("\n"), false));
                 }
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
@@ -474,7 +474,7 @@ command!(lsr(_ctx, message, args) {
                         .iter()
                         .map(|e| match RoleId(e.id as u64).to_role_cached() {
                             Some(r) => r.name,
-                            None => format!("{}", e.id),
+                            None => e.id.to_string(),
                         })
                         .collect::<Vec<String>>()
                         .join("\n");
@@ -501,11 +501,11 @@ command!(role_info(_ctx, message, args) {
                 let role_data = db.get_role(role_id.0 as i64, guild_id.0 as i64).ok();
                 let mut fields = vec![
                     ("Name", role.name.clone(), true),
-                    ("ID", format!("{}", role_id.0), true),
+                    ("ID", role_id.0.to_string(), true),
                     ("Hex", format!("#{}", role.colour.hex()), true),
                     ("Hoisted", String::from(if role.hoist { "Yes" } else { "No" }), true),
                     ("Mentionable", String::from(if role.mentionable { "Yes" } else { "No" }), true),
-                    ("Position", format!("{}", role.position), true),
+                    ("Position", role.position.to_string(), true),
                 ];
                 match role_data {
                     Some(r) => {
@@ -762,7 +762,7 @@ command!(user_info(_ctx, message, args) {
         let mut roles = member.roles.iter()
             .map(|c| match c.to_role_cached() {
                 Some(r) => r.name,
-                None => format!("{}", c.0),
+                None => c.0.to_string(),
             })
             .collect::<Vec<String>>();
         roles.sort();

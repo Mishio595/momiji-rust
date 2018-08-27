@@ -211,7 +211,7 @@ impl ApiClient {
 
         match self.client.get(FURRY)
             .headers(headers)
-            .query(&[("tags", input.into()+" order:random"), ("limit", format!("{}",count))])
+            .query(&[("tags", input.into()+" order:random"), ("limit", count.to_string())])
             .send() {
                 Ok(mut res) => {
                     res.json::<Vec<FurPost>>()

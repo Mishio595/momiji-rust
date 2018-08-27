@@ -81,7 +81,7 @@ impl MomijiFramework {
                             let c = c.read();
                             format!("{} ({})", c.name, c.id.0)
                         },
-                        Channel::Private(_) => format!("{}", ch.id().0),
+                        Channel::Private(_) => ch.id().0.to_string(),
                         _ => String::new(),
                     }
                 } else { String::new() };
@@ -103,8 +103,8 @@ impl MomijiFramework {
                     check_error!(ERROR_LOG.send_message(|m| m
                         .embed(|e| e
                             .description(format!("{:?}", why))
-                            .field("Message", format!("{}", message.id.0), true)
-                            .field("Channel", format!("{}", message.channel_id.0), true)
+                            .field("Message", message.id.0.to_string(), true)
+                            .field("Channel", message.channel_id.0.to_string(), true)
                             .field("Command", cmd_name, true)
                             .field("Message Content", message.content_safe(), false)
                             .timestamp(now!())

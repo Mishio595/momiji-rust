@@ -89,7 +89,7 @@ command!(config_autorole(_ctx, message, args) {
                 .colour(*colours::MAIN)
                 .description(format!("**Operation:** {}\n**Value:** {}",
                     op,
-                    if val.is_empty() { format!("{}", guild.autorole) } else { val } ,
+                    if val.is_empty() { guild.autorole.to_string() } else { val } ,
                 ))
         ))?;
     } else { failed!(GUILDID_FAIL); }
@@ -198,7 +198,7 @@ command!(config_audit(_ctx, message, args) {
                 match val.parse::<i16>() {
                     Ok(th) => {
                         guild_data.audit_threshold = th;
-                        val = format!("{}", th);
+                        val = th.to_string();
                     },
                     Err(_) => { message.channel_id.say("Please input a number as the threshold")?; }
                 }
@@ -248,7 +248,7 @@ command!(config_modlog(_ctx, message, args) {
                 .colour(*colours::MAIN)
                 .description(format!("**Operation:** {}\n**Value:** {}",
                     op,
-                    if val.is_empty() { format!("{}", guild.modlog) } else { val },
+                    if val.is_empty() { guild.modlog.to_string() } else { val },
                 ))
         ))?;
     } else { failed!(GUILDID_FAIL); }
@@ -290,7 +290,7 @@ command!(config_welcome(_ctx, message, args) {
                 .colour(*colours::MAIN)
                 .description(format!("**Operation:** {}\n**Value:** {}",
                     op,
-                    if val.is_empty() { format!("{}", guild.welcome) } else { val },
+                    if val.is_empty() { guild.welcome.to_string() } else { val },
                 ))
         ))?;
     } else { failed!(GUILDID_FAIL); }
@@ -332,7 +332,7 @@ command!(config_introduction(_ctx, message, args) {
                 .colour(*colours::MAIN)
                 .description(format!("**Operation:** {}\n**Value:** {}",
                     op,
-                    if val.is_empty() { format!("{}", guild.introduction) } else { val },
+                    if val.is_empty() { guild.introduction.to_string() } else { val },
                 ))
         ))?;
     } else { failed!(GUILDID_FAIL); }
@@ -678,7 +678,7 @@ command!(prune(_ctx, message, args) {
                                         ch.mention(),
                                         ch.name)
                                 },
-                                None => format!("{}", message.channel_id.0),
+                                None => message.channel_id.0.to_string(),
                             }))
                         .timestamp(now!())
                         .colour(*colours::RED)

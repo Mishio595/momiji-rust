@@ -392,7 +392,7 @@ impl EventHandler for Handler {
                                         user.mention(),
                                         match audit.user_id.to_user() {
                                             Ok(u) => u.tag(),
-                                            Err(_) => format!("{}", audit.user_id.0)
+                                            Err(_) => audit.user_id.0.to_string()
                                         },
                                         audit.reason.clone().unwrap_or("None".to_string())
                                     ))
@@ -441,7 +441,7 @@ impl EventHandler for Handler {
                             let roles_added = roles_added.iter()
                                 .map(|r| match r.to_role_cached() {
                                     Some(role) => role.name,
-                                    None => format!("{}", r.0),
+                                    None => r.0.to_string(),
                                 })
                                 .collect::<Vec<String>>();
                             check_error!(audit_channel.send_message(|m| m
@@ -458,7 +458,7 @@ impl EventHandler for Handler {
                             let roles_removed = roles_removed.iter()
                                 .map(|r| match r.to_role_cached() {
                                     Some(role) => role.name,
-                                    None => format!("{}", r.0),
+                                    None => r.0.to_string(),
                                 })
                                 .collect::<Vec<String>>();
                             check_error!(audit_channel.send_message(|m| m
@@ -497,7 +497,7 @@ impl EventHandler for Handler {
                                         user.mention(),
                                         match audit.user_id.to_user() {
                                             Ok(u) => u.tag(),
-                                            Err(_) => format!("{}", audit.user_id.0)
+                                            Err(_) => audit.user_id.0.to_string(),
                                         },
                                         audit.reason.clone().unwrap_or("None".to_string())
                                     ))
@@ -531,7 +531,7 @@ impl EventHandler for Handler {
                                         user.mention(),
                                         match audit.user_id.to_user() {
                                             Ok(u) => u.tag(),
-                                            Err(_) => format!("{}", audit.user_id.0)
+                                            Err(_) => audit.user_id.0.to_string(),
                                         }
                                     ))
                             )));
