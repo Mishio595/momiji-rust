@@ -258,6 +258,11 @@ pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member) -> String
                     ret = ret.replace(&word[0], guild.name.as_str());
                 }
             },
+            "{membercount}" => {
+                if let Some(guild) = member.guild_id.to_guild_cached() {
+                    ret = ret.replace(&word[0], guild.read().member_count.to_string().as_str());
+                }
+            },
             _ => {},
         }
     }
