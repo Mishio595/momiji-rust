@@ -53,7 +53,7 @@ pub struct Cat {
 
 #[derive(Deserialize, Debug)]
 pub struct Urban {
-    pub tags: Vec<String>,
+    pub tags: Option<Vec<String>>,
     pub list: Vec<UrbanListItem>,
     pub sounds: Vec<String>,
     pub result_type: String,

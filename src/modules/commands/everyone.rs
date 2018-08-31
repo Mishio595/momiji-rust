@@ -715,11 +715,15 @@ command!(urban(ctx, message, args) {
     let data = ctx.data.lock();
     let term = args.single_quoted::<String>().unwrap_or(String::new());
     if let Some(api) = data.get::<ApiClient>() {
-        let mut res = api.urban(term.as_str())?;
+        let res = api.urban(term.as_str())?;
         if !res.list.is_empty() {
             let count = args.single::<u32>().unwrap_or(1);
-            res.tags.sort();
-            res.tags.dedup();
+            let mut tags: Vec<String> = Vec::new();
+            if let Some(res_tags) = &res.tags {
+                tags = res_tags.clone();
+                tags.sort();
+                tags.dedup();
+            }
             if count == 1 {
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
@@ -729,11 +733,12 @@ command!(urban(ctx, message, args) {
                         .field("Thumbs Down", &res.list[0].thumbs_down, true)
                         .field("Definition", &res.list[0].definition, false)
                         .field("Example", &res.list[0].example, false)
-                        .field("Tags", res.tags.iter().map(|t| { String::from("#")+t }).collect::<Vec<String>>().join(", "), false)
+                        .field("Tags", tags.iter().map(|t| { String::from("#")+t }).collect::<Vec<String>>().join(", "), false)
                 ))?;
             } else {
-                res.list.truncate(count as usize);
-                let list = res.list.iter()
+                let mut list = res.list;
+                list.truncate(count as usize);
+                let list = list.iter()
                     .map(|c| format!(r#""{}" by {}: {}"#, c.word, c.author, c.permalink))
                     .collect::<Vec<String>>()
                     .join("\n");
