@@ -554,7 +554,12 @@ fn mod_check(_ctx: &mut Context, message: &Message, _args: &mut Args, _options: 
         if message.author.id == owner_id { return true; }
         if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
             if let Ok(member) = guild_id.member(message.author.id.clone()) {
-                return check_rank(guild_data.mod_roles, member.roles);
+                let is_mod = check_rank(guild_data.mod_roles, member.roles);
+                if is_mod {
+                    return is_mod;
+                } else {
+                    return check_rank(guild_data.admin_roles, member.roles);
+                }
             }
         }
     }
