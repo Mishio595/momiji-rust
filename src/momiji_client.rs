@@ -27,7 +27,7 @@ impl MomijiClient {
             let api_client = api::ApiClient::new();
             let tc = timers::TimerClient::new();
             data.insert::<SerenityShardManager>(Arc::clone(&client.shard_manager));
-            data.insert::<ApiClient>(api_client);
+            data.insert::<ApiClient>(Arc::new(api_client));
             data.insert::<TC>(Arc::new(Mutex::new(tc)));
         }
         let owners = match http::get_current_application_info() {
@@ -52,7 +52,7 @@ impl MomijiClient {
             let api_client = api::ApiClient::new();
             let tc = timers::TimerClient::new();
             data.insert::<SerenityShardManager>(Arc::clone(&client.shard_manager));
-            data.insert::<ApiClient>(api_client);
+            data.insert::<ApiClient>(Arc::new(api_client));
             data.insert::<TC>(Arc::new(Mutex::new(tc)));
         }
         client.with_framework(MomijiFramework::new(owners));

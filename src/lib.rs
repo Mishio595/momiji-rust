@@ -22,6 +22,7 @@ extern crate sys_info;
 extern crate sysinfo;
 extern crate threadpool;
 extern crate typemap;
+extern crate urbandictionary;
 
 pub mod macros;
 pub mod core;

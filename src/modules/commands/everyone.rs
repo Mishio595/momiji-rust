@@ -712,11 +712,14 @@ command!(tag_edit(_ctx, message, args) {
 });
 
 command!(urban(ctx, message, args) {
-    let data = ctx.data.lock();
-    let term = args.single_quoted::<String>().unwrap_or(String::new());
-    if let Some(api) = data.get::<ApiClient>() {
+    let api = {
+        let data = ctx.data.lock();
+        data.get::<ApiClient>().cloned()
+    };
+    if let Some(api) = api {
+        let term = args.single_quoted::<String>().unwrap_or(String::new());
         let res = api.urban(term.as_str())?;
-        if !res.list.is_empty() {
+        if !res.definitions.is_empty() {
             let count = args.single::<u32>().unwrap_or(1);
             let mut tags: Vec<String> = Vec::new();
             if let Some(res_tags) = &res.tags {
@@ -725,18 +728,27 @@ command!(urban(ctx, message, args) {
                 tags.dedup();
             }
             if count == 1 {
+                let item = &res.definitions[0];
+                let tags_list = {
+                    let list = tags.iter().map(|t| "#".to_string()+t).collect::<Vec<String>>().join(", ");
+                    if !list.is_empty() {
+                        list
+                    } else {
+                        "None".to_string()
+                    }
+                };
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
                         .colour(*colours::MAIN)
-                        .field(format!(r#"Definition of "{}" by {}"#, res.list[0].word, res.list[0].author), &res.list[0].permalink, false)
-                        .field("Thumbs Up", &res.list[0].thumbs_up, true)
-                        .field("Thumbs Down", &res.list[0].thumbs_down, true)
-                        .field("Definition", &res.list[0].definition, false)
-                        .field("Example", &res.list[0].example, false)
-                        .field("Tags", tags.iter().map(|t| { String::from("#")+t }).collect::<Vec<String>>().join(", "), false)
+                        .field(format!(r#"Definition of "{}" by {}"#, item.word, item.author), &item.permalink, false)
+                        .field("Thumbs Up", &item.thumbs_up, true)
+                        .field("Thumbs Down", &item.thumbs_down, true)
+                        .field("Definition", &item.definition, false)
+                        .field("Example", &item.example, false)
+                        .field("Tags", tags_list, false)
                 ))?;
             } else {
-                let mut list = res.list;
+                let mut list = res.definitions;
                 list.truncate(count as usize);
                 let list = list.iter()
                     .map(|c| format!(r#""{}" by {}: {}"#, c.word, c.author, c.permalink))

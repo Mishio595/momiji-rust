@@ -3,7 +3,6 @@
 extern crate chrono;
 extern crate fern;
 extern crate kankyo;
-extern crate parking_lot;
 
 use fern::colors::{
     Color,
@@ -15,7 +14,7 @@ fn main() {
     kankyo::load().expect("Failed to load .env file");
     fern_setup().expect("Failed to apply fern settings.");
     let mut client = MomijiClient::new();
-    check_error!(client.start_autosharded());
+    check_error!(client.start());
 }
 
 fn fern_setup() -> Result<(), log::SetLoggerError> {

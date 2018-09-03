@@ -28,13 +28,17 @@ use reqwest::{
     Result as ReqwestResult
 };
 use std::env;
+use urbandictionary::{
+    ReqwestUrbanDictionaryRequester,
+    Result as UrbanResult,
+    model::Response as UrbanResponse
+};
 
 const UA: &str = "momiji-bot";
 
 // Endpoints
 const DOG: &str = "https://dog.ceo/api/breeds/image/random";
 const CAT: &str = "http://aws.random.cat/meow";
-const URBAN: &str = "https://api.urbandictionary.com/v0/define";
 const DAD_JOKE: &str = "https://icanhazdadjoke.com";
 const FURRY: &str = "https://e621.net/post/index.json";
 const DBOTS: &str = "http://discordbots.org/api/bots";
@@ -49,28 +53,6 @@ pub struct Dog {
 #[derive(Deserialize, Debug)]
 pub struct Cat {
     pub file: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Urban {
-    pub tags: Option<Vec<String>>,
-    pub list: Vec<UrbanListItem>,
-    pub sounds: Vec<String>,
-    pub result_type: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct UrbanListItem {
-    pub definition: String,
-    pub permalink: String,
-    pub thumbs_up: usize,
-    pub thumbs_down: usize,
-    pub author: String,
-    pub word: String,
-    pub defid: usize,
-    pub current_vote: String,
-    pub written_on: String,
-    pub example: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -187,22 +169,8 @@ impl ApiClient {
         }
     }
 
-    pub fn urban<S: Into<String>>(&self, input: S) -> ReqwestResult<Urban> {
-        let mut headers = Headers::new();
-        headers.set(UserAgent::new(UA));
-
-        match self.client.get(URBAN)
-            .headers(headers)
-            .query(&[("term", input.into())])
-            .send() {
-                Ok(mut res) => {
-                    res.json::<Urban>()
-                },
-                Err(why) => {
-                    error!("{:?}", why);
-                    Err(why)
-                },
-        }
+    pub fn urban(&self, input: &str) -> UrbanResult<UrbanResponse> {
+        self.client.definitions(input)
     }
 
     pub fn furry<S: Into<String>>(&self, input: S, count: u32) -> ReqwestResult<Vec<FurPost>> {

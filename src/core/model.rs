@@ -19,7 +19,7 @@ impl Key for SerenityShardManager {
 
 pub struct ApiClient;
 impl Key for ApiClient {
-    type Value = api::ApiClient;
+    type Value = Arc<api::ApiClient>;
 }
 
 pub struct DB;
