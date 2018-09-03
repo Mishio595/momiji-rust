@@ -737,13 +737,21 @@ command!(urban(ctx, message, args) {
                         "None".to_string()
                     }
                 };
+                let definition = {
+                    let mut i = item.definition.clone();
+                    if i.len() > 1000 {
+                        i.truncate(997);
+                        i += "...";
+                    }
+                    i
+                };
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
                         .colour(*colours::MAIN)
                         .field(format!(r#"Definition of "{}" by {}"#, item.word, item.author), &item.permalink, false)
                         .field("Thumbs Up", &item.thumbs_up, true)
                         .field("Thumbs Down", &item.thumbs_down, true)
-                        .field("Definition", &item.definition, false)
+                        .field("Definition", definition, false)
                         .field("Example", &item.example, false)
                         .field("Tags", tags_list, false)
                 ))?;
