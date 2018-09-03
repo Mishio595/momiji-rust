@@ -658,33 +658,37 @@ command!(prune(_ctx, message, args) {
                     },
                 }
             }
-            if guild_data.modlog {
-                let channel = {
-                    let cache = CACHE.read();
-                    cache.guild_channel(message.channel_id)
-                };
-                ChannelId(guild_data.modlog_channel as u64).send_message(|m| m
-                    .embed(|e| e
-                        .title("Messages Pruned")
-                        .description(format!("**Count:** {}\n**Moderator:** {} ({})\n**Channel:** {}",
-                            num_del,
-                            message.author.mention(),
-                            message.author.tag(),
-                            match channel {
-                                Some(ch) => {
-                                    let ch = ch.read();
-                                    format!(
-                                        "{} ({})",
-                                        ch.mention(),
-                                        ch.name)
-                                },
-                                None => message.channel_id.0.to_string(),
-                            }))
-                        .timestamp(now!())
-                        .colour(*colours::RED)
-                ))?;
+            if num_del > 0 {
+                if guild_data.modlog {
+                    let channel = {
+                        let cache = CACHE.read();
+                        cache.guild_channel(message.channel_id)
+                    };
+                    ChannelId(guild_data.modlog_channel as u64).send_message(|m| m
+                        .embed(|e| e
+                            .title("Messages Pruned")
+                            .description(format!("**Count:** {}\n**Moderator:** {} ({})\n**Channel:** {}",
+                                num_del,
+                                message.author.mention(),
+                                message.author.tag(),
+                                match channel {
+                                    Some(ch) => {
+                                        let ch = ch.read();
+                                        format!(
+                                            "{} ({})",
+                                            ch.mention(),
+                                            ch.name)
+                                    },
+                                    None => message.channel_id.0.to_string(),
+                                }))
+                            .timestamp(now!())
+                            .colour(*colours::RED)
+                    ))?;
+                } else {
+                    message.channel_id.say(format!("Pruned {} message!", num_del))?;
+                }
             } else {
-                message.channel_id.say(format!("Pruned {} message!", num_del))?;
+                message.channel_id.say("I wasn't able to delete any messages.")?;
             }
         } else {
             message.channel_id.say("Please enter a number no greater than 1000.")?;
