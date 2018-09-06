@@ -26,15 +26,31 @@ use serenity::model::id::{
 };
 use serenity::model::user::User;
 use serenity::prelude::*;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    Once
+};
 use std::thread;
 use std::time::Duration;
+
+static mut TIMERS_LOADED: bool = false;
+static LOAD_TIMERS: Once = Once::new();
 
 pub struct Handler;
 
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
         CACHE.write().settings_mut().max_messages(MESSAGE_CACHE);
+        let data = ctx.data.lock();
+        LOAD_TIMERS.call_once(|| {
+            if let Some(tc_lock) = data.get::<TC>() {
+                let tc = tc_lock.lock();
+                tc.load();
+                unsafe {
+                    TIMERS_LOADED = true;
+                }
+            }
+        });
         info!("Logged in as {}", ready.user.name);
     }
 
