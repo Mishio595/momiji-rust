@@ -62,8 +62,8 @@ impl EventHandler for Handler {
             check_error!(db.upsert_users(slice));
         }
 
-        ctx.set_game(Game::listening(&format!("{} guilds | m!help", guild_count)));
         let guild_count = guilds.len();
+        ctx.set_game(Game::listening(&format!("{} guilds | m!help", guild_count)));
         let data = ctx.data.lock();
         if let Some(api) = data.get::<ApiClient>() {
             api.stats_update(CACHE.read().user.id.0, guild_count);
