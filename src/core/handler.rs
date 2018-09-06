@@ -33,7 +33,6 @@ use std::sync::{
 use std::thread;
 use std::time::Duration;
 
-static mut TIMERS_LOADED: bool = false;
 static LOAD_TIMERS: Once = Once::new();
 
 pub struct Handler;
@@ -46,9 +45,6 @@ impl EventHandler for Handler {
             if let Some(tc_lock) = data.get::<TC>() {
                 let tc = tc_lock.lock();
                 tc.load();
-                unsafe {
-                    TIMERS_LOADED = true;
-                }
             }
         });
         info!("Logged in as {}", ready.user.name);
