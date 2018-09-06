@@ -84,10 +84,6 @@ impl EventHandler for Handler {
         if let Some(api) = data.get::<ApiClient>() {
             api.stats_update(CACHE.read().user.id.0, guild_count);
         } else { failed!(API_FAIL); }
-        if let Some(tc_lock) = data.get::<TC>() {
-            let tc = tc_lock.lock();
-            tc.load();
-        }
         info!("Caching complete");
     }
 
