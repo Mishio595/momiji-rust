@@ -6,9 +6,12 @@ use chrono::offset::Utc;
 use diesel::pg::PgConnection;
 use diesel::pg::upsert::excluded;
 use diesel::prelude::*;
+use diesel::r2d2::{
+    ConnectionManager,
+    Pool,
+    PooledConnection
+};
 use diesel;
-use r2d2;
-use r2d2_diesel::ConnectionManager;
 use self::models::*;
 use self::schema::*;
 use std::env;
@@ -17,7 +20,7 @@ use std::ops::Deref;
 /// While the struct itself and the connection are public, Database cannot be manually
 /// instantiated. Use Database::connect() to start it.
 pub struct Database {
-    pub pool: r2d2::Pool<ConnectionManager<PgConnection>>,
+    pub pool: Pool<ConnectionManager<PgConnection>>,
     _hidden: (),
 }
 
@@ -27,7 +30,7 @@ impl Database {
     pub fn connect() -> Self {
         let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
         let manager = ConnectionManager::<PgConnection>::new(database_url);
-        let pool = r2d2::Pool::builder()
+        let pool = Pool::builder()
             .max_size(10)
             .build(manager)
             .expect("Failed to make connection pool");
@@ -39,7 +42,7 @@ impl Database {
     }
 
     /// Request a connection from the connection pool
-    fn conn(&self) -> r2d2::PooledConnection<ConnectionManager<PgConnection>> {
+    fn conn(&self) -> PooledConnection<ConnectionManager<PgConnection>> {
         self.pool.clone().get().expect("Attempt to get connection timed out")
     }
 

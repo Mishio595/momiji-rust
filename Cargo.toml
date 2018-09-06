@@ -22,8 +22,6 @@ kitsu = "0.2.0"
 lazy_static = "1.0.1"
 levenshtein = "1.0.3"
 log = "0.4"
-r2d2 = "0.8.2"
-r2d2-diesel = "1.0.0"
 rand = "0.5.2"
 regex = "*"
 reqwest = "0.8"
@@ -42,7 +40,7 @@ features = ["deadlock_detection"]
 
 [dependencies.diesel]
 version = "1.0.0"
-features = ["postgres", "chrono"]
+features = ["postgres", "chrono", "r2d2"]
 
 [dependencies.fern]
 version = "0.5"
