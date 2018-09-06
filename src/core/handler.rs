@@ -35,11 +35,6 @@ pub struct Handler;
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
         CACHE.write().settings_mut().max_messages(MESSAGE_CACHE);
-        let data = ctx.data.lock();
-        if let Some(tc_lock) = data.get::<TC>() {
-            let tc = tc_lock.lock();
-            tc.load();
-        }
         info!("Logged in as {}", ready.user.name);
     }
 
@@ -67,12 +62,16 @@ impl EventHandler for Handler {
             check_error!(db.upsert_users(slice));
         }
 
+        ctx.set_game(Game::listening(&format!("{} guilds | m!help", guild_count)));
         let guild_count = guilds.len();
         let data = ctx.data.lock();
         if let Some(api) = data.get::<ApiClient>() {
             api.stats_update(CACHE.read().user.id.0, guild_count);
         } else { failed!(API_FAIL); }
-        ctx.set_game(Game::listening(&format!("{} guilds | m!help", guild_count)));
+        if let Some(tc_lock) = data.get::<TC>() {
+            let tc = tc_lock.lock();
+            tc.load();
+        }
         info!("Caching complete");
     }
 
