@@ -262,6 +262,7 @@ command!(register(ctx, message, args) {
                         if settings.cooldown_restricted_roles.contains(&(r.0 as i64)) { continue; }
                         to_add.push(r);
                     } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
+                        if settings.cooldown_restricted_roles.contains(&(roles[i].id)) { continue; }
                         to_add.push(RoleId(roles[i].id as u64));
                     }
                 }

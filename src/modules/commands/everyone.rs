@@ -308,6 +308,19 @@ command!(asr(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
         if let Some(mut member) = message.member() {
             let roles = db.get_roles(guild_id.0 as i64)?;
+            let (restricted_roles, has_cooldown) = match db.get_premium(guild_id.0 as i64) {
+                Ok(data) => {
+                    let has_cooldown = if let Some(cooldown_role) = data.register_cooldown_role {
+                        member.roles.contains(&RoleId(cooldown_role as u64))
+                    } else {
+                        false
+                    };
+                    (data.cooldown_restricted_roles, has_cooldown)
+                },
+                Err(_) => {
+                    (Vec::new(), false)
+                },
+            };
             if !roles.is_empty() {
                 let list = args.rest().split(",").map(|s| s.trim().to_string());
                 let mut to_add = Vec::new();
@@ -318,10 +331,12 @@ command!(asr(_ctx, message, args) {
                 }).collect::<Vec<Role>>();
                 for r1 in list {
                     if let Some((r, r2)) = parse_role(r1.clone(), guild_id) {
+                        if has_cooldown && restricted_roles.contains(&(r.0 as i64)) { continue; }
                         if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
                             to_add.push(r);
                         } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
                     } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
+                        if has_cooldown && restricted_roles.contains(&(roles[i].id)) { continue; }
                         to_add.push(RoleId(roles[i].id as u64));
                     } else {
                         failed.push(format!("Failed to find match \"{}\". {}", r1,
