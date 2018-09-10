@@ -331,12 +331,19 @@ command!(asr(_ctx, message, args) {
                 }).collect::<Vec<Role>>();
                 for r1 in list {
                     if let Some((r, r2)) = parse_role(r1.clone(), guild_id) {
-                        if has_cooldown && restricted_roles.contains(&(r.0 as i64)) { continue; }
+                        if has_cooldown && restricted_roles.contains(&(r.0 as i64)) {
+                            failed.push(format!("{} is not available on cooldown", r2.name));
+                        }
                         if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
                             to_add.push(r);
                         } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
                     } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
-                        if has_cooldown && restricted_roles.contains(&(roles[i].id)) { continue; }
+                        if has_cooldown && restricted_roles.contains(&(roles[i].id)) {
+                            failed.push(format!("{} is not available on cooldown", match RoleId(roles[i].id as u64).to_role_cached() {
+                                Some(role) => role.name,
+                                None => roles[i].id.to_string(),
+                            }));
+                        }
                         to_add.push(RoleId(roles[i].id as u64));
                     } else {
                         failed.push(format!("Failed to find match \"{}\". {}", r1,
