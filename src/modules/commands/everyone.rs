@@ -333,6 +333,7 @@ command!(asr(_ctx, message, args) {
                     if let Some((r, r2)) = parse_role(r1.clone(), guild_id) {
                         if has_cooldown && restricted_roles.contains(&(r.0 as i64)) {
                             failed.push(format!("{} is not available on cooldown", r2.name));
+                            continue;
                         }
                         if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
                             to_add.push(r);
@@ -343,6 +344,7 @@ command!(asr(_ctx, message, args) {
                                 Some(role) => role.name,
                                 None => roles[i].id.to_string(),
                             }));
+                            continue;
                         }
                         to_add.push(RoleId(roles[i].id as u64));
                     } else {
