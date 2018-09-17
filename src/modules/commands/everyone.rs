@@ -426,7 +426,7 @@ command!(rsr(_ctx, message, args) {
                 for (i, role_id) in to_remove.clone().iter().enumerate() {
                     if !member.roles.contains(role_id) {
                         to_remove.remove(i);
-                        failed.push(format!("You already have {}", match role_names.iter().find(|r| &r.id == role_id) {
+                        failed.push(format!("You don't have {}", match role_names.iter().find(|r| &r.id == role_id) {
                             Some(s) => s.name.clone(),
                             None => role_id.0.to_string(),
                         }));
