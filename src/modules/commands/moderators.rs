@@ -261,7 +261,12 @@ command!(register(ctx, message, args) {
                     pos
                 } else {
                     if let Some(guild) = guild_id.to_guild_cached() {
-                        i64::max_value()
+                        let guild = guild.read();
+                        if user_id.0 == guild.owner_id.0 {
+                            i64::max_value()
+                        } else {
+                            -1
+                        }
                     } else {
                         -1
                     }
@@ -339,7 +344,7 @@ command!(register(ctx, message, args) {
 
 command!(ar(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
-        if let Some((_, mut member)) = parse_user(args.single::<String>()?, guild_id) {
+        if let Some((user_id, mut member)) = parse_user(args.single::<String>()?, guild_id) {
             let list = args.rest().split(",").map(|s| s.trim().to_string());
             let mut to_add = Vec::new();
             let mut failed = Vec::new();
@@ -347,7 +352,12 @@ command!(ar(_ctx, message, args) {
                 pos
             } else {
                 if let Some(guild) = guild_id.to_guild_cached() {
-                    i64::max_value()
+                    let guild = guild.read();
+                    if user_id.0 == guild.owner_id.0 {
+                        i64::max_value()
+                    } else {
+                        -1
+                    }
                 } else {
                     -1
                 }
@@ -406,7 +416,7 @@ command!(ar(_ctx, message, args) {
 
 command!(rr(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
-        if let Some((_, mut member)) = parse_user(args.single::<String>()?, guild_id) {
+        if let Some((user_id, mut member)) = parse_user(args.single::<String>()?, guild_id) {
             let list = args.rest().split(",").map(|s| s.trim().to_string());
             let mut to_remove = Vec::new();
             let mut failed = Vec::new();
@@ -414,7 +424,12 @@ command!(rr(_ctx, message, args) {
                 pos
             } else {
                 if let Some(guild) = guild_id.to_guild_cached() {
-                    i64::max_value()
+                    let guild = guild.read();
+                    if user_id.0 == guild.owner_id.0 {
+                        i64::max_value()
+                    } else {
+                        -1
+                    }
                 } else {
                     -1
                 }
