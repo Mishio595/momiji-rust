@@ -260,7 +260,11 @@ command!(register(ctx, message, args) {
                 let highest = if let Some((_, pos)) = member.highest_role_info() {
                     pos
                 } else {
-                    -1
+                    if let Some(guild) = guild_id.to_guild_cached() {
+                        i64::max_value()
+                    } else {
+                        -1
+                    }
                 };
                 for r1 in list {
                     if let Some((r, ri)) = parse_role(r1.clone(), guild_id) {
@@ -342,7 +346,11 @@ command!(ar(_ctx, message, args) {
             let highest = if let Some((_, pos)) = member.highest_role_info() {
                 pos
             } else {
-                -1
+                if let Some(guild) = guild_id.to_guild_cached() {
+                    i64::max_value()
+                } else {
+                    -1
+                }
             };
             for r1 in list {
                 if let Some((s,r)) = parse_role(r1.clone(), guild_id) {
@@ -405,7 +413,11 @@ command!(rr(_ctx, message, args) {
             let highest = if let Some((_, pos)) = member.highest_role_info() {
                 pos
             } else {
-                -1
+                if let Some(guild) = guild_id.to_guild_cached() {
+                    i64::max_value()
+                } else {
+                    -1
+                }
             };
             for r1 in list {
                 if let Some((s,r)) = parse_role(r1.clone(), guild_id) {
