@@ -346,7 +346,7 @@ command!(ar(_ctx, message, args) {
             };
             for r1 in list {
                 if let Some((s,r)) = parse_role(r1.clone(), guild_id) {
-                    if highest < ri.position { continue; }
+                    if highest < r.position { continue; }
                     to_add.push(s);
                 } else {
                     failed.push(format!("Could not locate {}", r1));
@@ -409,7 +409,7 @@ command!(rr(_ctx, message, args) {
             };
             for r1 in list {
                 if let Some((s,r)) = parse_role(r1.clone(), guild_id) {
-                    if highest < ri.position { continue; }
+                    if highest < r.position { continue; }
                     to_remove.push(s);
                 } else {
                     failed.push(format!("Could not locate {}", r1));
