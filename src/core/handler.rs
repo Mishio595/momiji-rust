@@ -46,7 +46,7 @@ impl EventHandler for Handler {
         LOAD_TIMERS.call_once(|| {
             if let Some(tc_lock) = data.get::<TC>() {
                 let tc = tc_lock.lock();
-                tc.load();
+                check_error!(tc.load());
             }
         });
         info!("Logged in as {}", ready.user.name);

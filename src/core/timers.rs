@@ -3,6 +3,7 @@ use core::colours;
 use core::consts::*;
 use core::consts::DB as db;
 use core::utils::*;
+use diesel::result::QueryResult;
 use serenity::model::channel::Channel;
 use serenity::model::id::*;
 use serenity::prelude::Mutex;
@@ -120,8 +121,8 @@ impl TimerClient {
         });
     }
 
-    pub fn load(&self) {
-        let timers = db.get_timers().unwrap();
+    pub fn load(&self) -> QueryResult<()> {
+        let timers = db.get_timers()?;
         for timer in timers.iter() {
             if let Some(dur) = (timer.endtime as u64).checked_sub(Utc::now().timestamp() as u64) {
                 let mut data = timer.data.clone();
@@ -138,5 +139,6 @@ impl TimerClient {
                 check_error!(tx.lock().send(data));
             }
         }
+        Ok(())
     }
 }
