@@ -257,23 +257,8 @@ command!(register(ctx, message, args) {
                 } else { message.channel_id };
                 let list = args.rest().split(",").map(|s| s.trim().to_string());
                 let mut to_add = Vec::new();
-                let highest = if let Some((_, pos)) = member.highest_role_info() {
-                    pos
-                } else {
-                    if let Some(guild) = guild_id.to_guild_cached() {
-                        let guild = guild.read();
-                        if user_id.0 == guild.owner_id.0 {
-                            i64::max_value()
-                        } else {
-                            -1
-                        }
-                    } else {
-                        -1
-                    }
-                };
                 for r1 in list {
                     if let Some((r, ri)) = parse_role(r1.clone(), guild_id) {
-                        if highest < ri.position { continue; }
                         if settings.cooldown_restricted_roles.contains(&(r.0 as i64)) { continue; }
                         to_add.push(r);
                     } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
@@ -348,23 +333,8 @@ command!(ar(_ctx, message, args) {
             let list = args.rest().split(",").map(|s| s.trim().to_string());
             let mut to_add = Vec::new();
             let mut failed = Vec::new();
-            let highest = if let Some((_, pos)) = member.highest_role_info() {
-                pos
-            } else {
-                if let Some(guild) = guild_id.to_guild_cached() {
-                    let guild = guild.read();
-                    if user_id.0 == guild.owner_id.0 {
-                        i64::max_value()
-                    } else {
-                        -1
-                    }
-                } else {
-                    -1
-                }
-            };
             for r1 in list {
                 if let Some((s,r)) = parse_role(r1.clone(), guild_id) {
-                    if highest < r.position { continue; }
                     to_add.push(s);
                 } else {
                     failed.push(format!("Could not locate {}", r1));
@@ -420,23 +390,8 @@ command!(rr(_ctx, message, args) {
             let list = args.rest().split(",").map(|s| s.trim().to_string());
             let mut to_remove = Vec::new();
             let mut failed = Vec::new();
-            let highest = if let Some((_, pos)) = member.highest_role_info() {
-                pos
-            } else {
-                if let Some(guild) = guild_id.to_guild_cached() {
-                    let guild = guild.read();
-                    if user_id.0 == guild.owner_id.0 {
-                        i64::max_value()
-                    } else {
-                        -1
-                    }
-                } else {
-                    -1
-                }
-            };
             for r1 in list {
                 if let Some((s,r)) = parse_role(r1.clone(), guild_id) {
-                    if highest < r.position { continue; }
                     to_remove.push(s);
                 } else {
                     failed.push(format!("Could not locate {}", r1));
