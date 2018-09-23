@@ -50,4 +50,4 @@ features = ["colored"]
 git = "https://github.com/Mishio595/serenity.git"
 #path = "/home/lynn/builds/serenity"
 default-features = false
-features = ["builder", "client", "cache", "framework", "standard_framework", "gateway", "http", "model", "utils", "voice"]
+features = ["builder", "client", "cache", "framework", "standard_framework", "gateway", "http", "model", "utils"]
