@@ -48,6 +48,35 @@ impl EventHandler for Handler {
                 let tc = tc_lock.lock();
                 check_error!(tc.load());
             }
+            if let Some(api) = data.get::<ApiClient> {
+                let bot_id = CACHE.read().user.id.0.clone();
+                thread::spawn(move || {
+                    loop {
+                        thread::sleep(Duration::from_secs(10 * (MIN as u64)));
+
+                        // Change role colours for Transcend
+                        if let Some(owner_role) = RoleId(348665099550195713).to_role_cached() {
+                            check_error!(owner_role.edit(|r| r
+                                .colour(thread_rng().gen_range(0,16777216))
+                            ));
+                        }
+                        if let Some(first_role) = RoleId(363398104491229184).to_role_cached() {
+                            check_error!(first_role.edit(|r| r
+                                .colour(thread_rng().gen_range(0,16777216))
+                            ));
+                        }
+                    }
+                });
+                thread::spawn(move || {
+                    loop {
+                        thread::sleep(Duration::from_secs(HOUR as u64));
+
+                        // Update DBots stats
+                        let count = CACHE.read().guilds.len();
+                        api.stats_update(bot_id, count);
+                    }
+                });
+            } else { failed!(API_FAIL); }
         });
         info!("Logged in as {}", ready.user.name);
     }
@@ -78,39 +107,6 @@ impl EventHandler for Handler {
 
         let guild_count = guilds.len();
         ctx.set_game(Game::listening(&format!("{} guilds | m!help", guild_count)));
-        let api = {
-            let data = ctx.data.lock();
-            data.get::<ApiClient>().cloned()
-        };
-        if let Some(api) = api {
-            let bot_id = CACHE.read().user.id.0.clone();
-            thread::spawn(move || {
-                loop {
-                    thread::sleep(Duration::from_secs(10 * (MIN as u64)));
-
-                    // Change role colours for Transcend
-                    if let Some(owner_role) = RoleId(348665099550195713).to_role_cached() {
-                        check_error!(owner_role.edit(|r| r
-                            .colour(thread_rng().gen_range(0,16777216))
-                        ));
-                    }
-                    if let Some(first_role) = RoleId(363398104491229184).to_role_cached() {
-                        check_error!(first_role.edit(|r| r
-                            .colour(thread_rng().gen_range(0,16777216))
-                        ));
-                    }
-                }
-            });
-            thread::spawn(move || {
-                loop {
-                    thread::sleep(Duration::from_secs(HOUR as u64));
-
-                    // Update DBots stats
-                    let count = CACHE.read().guilds.len();
-                    api.stats_update(bot_id, count);
-                }
-            });
-        } else { failed!(API_FAIL); }
         info!("Caching complete");
     }
 
