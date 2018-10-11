@@ -51,3 +51,6 @@ git = "https://github.com/Mishio595/serenity.git"
 #path = "/home/lynn/builds/serenity"
 default-features = false
 features = ["builder", "client", "cache", "framework", "standard_framework", "gateway", "http", "model", "utils"]
+
+[patch.crates-io]
+openssl = { git = "https://github.com/ishitatsuyuki/rust-openssl", branch = "0.9.x" }

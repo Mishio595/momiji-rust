@@ -258,7 +258,7 @@ command!(register(ctx, message, args) {
                 let list = args.rest().split(",").map(|s| s.trim().to_string());
                 let mut to_add = Vec::new();
                 for r1 in list {
-                    if let Some((r, ri)) = parse_role(r1.clone(), guild_id) {
+                    if let Some((r, _)) = parse_role(r1.clone(), guild_id) {
                         if settings.cooldown_restricted_roles.contains(&(r.0 as i64)) { continue; }
                         to_add.push(r);
                     } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
@@ -329,12 +329,12 @@ command!(register(ctx, message, args) {
 
 command!(ar(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
-        if let Some((user_id, mut member)) = parse_user(args.single::<String>()?, guild_id) {
+        if let Some((_, mut member)) = parse_user(args.single::<String>()?, guild_id) {
             let list = args.rest().split(",").map(|s| s.trim().to_string());
             let mut to_add = Vec::new();
             let mut failed = Vec::new();
             for r1 in list {
-                if let Some((s,r)) = parse_role(r1.clone(), guild_id) {
+                if let Some((s,_)) = parse_role(r1.clone(), guild_id) {
                     to_add.push(s);
                 } else {
                     failed.push(format!("Could not locate {}", r1));
@@ -386,12 +386,12 @@ command!(ar(_ctx, message, args) {
 
 command!(rr(_ctx, message, args) {
     if let Some(guild_id) = message.guild_id {
-        if let Some((user_id, mut member)) = parse_user(args.single::<String>()?, guild_id) {
+        if let Some((_, mut member)) = parse_user(args.single::<String>()?, guild_id) {
             let list = args.rest().split(",").map(|s| s.trim().to_string());
             let mut to_remove = Vec::new();
             let mut failed = Vec::new();
             for r1 in list {
-                if let Some((s,r)) = parse_role(r1.clone(), guild_id) {
+                if let Some((s,_)) = parse_role(r1.clone(), guild_id) {
                     to_remove.push(s);
                 } else {
                     failed.push(format!("Could not locate {}", r1));

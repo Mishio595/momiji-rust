@@ -48,7 +48,7 @@ impl EventHandler for Handler {
                 let tc = tc_lock.lock();
                 check_error!(tc.load());
             }
-            if let Some(api) = data.get::<ApiClient> {
+            if let Some(api) = data.get::<ApiClient>().cloned() {
                 let bot_id = CACHE.read().user.id.0.clone();
                 thread::spawn(move || {
                     loop {
@@ -333,6 +333,7 @@ impl EventHandler for Handler {
 
     // Join log and welcome message
     fn guild_member_addition(&self, _: Context, guild_id: GuildId, member: Member) {
+        let mut member = member;
         let mut banned = false;
         let mut reason = None;
         if let Ok(hackbans) = db.get_hackbans(guild_id.0 as i64) {
@@ -357,7 +358,7 @@ impl EventHandler for Handler {
                         let u = member.user.read();
                         (u.id, u.face(), u.tag())
                     };
-                    match db.new_user(user_id.0 as i64, guild_id.0 as i64) {
+                    match db.get_or_new_user(user_id.0 as i64, guild_id.0 as i64) {
                         Ok(mut user_data) => {
                             if guild_data.audit && guild_data.audit_channel > 0 {
                                 let audit_channel = ChannelId(guild_data.audit_channel as u64);
@@ -376,6 +377,11 @@ impl EventHandler for Handler {
                                     check_error!(send_welcome_embed(guild_data.welcome_message, &member, channel));
                                 } else {
                                     check_error!(channel.say(parse_welcome_items(guild_data.welcome_message, &member)));
+                                }
+                            }
+                            if guild_data.autorole && !guild_data.autoroles.is_empty() {
+                                for id in guild_data.autoroles.iter() {
+                                    check_error!(member.add_role(RoleId(*id as u64)));
                                 }
                             }
                             user_data.username = user_tag;
