@@ -34,8 +34,6 @@ lazy_static! {
 /// Attempts to parse a role ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached roles
 /// This method is case insensitive
-/// # Panics
-/// This method will panic if `guild` is not a valid, cached GuildId
 pub fn parse_role(input: String, guild_id: GuildId) -> Option<(RoleId, Role)> {
     match ROLE_MATCH.captures(input.as_str()) {
         Some(s) => {
@@ -68,8 +66,6 @@ pub fn parse_role(input: String, guild_id: GuildId) -> Option<(RoleId, Role)> {
 /// Attempts to parse a user ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached users
 /// This method is case insensitive
-/// # Panics
-/// This method will panic if `guild` is not a valid, cached GuildId
 pub fn parse_user(input: String, guild_id: GuildId) -> Option<(UserId, Member)> {
     match USER_MATCH.captures(input.as_str()) {
         Some(s) => {
@@ -100,8 +96,6 @@ pub fn parse_user(input: String, guild_id: GuildId) -> Option<(UserId, Member)> 
 /// Attempts to parse a channel ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached GuildChannels
 /// This method is case insensitive
-/// # Panics
-/// This method will panic if `guild` is not a valid, cached GuildId
 pub fn parse_channel(input: String, guild_id: GuildId) -> Option<(ChannelId, GuildChannel)> {
     match CHANNEL_MATCH.captures(input.as_str()) {
         Some(s) => {
