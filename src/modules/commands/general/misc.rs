@@ -709,10 +709,6 @@ impl Command for UserInfo {
 
     fn execute(&self, _: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
         if let Some(guild_id) = message.guild_id {
-            let premium = match db.get_premium(guild_id.0 as i64) {
-                Ok(_) => true,
-                Err(_) => false,
-            };
             let (user, member) = match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
                 Some((id, member)) => (id.to_user()?, member),
                 None => (message.author.clone(), message.member().ok_or("Failed to get member.")?),
@@ -727,13 +723,23 @@ impl Command for UserInfo {
             roles.sort();
             let dates = format!(
                 "Created: {}\nJoined: {}{}",
-                user.created_at().format("%a, %d %h %Y @ %H:%M:%S").to_string(),
-                member.joined_at.and_then(|t| Some(t.with_timezone(&Utc))).unwrap_or(Utc::now()).format("%a, %d %h %Y @ %H:%M:%S").to_string(),
-                if premium {
-                    let r = user_data.registered;
-                    if r.is_some() { format!("\nRegistered: {}", r.unwrap().format("%a, %d %h %Y @ %H:%M:%S").to_string()) }
-                    else { String::new() }}
-                else { String::new() }
+                user.created_at()
+                    .format("%a, %d %h %Y @ %H:%M:%S")
+                    .to_string(),
+                member.joined_at
+                    .and_then(|t| Some(t.with_timezone(&Utc)))
+                    .unwrap_or(Utc::now())
+                    .format("%a, %d %h %Y @ %H:%M:%S")
+                    .to_string(),
+                db.get_premium(guild_id.0 as i64)
+                    .map(|_| {
+                        user_data.registered.map_or(String::new(), |r| {
+                            format!("\nRegistered: {}", r
+                                .format("%a, %d %h %Y @ %H:%M:%S")
+                                .to_string())
+                        })
+                    })
+                    .unwrap_or(String::new())
             );
             message.channel_id.send_message(|m| m
                 .embed(|e| e
