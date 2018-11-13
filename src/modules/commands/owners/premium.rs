@@ -1,24 +1,26 @@
 use core::consts::DB as db;
 use core::utils::parse_guild;
-use std::path::Path;
 use serenity::framework::standard::{
     Args,
     Command,
     CommandError,
+    CommandOptions
 };
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
-
-pub struct Log;
-impl Command for Log {
-    fn execute(&self, _: &mut Context, message: &Message, _: Args) -> Result<(), CommandError> {
-        message.channel_id.send_files(vec![Path::new("./output.log")], |m| m)?;
-        Ok(())
-    }
-}
+use std::sync::Arc;
 
 pub struct Premium;
 impl Command for Premium {
+    fn options(&self) -> Arc<CommandOptions> {
+        let default = CommandOptions::default();
+        let options = CommandOptions {
+            owners_only: true,
+            ..default
+        };
+        Arc::new(options)
+    }
+
     fn execute(&self, _: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
         let op = args.single::<String>()?;
         let g = args.single_quoted::<String>()?;
