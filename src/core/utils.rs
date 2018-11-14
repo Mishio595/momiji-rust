@@ -183,53 +183,53 @@ pub fn get_switches(input: String) -> HashMap<String, String> {
 /// `3 days 2 hours 23 seconds`
 /// `7w2d4h`
 pub fn hrtime_to_seconds(time: String) -> i64 {
-    let mut secs: usize = 0;
-    for s in TIME.captures_iter(time.as_str()) {
-        if let Ok(count) = s[1].parse::<usize>() {
-            match &s[2] {
-                "w" => { secs += count*WEEK },
-                "d" => { secs += count*DAY },
-                "h" => { secs += count*HOUR },
-                "m" => { secs += count*MIN },
-                "s" => { secs += count },
-                _ => {},
+    TIME.captures_iter(time.as_str())
+        .fold(0, |acc, s| {
+            match s[1].parse::<i64>() {
+                Err(_) => acc,
+                Ok(c) => {
+                    match &s[2] {
+                        "w" => acc + (c * WEEK as i64),
+                        "d" => acc + (c * DAY as i64),
+                        "h" => acc + (c * HOUR as i64),
+                        "m" => acc + (c * MIN as i64),
+                        "s" => acc + c,
+                        _ => acc,
+                    }
+                },
             }
-        }
-    }
-    secs as i64
+        })
 }
 
 /// Converts a time in seconds to a human readable string
-pub fn seconds_to_hrtime(mut secs: usize) -> String {
-    let mut time = [0,0,0,0,0];
+pub fn seconds_to_hrtime(secs: usize) -> String {
     let word = ["week", "day", "hour", "min", "sec"];
-    while secs>0 {
-        if secs>=WEEK {
-            time[0] += 1;
-            secs -= WEEK;
-        } else if secs>=DAY {
-            time[1] += 1;
-            secs -= DAY;
-        } else if secs>=HOUR {
-            time[2] += 1;
-            secs -= HOUR;
-        } else if secs>=MIN {
-            time[3] += 1;
-            secs -= MIN;
-        } else {
-            time[4] += secs;
-            secs -= secs;
+    fn make_parts(t: usize, steps: &[usize], mut accum: Vec<usize>) -> Vec<usize> {
+        match steps.split_first() {
+            None => accum,
+            Some((s, steps)) => {
+                accum.push(t / *s);
+                make_parts(t % *s, steps, accum)
+            },
         }
     }
-    let mut parts = Vec::new();
-    for i in 0..5 {
-        if time[i]>1 {
-            parts.push(format!("{} {}s", time[i], word[i]));
-        } else if time[i]>0 {
-            parts.push(format!("{} {}", time[i], word[i]));
-        }
-    }
-    parts.join(", ")
+    
+    make_parts(secs, &[WEEK, DAY, HOUR, MIN, 1], Vec::new())
+        .iter()
+        .enumerate()
+        .filter_map(|(i, s)| {
+            if s > &0 {
+                if s > &1 {
+                    Some(format!("{} {}s", s, word[i]))
+                } else {
+                    Some(format!("{} {}", s, word[i]))
+                }
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<String>>()
+        .join(", ")
 }
 
 pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member) -> String {
