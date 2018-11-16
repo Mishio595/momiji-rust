@@ -64,14 +64,14 @@ impl Command for BotInfo {
                 .embed(|e| e
                     .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
                     .field("Owner", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
-                    .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Git](https://gitlab.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
+                    .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[GitLab](https://gitlab.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
                     .field("Counts", format!("Guilds: {}\nShards: {}", guild_count, shard_count), false)
-                    .field("System Info", format!("OS: {} {}\nUptime: {}",
+                    .field("System Info", format!("Type: {} {}\nUptime: {}",
                         sys_info::os_type().unwrap_or(String::from("OS Not Found")),
                         sys_info::os_release().unwrap_or(String::from("Release Not Found")),
                         seconds_to_hrtime(sys.get_uptime() as usize)), true)
-                    .field("Process Info", format!("Memory Usage: {} mB\nCPU Usage {}%\nUptime: {}",
-                        process.memory()/1000, // convert to mB
+                    .field("Process Info", format!("Memory Usage: {} MB\nCPU Usage {}%\nUptime: {}",
+                        process.memory()/1000, // convert to MB
                         (process.cpu_usage()*100.0).round()/100.0, // round to 2 decimals
                         seconds_to_hrtime((sys.get_uptime() - process.start_time()) as usize)), true)
                     .thumbnail(thumbnail)
