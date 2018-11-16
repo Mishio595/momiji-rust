@@ -36,7 +36,7 @@ impl Command for Register {
 
     fn execute(&self, ctx: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
         if let Some(guild_id) = message.guild_id {
-            let settings = db.get_premium(guild_id.0 as i64)?;
+            let settings = db.get_premium(guild_id.0 as i64).map_err(|_| "Premium is required to use this command.")?;
             let guild_data = db.get_guild(guild_id.0 as i64)?;
             let roles = db.get_roles(guild_id.0 as i64)?;
             match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
