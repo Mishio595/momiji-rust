@@ -121,9 +121,9 @@ impl ApiClient {
         headers.set(Authorization(env::var("DBOTS_TOKEN").expect("No DiscordBots.org token in env")));
 
         let stats = [("server_count", server_count)];
-        let _ = self.client.post(format!("{}/{}/stats",DBOTS, bot_id).as_str())
+        check_error!(self.client.post(format!("{}/{}/stats", DBOTS, bot_id).as_str())
             .json(&stats)
-            .send();
+            .send());
     }
 
     pub fn dog(&self) -> ReqwestResult<Dog> {

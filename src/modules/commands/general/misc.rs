@@ -200,7 +200,7 @@ impl Command for Anime {
                 };
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
-                        .title(format!("**{}**", anime.attributes.canonical_title.clone()))
+                        .title(anime.attributes.canonical_title.clone())
                         .url(anime.url())
                         .description(format!("{}\n\n{}\n**Score:** {}\n**Status:** {}",
                             anime.attributes.synopsis,
@@ -262,7 +262,7 @@ impl Command for Manga {
                 };
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
-                        .title(format!("**{}**", manga.attributes.canonical_title.clone()))
+                        .title(manga.attributes.canonical_title.clone())
                         .url(manga.url())
                         .description(format!("{}\n\n**Volumes:** {}\n**Chapters:** {}\n**Score:** {}\n**Status:** {}",
                             manga.attributes.synopsis,
