@@ -68,18 +68,17 @@ impl Command for Register {
                         member.add_role(RoleId(role as u64))?;
                         if let Some(member_role) = settings.register_member_role {
                             let data = ctx.data.lock();
-                            if let Some(tc_lock) = data.get::<TC>() {
-                                let tc = tc_lock.lock();
-                                tc.request(format!("COOLDOWN||{}||{}||{}||{}",
-                                    user_id.0,
-                                    guild_id.0,
-                                    member_role,
-                                    role,
-                                ), match settings.register_cooldown_duration {
-                                    Some(dur) => dur as u64,
-                                    None => DAY as u64,
-                                });
-                            }
+                            let tc_lock = data.get::<TC>().ok_or("Failed to obtain timer client.")?;
+                            let tc = tc_lock.lock();
+                            tc.request(format!("COOLDOWN||{}||{}||{}||{}",
+                                user_id.0,
+                                guild_id.0,
+                                member_role,
+                                role,
+                            ), match settings.register_cooldown_duration {
+                                Some(dur) => dur as u64,
+                                None => DAY as u64,
+                            });
                         }
                     } else if let Some(role) = settings.register_member_role {
                         member.add_role(RoleId(role as u64))?;
