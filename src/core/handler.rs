@@ -110,22 +110,8 @@ impl EventHandler for Handler {
         info!("Caching complete");
     }
 
-    // Handle XP and last_message
-    fn message(&self, _: Context, message: Message) {
-        // These are only relevant in a guild context and for non-bots
-        if message.author.bot { return; }
-        if message.is_private() { return; }
-        if let Some(guild_id) = message.guild_id {
-            if let Ok(mut user_data) = db.get_or_new_user(message.author.id.0 as i64, guild_id.0 as i64) {
-                let now = message.timestamp.with_timezone(&Utc);
-                let diff = now.timestamp() - user_data.last_message.timestamp();
-                user_data.last_message = now;
-                if diff > MIN as i64 {
-                    user_data.xp += 1;
-                }
-                check_error!(db.update_user(message.author.id.0 as i64, guild_id.0 as i64, user_data));
-            }
-        } else { failed!(GUILDID_FAIL); }
+    fn message(&self, _: Context, _message: Message) {
+        // Much empty
     }
 
     fn message_delete(&self, _: Context, channel_id: ChannelId, message_id: MessageId) {
@@ -231,9 +217,9 @@ impl EventHandler for Handler {
         if let Some(guild_id) = event.guild_id {
             match event.presence.user {
                 Some(ref user_lock) => {
-                    let (user_bot, user_tag, user_face) = {
+                    let (user_bot, user_tag, user_face, user_name) = {
                         let u = user_lock.read();
-                        (u.bot, u.tag(), u.face())
+                        (u.bot, u.tag(), u.face(), u.name.clone())
                     };
                     if !user_bot {
                         if guild_id == TRANSCEND {
@@ -255,7 +241,7 @@ impl EventHandler for Handler {
                                 }
                             } else { failed!(MEMBER_FAIL); }
                         }
-                        if let Ok(mut user_data) = db.get_or_new_user(event.presence.user_id.0 as i64, guild_id.0 as i64) {
+                        if let Ok(mut user_data) = db.get_or_upsert_user(event.presence.user_id.0 as i64, guild_id.0 as i64, user_name) {
                             if user_tag != user_data.username && user_data.username != String::new() {
                                 if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
                                     if guild_data.logging.contains(&String::from("username_change")) { return; }
@@ -332,18 +318,13 @@ impl EventHandler for Handler {
     }
 
     // Join log and welcome message
-    fn guild_member_addition(&self, _: Context, guild_id: GuildId, member: Member) {
-        let mut member = member;
-        let mut banned = false;
-        let mut reason = None;
-        if let Ok(hackbans) = db.get_hackbans(guild_id.0 as i64) {
-            hackbans.iter().for_each(|e| {
-                if e.id as u64 == member.user.read().id.0 {
-                    banned = true;
-                    reason = e.reason.clone();
-                }
-            });
-        }
+    fn guild_member_addition(&self, _: Context, guild_id: GuildId, mut member: Member) {
+        let (banned, reason) = {
+            let user_id = member.user.read().id.0;
+            db.get_hackban(user_id as i64, guild_id.0 as i64)
+            .map(|ban| (true, ban.reason.clone()))
+            .unwrap_or((false, None))
+        };
         if banned {
             if let Some(ref r) = reason {
                 check_error!(member.ban::<String>(r));
@@ -354,11 +335,11 @@ impl EventHandler for Handler {
             match db.get_guild(guild_id.0 as i64) {
                 Ok(guild_data) => {
                     if guild_data.logging.contains(&String::from("member_join")) { return; }
-                    let (user_id, user_face, user_tag) = {
+                    let (user_id, user_face, user_tag, user_name) = {
                         let u = member.user.read();
-                        (u.id, u.face(), u.tag())
+                        (u.id, u.face(), u.tag(), u.name.clone())
                     };
-                    match db.get_or_new_user(user_id.0 as i64, guild_id.0 as i64) {
+                    match db.get_or_upsert_user(user_id.0 as i64, guild_id.0 as i64, user_name) {
                         Ok(mut user_data) => {
                             if guild_data.audit && guild_data.audit_channel > 0 {
                                 let audit_channel = ChannelId(guild_data.audit_channel as u64);

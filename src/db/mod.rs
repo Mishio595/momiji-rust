@@ -168,9 +168,16 @@ impl Database {
             .execute(self.conn().deref())
     }
     /// Gets a user, if it exists. Otherwise makes a new row and returns it
-    pub fn get_or_new_user(&self, u_id: i64, g_id: i64) -> QueryResult<User<Utc>> {
-        self.get_user(u_id, g_id).or_else(|_|
-            self.new_user(u_id, g_id))
+    pub fn get_or_upsert_user(&self, u_id: i64, g_id: i64, name: String) -> QueryResult<User<Utc>> {
+        self.get_user(u_id, g_id)
+            .or_else(|_| {
+                let update = UserUpdate {
+                    id: u_id,
+                    guild_id: g_id,
+                    username: name
+                };
+                self.upsert_user(update)
+            })
     }
 
     // Role Tools
@@ -437,6 +444,12 @@ impl Database {
             .filter(id.eq(&h_id))
             .filter(guild_id.eq(&g_id))
             .get_result(self.conn().deref())
+    }
+    /// Select a Hackban
+    /// Returns the Hackban on success
+    pub fn get_hackban(&self, id: i64, g_id: i64) -> QueryResult<Hackban> {
+        hackbans::table.find((id, g_id))
+            .first(self.conn().deref())
     }
     /// Select all hackbans by guild
     /// Returns Vec<Hackban> on success on success
