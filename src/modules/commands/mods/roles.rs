@@ -36,7 +36,7 @@ impl Command for Register {
 
     fn execute(&self, ctx: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
         if let Some(guild_id) = message.guild_id {
-            let settings = db.get_premium(guild_id.0 as i64)?;
+            let settings = db.get_premium(guild_id.0 as i64).map_err(|_| "Premium is required to use this command.")?;
             let guild_data = db.get_guild(guild_id.0 as i64)?;
             let roles = db.get_roles(guild_id.0 as i64)?;
             match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
@@ -68,18 +68,17 @@ impl Command for Register {
                         member.add_role(RoleId(role as u64))?;
                         if let Some(member_role) = settings.register_member_role {
                             let data = ctx.data.lock();
-                            if let Some(tc_lock) = data.get::<TC>() {
-                                let tc = tc_lock.lock();
-                                tc.request(format!("COOLDOWN||{}||{}||{}||{}",
-                                    user_id.0,
-                                    guild_id.0,
-                                    member_role,
-                                    role,
-                                ), match settings.register_cooldown_duration {
-                                    Some(dur) => dur as u64,
-                                    None => DAY as u64,
-                                });
-                            }
+                            let tc_lock = data.get::<TC>().ok_or("Failed to obtain timer client.")?;
+                            let tc = tc_lock.lock();
+                            tc.request(format!("COOLDOWN||{}||{}||{}||{}",
+                                user_id.0,
+                                guild_id.0,
+                                member_role,
+                                role,
+                            ), match settings.register_cooldown_duration {
+                                Some(dur) => dur as u64,
+                                None => DAY as u64,
+                            });
                         }
                     } else if let Some(role) = settings.register_member_role {
                         member.add_role(RoleId(role as u64))?;

@@ -64,14 +64,14 @@ impl Command for BotInfo {
                 .embed(|e| e
                     .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
                     .field("Owner", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
-                    .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[Git](https://gitlab.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
+                    .field("Links", "[Momiji's House](https://discord.gg/YYdpsNc)\n[Invite](https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025)\n[GitLab](https://gitlab.com/Mishio595/momiji-rust)\n[Patreon](https://www.patreon.com/momijibot)", true)
                     .field("Counts", format!("Guilds: {}\nShards: {}", guild_count, shard_count), false)
-                    .field("System Info", format!("OS: {} {}\nUptime: {}",
+                    .field("System Info", format!("Type: {} {}\nUptime: {}",
                         sys_info::os_type().unwrap_or(String::from("OS Not Found")),
                         sys_info::os_release().unwrap_or(String::from("Release Not Found")),
                         seconds_to_hrtime(sys.get_uptime() as usize)), true)
-                    .field("Process Info", format!("Memory Usage: {} mB\nCPU Usage {}%\nUptime: {}",
-                        process.memory()/1000, // convert to mB
+                    .field("Process Info", format!("Memory Usage: {} MB\nCPU Usage {}%\nUptime: {}",
+                        process.memory()/1000, // convert to MB
                         (process.cpu_usage()*100.0).round()/100.0, // round to 2 decimals
                         seconds_to_hrtime((sys.get_uptime() - process.start_time()) as usize)), true)
                     .thumbnail(thumbnail)
@@ -200,7 +200,7 @@ impl Command for Anime {
                 };
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
-                        .title(format!("**{}**", anime.attributes.canonical_title.clone()))
+                        .title(anime.attributes.canonical_title.clone())
                         .url(anime.url())
                         .description(format!("{}\n\n{}\n**Score:** {}\n**Status:** {}",
                             anime.attributes.synopsis,
@@ -262,7 +262,7 @@ impl Command for Manga {
                 };
                 message.channel_id.send_message(|m| m
                     .embed(|e| e
-                        .title(format!("**{}**", manga.attributes.canonical_title.clone()))
+                        .title(manga.attributes.canonical_title.clone())
                         .url(manga.url())
                         .description(format!("{}\n\n**Volumes:** {}\n**Chapters:** {}\n**Score:** {}\n**Status:** {}",
                             manga.attributes.synopsis,
@@ -709,10 +709,6 @@ impl Command for UserInfo {
 
     fn execute(&self, _: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
         if let Some(guild_id) = message.guild_id {
-            let premium = match db.get_premium(guild_id.0 as i64) {
-                Ok(_) => true,
-                Err(_) => false,
-            };
             let (user, member) = match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
                 Some((id, member)) => (id.to_user()?, member),
                 None => (message.author.clone(), message.member().ok_or("Failed to get member.")?),
@@ -727,13 +723,23 @@ impl Command for UserInfo {
             roles.sort();
             let dates = format!(
                 "Created: {}\nJoined: {}{}",
-                user.created_at().format("%a, %d %h %Y @ %H:%M:%S").to_string(),
-                member.joined_at.and_then(|t| Some(t.with_timezone(&Utc))).unwrap_or(Utc::now()).format("%a, %d %h %Y @ %H:%M:%S").to_string(),
-                if premium {
-                    let r = user_data.registered;
-                    if r.is_some() { format!("\nRegistered: {}", r.unwrap().format("%a, %d %h %Y @ %H:%M:%S").to_string()) }
-                    else { String::new() }}
-                else { String::new() }
+                user.created_at()
+                    .format("%a, %d %h %Y @ %H:%M:%S")
+                    .to_string(),
+                member.joined_at
+                    .and_then(|t| Some(t.with_timezone(&Utc)))
+                    .unwrap_or(Utc::now())
+                    .format("%a, %d %h %Y @ %H:%M:%S")
+                    .to_string(),
+                db.get_premium(guild_id.0 as i64)
+                    .map(|_| {
+                        user_data.registered.map_or(String::new(), |r| {
+                            format!("\nRegistered: {}", r
+                                .format("%a, %d %h %Y @ %H:%M:%S")
+                                .to_string())
+                        })
+                    })
+                    .unwrap_or(String::new())
             );
             message.channel_id.send_message(|m| m
                 .embed(|e| e
