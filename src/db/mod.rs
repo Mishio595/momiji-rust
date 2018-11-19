@@ -167,18 +167,6 @@ impl Database {
                 roles.eq(excluded(roles))))
             .execute(self.conn().deref())
     }
-    /// Gets a user, if it exists. Otherwise makes a new row and returns it
-    pub fn get_or_upsert_user(&self, u_id: i64, g_id: i64, name: String) -> QueryResult<User<Utc>> {
-        self.get_user(u_id, g_id)
-            .or_else(|_| {
-                let update = UserUpdate {
-                    id: u_id,
-                    guild_id: g_id,
-                    username: name
-                };
-                self.upsert_user(update)
-            })
-    }
 
     // Role Tools
     /// Add a role with the given role ID, guild ID, and optionally a category and aliases.

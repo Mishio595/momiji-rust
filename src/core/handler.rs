@@ -217,7 +217,7 @@ impl EventHandler for Handler {
         if let Some(guild_id) = event.guild_id {
             match event.presence.user {
                 Some(ref user_lock) => {
-                    let (user_bot, user_tag, user_face, user_name) = {
+                    let (user_bot, user_tag, user_face, username) = {
                         let u = user_lock.read();
                         (u.bot, u.tag(), u.face(), u.name.clone())
                     };
@@ -241,7 +241,12 @@ impl EventHandler for Handler {
                                 }
                             } else { failed!(MEMBER_FAIL); }
                         }
-                        if let Ok(mut user_data) = db.get_or_upsert_user(event.presence.user_id.0 as i64, guild_id.0 as i64, user_name) {
+                        let user_update = UserUpdate {
+                            id: event.presence.user_id.0 as i64,
+                            guild_id: guild_id.0 as i64,
+                            username
+                        };
+                        if let Ok(mut user_data) = db.upsert_user(user_update) {
                             if user_tag != user_data.username && user_data.username != String::new() {
                                 if let Ok(guild_data) = db.get_guild(guild_id.0 as i64) {
                                     if guild_data.logging.contains(&String::from("username_change")) { return; }
@@ -322,8 +327,8 @@ impl EventHandler for Handler {
         let (banned, reason) = {
             let user_id = member.user.read().id.0;
             db.get_hackban(user_id as i64, guild_id.0 as i64)
-            .map(|ban| (true, ban.reason.clone()))
-            .unwrap_or((false, None))
+                .map(|ban| (true, ban.reason.clone()))
+                .unwrap_or((false, None))
         };
         if banned {
             if let Some(ref r) = reason {
@@ -335,11 +340,16 @@ impl EventHandler for Handler {
             match db.get_guild(guild_id.0 as i64) {
                 Ok(guild_data) => {
                     if guild_data.logging.contains(&String::from("member_join")) { return; }
-                    let (user_id, user_face, user_tag, user_name) = {
+                    let (user_id, user_face, user_tag, username) = {
                         let u = member.user.read();
                         (u.id, u.face(), u.tag(), u.name.clone())
                     };
-                    match db.get_or_upsert_user(user_id.0 as i64, guild_id.0 as i64, user_name) {
+                    let user_update = UserUpdate {
+                        id: user_id.0 as i64,
+                        guild_id: guild_id.0 as i64,
+                        username
+                    };
+                    match db.upsert_user(user_update) {
                         Ok(mut user_data) => {
                             if guild_data.audit && guild_data.audit_channel > 0 {
                                 let audit_channel = ChannelId(guild_data.audit_channel as u64);
