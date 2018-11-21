@@ -99,6 +99,12 @@ impl Database {
             .set(&guild)
             .get_result(self.conn().deref())
     }
+    /// Get the count of guilds in the database
+    pub fn count_guilds(&self) -> QueryResult<i64> {
+        use diesel::dsl::count_star;
+        guilds::table.select(count_star())
+            .get_result(self.conn().deref())
+    }
 
     // User Tools
     /// Add a user with a given user ID and guild ID.
@@ -167,6 +173,12 @@ impl Database {
                 roles.eq(excluded(roles))))
             .execute(self.conn().deref())
     }
+    /// Get the count of users in the database
+    pub fn count_users(&self) -> QueryResult<i64> {
+        use diesel::dsl::count_star;
+        users::table.select(count_star())
+            .get_result(self.conn().deref())
+    }
 
     // Role Tools
     /// Add a role with the given role ID, guild ID, and optionally a category and aliases.
@@ -213,6 +225,12 @@ impl Database {
             .set(&role)
             .get_result(self.conn().deref())
     }
+    /// Get the count of roles in the database
+    pub fn count_roles(&self) -> QueryResult<i64> {
+        use diesel::dsl::count_star;
+        roles::table.select(count_star())
+            .get_result(self.conn().deref())
+    }
 
     // Note Tools
     /// Add a note to the given user in the given guild by a given moderator
@@ -254,6 +272,12 @@ impl Database {
             .filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
     }
+    /// Get the count of notes in the database
+    pub fn count_notes(&self) -> QueryResult<i64> {
+        use diesel::dsl::count_star;
+        notes::table.select(count_star())
+            .get_result(self.conn().deref())
+    }
 
     // Timer Tools
     /// Add a timer
@@ -288,6 +312,12 @@ impl Database {
     /// Returns a vec of timers on success
     pub fn get_timers(&self) -> QueryResult<Vec<Timer>> {
         timers::table.get_results(self.conn().deref())
+    }
+    /// Get the count of timers in the database
+    pub fn count_timers(&self) -> QueryResult<i64> {
+        use diesel::dsl::count_star;
+        timers::table.select(count_star())
+            .get_result(self.conn().deref())
     }
 
     // Case Tools
@@ -329,6 +359,12 @@ impl Database {
         cases::table.filter(user_id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
+    }
+    /// Get the count of cases in the database
+    pub fn count_cases(&self) -> QueryResult<i64> {
+        use diesel::dsl::count_star;
+        cases::table.select(count_star())
+            .get_result(self.conn().deref())
     }
 
     // Tag Tools
@@ -375,6 +411,13 @@ impl Database {
             .set(&tag)
             .get_result(self.conn().deref())
     }
+    /// Get the count of tags in the database
+    pub fn count_tags(&self) -> QueryResult<i64> {
+        use diesel::dsl::count_star;
+        tags::table.select(count_star())
+            .get_result(self.conn().deref())
+    }
+
     // Premium Tools
     /// Add premium with a given guild ID.
     /// Returns the PremiumSettings on success.
@@ -408,6 +451,12 @@ impl Database {
         let target = premium::table.find(&g_id);
         diesel::update(target)
             .set(&settings)
+            .get_result(self.conn().deref())
+    }
+    /// Get the count of guilds with premium in the database
+    pub fn count_premium(&self) -> QueryResult<i64> {
+        use diesel::dsl::count_star;
+        premium::table.select(count_star())
             .get_result(self.conn().deref())
     }
 
@@ -445,5 +494,11 @@ impl Database {
         use db::schema::hackbans::columns::guild_id;
         hackbans::table.filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
+    }
+    /// Get the count of hackbans in the database
+    pub fn count_hackbans(&self) -> QueryResult<i64> {
+        use diesel::dsl::count_star;
+        hackbans::table.select(count_star())
+            .get_result(self.conn().deref())
     }
 }

@@ -882,3 +882,73 @@ impl Command for Weather {
         Ok(())
     }
 }
+
+pub struct Stats;
+impl Command for Stats {
+    fn options(&self) -> Arc<CommandOptions> {
+        let default = CommandOptions::default();
+        let options = CommandOptions {
+            desc: Some("Display some interesting, but useless statistics.".to_string()),
+            ..default
+        };
+        Arc::new(options)
+    }
+
+    fn execute(&self, _: &mut Context, message: &Message, _: Args) -> Result<(), CommandError> {
+        let (cached_guilds
+            ,cached_channels
+            ,cached_users
+            ,cached_messages) = {
+                let cache = CACHE.read();
+                (cache.guilds.len()
+                ,cache.channels.len()
+                ,cache.users.len()
+                ,cache.messages.len())
+            };
+        let (db_guilds
+            ,db_users
+            ,db_notes
+            ,db_roles
+            ,db_timers
+            ,db_cases
+            ,db_tags
+            ,db_hackbans
+            ,db_premium) = {
+                (db.count_guilds().unwrap_or(-1)
+                ,db.count_users().unwrap_or(-1)
+                ,db.count_notes().unwrap_or(-1)
+                ,db.count_roles().unwrap_or(-1)
+                ,db.count_timers().unwrap_or(-1)
+                ,db.count_cases().unwrap_or(-1)
+                ,db.count_tags().unwrap_or(-1)
+                ,db.count_hackbans().unwrap_or(-1)
+                ,db.count_premium().unwrap_or(-1)
+                )
+            };
+        message.channel_id.send_message(|m| m
+            .embed(|e| e
+                .title("Bot Stats")
+                .field("Cache", format!(
+                    "Guilds: {}\nChannels: {}\nUsers: {}\nMessages: {}"
+                    ,cached_guilds
+                    ,cached_channels
+                    ,cached_users
+                    ,cached_messages
+                ), false)
+                .field("Database", format!(
+                    "Guilds: {}\nUsers: {}\nNotes: {}\nSelf Roles: {}\nTimers: {}\nCases: {}\nTags: {}\nHackbans: {}\nPremium Guilds: {}"
+                    ,db_guilds
+                    ,db_users
+                    ,db_notes
+                    ,db_roles
+                    ,db_timers
+                    ,db_cases
+                    ,db_tags
+                    ,db_hackbans
+                    ,db_premium
+                ), false)
+                .field("More coming soon", "...", false)
+        ))?;
+        Ok(())
+    }
+}

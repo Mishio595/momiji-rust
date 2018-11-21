@@ -29,6 +29,7 @@ pub fn init_misc() -> CreateGroup{
         .cmd("urban", Urban)
         .cmd("userinfo", UserInfo)
         .cmd("weather", Weather)
+        .cmd("stats", Stats)
 }
 
 pub fn init_nsfw() -> CreateGroup {
