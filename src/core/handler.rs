@@ -244,7 +244,7 @@ impl EventHandler for Handler {
                         let user_update = UserUpdate {
                             id: event.presence.user_id.0 as i64,
                             guild_id: guild_id.0 as i64,
-                            username
+                            username: user_tag
                         };
                         if let Ok(mut user_data) = db.upsert_user(user_update) {
                             if user_tag != user_data.username && user_data.username != String::new() {
