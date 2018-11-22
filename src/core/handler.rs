@@ -217,9 +217,9 @@ impl EventHandler for Handler {
         if let Some(guild_id) = event.guild_id {
             match event.presence.user {
                 Some(ref user_lock) => {
-                    let (user_bot, user_tag, user_face, username) = {
+                    let (user_bot, user_tag, user_face) = {
                         let u = user_lock.read();
-                        (u.bot, u.tag(), u.face(), u.name.clone())
+                        (u.bot, u.tag(), u.face())
                     };
                     if !user_bot {
                         if guild_id == TRANSCEND {
@@ -244,7 +244,7 @@ impl EventHandler for Handler {
                         let user_update = UserUpdate {
                             id: event.presence.user_id.0 as i64,
                             guild_id: guild_id.0 as i64,
-                            username: user_tag
+                            username: user_tag.clone()
                         };
                         if let Ok(mut user_data) = db.upsert_user(user_update) {
                             if user_tag != user_data.username && user_data.username != String::new() {
