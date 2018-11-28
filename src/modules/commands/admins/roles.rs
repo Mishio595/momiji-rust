@@ -29,23 +29,36 @@ impl Command for CreateSelfRole {
 
     fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
         if let Some(guild_id) = message.guild_id {
-            let switches = get_switches(args.full().to_string());
+            let switches = get_switches(args
+                .full()
+                .to_string());
             let backup = String::new();
-            let rest = switches.get("rest").unwrap_or(&backup);
-            if let Some((role_id, _)) = parse_role(rest.clone(), guild_id) {
-                let category = match switches.get("c") {
-                    Some(s) => Some( s.clone()),
-                    None => None,
-                };
-                let aliases = match switches.get("a") {
-                    Some(s) => Some(s.split(",").map(|c| c.trim().to_string().to_lowercase()).collect::<Vec<String>>()),
-                    None => None,
-                };
-                let data = db.new_role(role_id.0 as i64, guild_id.0 as i64, category, aliases)?;
-                message.channel_id.say(format!("Successfully added role {} to category {} {}",
-                    data.id,
-                    data.category,
-                    if !data.aliases.is_empty() {
+            let rest = switches
+                .get("rest")
+                .unwrap_or(&backup);
+            if let Some((role_id, role)) = parse_role(rest.clone(), guild_id) {
+                let category = switches
+                    .get("c")
+                    .cloned();
+                let aliases: Option<Vec<String>> = switches
+                    .get("a")
+                    .map(|s| s
+                        .split(",")
+                        .map(|c| c
+                            .trim()
+                            .to_string()
+                            .to_lowercase())
+                    .collect());
+                let data = db.new_role(
+                    role_id.0 as i64,
+                    guild_id.0 as i64,
+                    category,
+                    aliases)?;
+                message.channel_id.say(format!(
+                    "Successfully added role {} to category {} {}"
+                    ,role.name
+                    ,data.category
+                    ,if !data.aliases.is_empty() {
                         format!("with aliases {}", data.aliases.join(","))
                     } else {
                         String::new()
@@ -76,9 +89,9 @@ impl Command for DeleteSelfRole {
 
     fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
         if let Some(guild_id) = message.guild_id {
-            if let Some((role_id, _)) = parse_role(args.full().to_string(), guild_id) {
-                let data = db.del_role(role_id.0 as i64, guild_id.0 as i64)?;
-                message.channel_id.say(format!("Successfully deleted role {}", data))?;
+            if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id) {
+                db.del_role(role_id.0 as i64, guild_id.0 as i64)?;
+                message.channel_id.say(format!("Successfully deleted role {}", role.name))?;
             } else { message.channel_id.say("I couldn't find that role.")?; }
         } else {
             failed!(GUILDID_FAIL);
@@ -107,15 +120,19 @@ impl Command for EditSelfRole {
             let switches = get_switches(args.full().to_string());
             let backup = String::new();
             let rest = switches.get("rest").unwrap_or(&backup);
-            if let Some((role_id, _)) = parse_role(rest.clone(), guild_id) {
-                let category = match switches.get("c") {
-                    Some(s) => Some(s.clone()),
-                    None => None,
-                };
-                let aliases = match switches.get("a") {
-                    Some(s) => Some(s.split(",").map(|c| c.trim().to_string().to_lowercase()).collect::<Vec<String>>()),
-                    None => None,
-                };
+            if let Some((role_id, d_role)) = parse_role(rest.clone(), guild_id) {
+                let category = switches
+                    .get("c")
+                    .cloned();
+                let aliases: Option<Vec<String>> = switches
+                    .get("a")
+                    .map(|s| s
+                        .split(",")
+                        .map(|c| c
+                            .trim()
+                            .to_string()
+                            .to_lowercase())
+                    .collect());
                 let mut role = db.get_role(role_id.0 as i64, guild_id.0 as i64)?;
                 if let Some(s) = category { role.category = s; }
                 if let Some(mut a) = aliases {
@@ -126,7 +143,7 @@ impl Command for EditSelfRole {
                 }
                 let data = db.update_role(role_id.0 as i64, guild_id.0 as i64, role)?;
                 message.channel_id.say(format!("Successfully update role {} in category {} {}",
-                    data.id,
+                    d_role.name,
                     data.category,
                     if !data.aliases.is_empty() {
                         format!("with aliases {}", data.aliases.join(","))
