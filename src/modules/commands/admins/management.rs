@@ -128,7 +128,7 @@ impl Command for SetupMute {
     fn options(&self) -> Arc<CommandOptions> {
         let default = CommandOptions::default();
         let options = CommandOptions {
-            desc: Some("Sets up mute for the server. This command requires the Manage Channels and Manage Roles permissions. It creates the Muted role if it doesn't exist, then iterates through every channel and category to disable Send Messages, Speak, and Add Reactions.".to_string()),
+            desc: Some("Sets up mute for the server. This command requires the Manage Channels and Manage Roles permissions. It creates the Muted role if it doesn't exist, then iterates through every channel and category to disable Send Messages, Speak, and Add Reactions. Add `bypass` as an arg to skip permission setting.".to_string()),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
