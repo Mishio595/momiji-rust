@@ -135,7 +135,7 @@ impl Command for SetupMute {
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
+    fn execute(&self, _: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
         if let Some(guild_id) = message.guild_id {
             let guild = {
                 let cache = CACHE.read();
