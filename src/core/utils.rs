@@ -285,7 +285,7 @@ pub fn send_welcome_embed(input: String, member: &Member, channel: ChannelId) ->
                                     e = e.thumbnail(user.face());
                                 },
                                 "guild" => {
-                                    if let Some(ref s) = guild.icon {
+                                    if let Some(ref s) = guild.icon_url() {
                                         e = e.thumbnail(s);
                                     }
                                 },
