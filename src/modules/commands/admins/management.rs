@@ -135,7 +135,7 @@ impl Command for SetupMute {
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, _: Args) -> Result<(), CommandError> {
+    fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
         if let Some(guild_id) = message.guild_id {
             let guild = {
                 let cache = CACHE.read();
@@ -144,6 +144,7 @@ impl Command for SetupMute {
             if let Some(guild_lock) = guild {
                 let guild = guild_lock.read().clone();
                 let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+                let bypass = args.single::<String>().unwrap_or("".to_string());
                 let mute_role = match guild.roles.values().find(|e| e.name.to_lowercase() == "muted") {
                     Some(role) => role.clone(),
                     None => {
@@ -151,16 +152,18 @@ impl Command for SetupMute {
                         guild.create_role(|r| r.name("Muted"))?
                     },
                 };
-                let allow = Permissions::empty();
-                let deny = Permissions::SEND_MESSAGES | Permissions::ADD_REACTIONS | Permissions::SPEAK;
-                let overwrite = PermissionOverwrite {
-                    allow,
-                    deny,
-                    kind: PermissionOverwriteType::Role(mute_role.id),
-                };
-                for channel in guild.channels.values() {
-                    let mut channel = channel.read();
-                    channel.create_permission(&overwrite)?;
+                if bypass != "bypass" {
+                    let allow = Permissions::empty();
+                    let deny = Permissions::SEND_MESSAGES | Permissions::ADD_REACTIONS | Permissions::SPEAK;
+                    let overwrite = PermissionOverwrite {
+                        allow,
+                        deny,
+                        kind: PermissionOverwriteType::Role(mute_role.id),
+                    };
+                    for channel in guild.channels.values() {
+                        let mut channel = channel.read();
+                        channel.create_permission(&overwrite)?;
+                    }
                 }
                 guild_data.mute_setup = true;
                 db.update_guild(guild.id.0 as i64, guild_data)?;
