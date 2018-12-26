@@ -15,6 +15,7 @@ use serenity::model::id::{
     ChannelId,
     RoleId
 };
+use serenity::model::guild::Member;
 use serenity::model::Permissions;
 use serenity::prelude::Context;
 use std::sync::Arc;
@@ -55,6 +56,7 @@ impl Command for Register {
                             to_add.push(RoleId(roles[i].id as u64));
                         }
                     }
+                    let mut to_add = filter_roles(to_add, guild_id.member(&message.author)?);
                     for (i, role_id) in to_add.clone().iter().enumerate() {
                         if member.roles.contains(role_id) {
                             to_add.remove(i);
@@ -145,6 +147,7 @@ impl Command for AddRole {
                         failed.push(format!("Could not locate {}", r1));
                     }
                 }
+                let mut to_add = filter_roles(to_add, guild_id.member(&message.author)?);
                 for (i, role_id) in to_add.clone().iter().enumerate() {
                     if member.roles.contains(role_id) {
                         to_add.remove(i);
@@ -219,6 +222,7 @@ impl Command for RemoveRole {
                         failed.push(format!("Could not locate {}", r1));
                     }
                 }
+                let mut to_remove = filter_roles(to_remove, guild_id.member(&message.author)?);
                 for (i, role_id) in to_remove.clone().iter().enumerate() {
                     if !member.roles.contains(role_id) {
                         to_remove.remove(i);
@@ -297,4 +301,20 @@ impl Command for RoleColour {
         } else { failed!(GUILDID_FAIL); }
         Ok(())
     }
+}
+
+fn filter_roles(roles: Vec<RoleId>, member: Member) -> Vec<RoleId> {
+    let highest = match member.highest_role_info() {
+        Some((_,h)) => h,
+        None => -1,
+    };
+    roles.into_iter()
+        .filter_map(|r| {
+            let role = r.to_role_cached()?;
+            match role.position >= highest {
+                true => None,
+                false => Some(r),
+            }
+        })
+        .collect()
 }

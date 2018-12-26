@@ -19,6 +19,7 @@ impl Command for Furry {
             usage: Some("[tags]".to_string()),
             example: Some("male/male dragon double_penetration".to_string()),
             aliases: vec!["furry"].iter().map(|e| e.to_string()).collect(),
+            owner_privileges: false,
             ..default
         };
         Arc::new(options)
