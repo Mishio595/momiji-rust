@@ -30,13 +30,13 @@ impl Command for BanUser {
         let arg = args.single::<String>()?;
         if let Some((_, member)) = parse_user(arg.clone(), guild_id) {
             let (days, reason) = {
-                match args.single_n::<u8>().ok() {
+                match args.single_quoted_n::<u8>().ok() {
                     None => {
                         args.skip();
-                        (None, args.single::<String>().ok())
+                        (None, Some(args.rest()))
                     },
                     days => {
-                        (days, args.single::<String>().ok())
+                        (days, Some(args.rest()))
                     }
                 }
             };
@@ -74,10 +74,8 @@ impl Command for KickUser {
     fn execute(&self, _: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
         let guild_id = message.guild_id.ok_or("Failed to get guild_id")?;
         if let Some((_, member)) = parse_user(args.single::<String>()?, guild_id) {
-            match args.single::<String>().ok() {
-                Some(_) => { member.kick()?; },
-                None => { member.kick()?; },
-            }
+            let _reason = args.rest();
+            member.kick()?;
         } else {
             message.channel_id.say("User does not exist in guild.")?;
         }
