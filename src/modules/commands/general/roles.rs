@@ -64,7 +64,7 @@ impl Command for AddSelfRole {
                             if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
                                 to_add.push(r);
                             } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
-                        } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
+                        } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1.to_lowercase())) {
                             if has_cooldown && restricted_roles.contains(&(roles[i].id)) {
                                 failed.push(format!("{} is not available on cooldown", match RoleId(roles[i].id as u64).to_role_cached() {
                                     Some(role) => role.name,
@@ -154,7 +154,7 @@ impl Command for RemoveSelfRole {
                             if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
                                 to_remove.push(r);
                             } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
-                        } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
+                        } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1.to_lowercase())) {
                             to_remove.push(RoleId(roles[i].id as u64));
                         } else {
                             failed.push(format!("Failed to find match \"{}\". {}", r1,
