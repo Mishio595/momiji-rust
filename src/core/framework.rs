@@ -136,6 +136,7 @@ impl MomijiFramework {
             .group("Self Roles",            |_| general::init_roles())
             .group("Role Management",       |_| mods::init_roles())
             .group("Mod Info",              |_| mods::init_info())
+            .group("Kick and Ban",          |_| mods::init_kickbans())
             .group("Mute",                  |_| mods::init_mute())
             .group("Hackbans",              |_| mods::init_hackbans())
             .group("Notes",                 |_| mods::init_notes())

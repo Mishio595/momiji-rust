@@ -1,5 +1,6 @@
 pub mod hackbans;
 pub mod info;
+pub mod kickbans;
 pub mod mute;
 pub mod notes;
 pub mod roles;
@@ -7,6 +8,7 @@ pub mod watchlist;
 
 use self::hackbans::*;
 use self::info::*;
+use self::kickbans::*;
 use self::mute::*;
 use self::notes::*;
 use self::roles::*;
@@ -28,6 +30,14 @@ pub fn init_info() -> CreateGroup {
         .guild_only(true)
         .help_available(true)
         .cmd("modinfo", ModInfo)
+}
+
+pub fn init_kickbans() -> CreateGroup {
+    CreateGroup::default()
+        .guild_only(true)
+        .help_available(true)
+        .cmd("ban", BanUser)
+        .cmd("kick", KickUser)
 }
 
 pub fn init_mute() -> CreateGroup {

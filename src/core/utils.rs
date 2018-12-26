@@ -83,7 +83,9 @@ pub fn parse_user(input: String, guild_id: GuildId) -> Option<(UserId, Member)> 
                 let guild = guild_lock.read();
                 for (id, member) in guild.members.iter() {
                     let user = member.user.read();
-                    if user.name.to_lowercase() == input.to_lowercase() || user.tag().to_lowercase() == input.to_lowercase() || member.display_name().to_lowercase() == input.to_lowercase() {
+                    if user.name.to_lowercase() == input.to_lowercase()
+                    || user.tag().to_lowercase() == input.to_lowercase()
+                    || member.display_name().to_lowercase() == input.to_lowercase() {
                         return Some((*id, member.clone()));
                     }
                 }
