@@ -267,46 +267,41 @@ pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member) -> String
 
 pub fn send_welcome_embed(input: String, member: &Member, channel: ChannelId) -> Result<Message, Error> {
     let user = member.user.read();
-    if let Ok(guild) = member.guild_id.to_partial_guild() {
-        channel.send_message(|m| { m .embed(|mut e| {
-            for item in EMBED_ITEM.captures_iter(input.as_str()) {
-                if let Some(caps) = EMBED_PARTS.captures(&item[0]) {
-                    match caps["field"].to_lowercase().as_str() {
-                        "title" => {
-                            e = e.title(parse_welcome_items(&caps["value"], member));
-                        },
-                        "description" => {
-                            e = e.description(parse_welcome_items(&caps["value"], member));
-                        },
-                        "thumbnail" => {
-                            match caps["value"].to_lowercase().trim() {
-                                "user" => {
-                                    e = e.thumbnail(user.face());
-                                },
-                                "member" => {
-                                    e = e.thumbnail(user.face());
-                                },
-                                "guild" => {
+    channel.send_message(|m| { m .embed(|mut e| {
+        for item in EMBED_ITEM.captures_iter(input.as_str()) {
+            if let Some(caps) = EMBED_PARTS.captures(&item[0]) {
+                match caps["field"].to_lowercase().as_str() {
+                    "title" => {
+                        e = e.title(parse_welcome_items(&caps["value"], member));
+                    },
+                    "description" => {
+                        e = e.description(parse_welcome_items(&caps["value"], member));
+                    },
+                    "thumbnail" => {
+                        match caps["value"].to_lowercase().trim() {
+                            "user" => {
+                                e = e.thumbnail(user.face());
+                            },
+                            "member" => {
+                                e = e.thumbnail(user.face());
+                            },
+                            "guild" => {
+                                if let Ok(guild) = member.guild_id.to_partial_guild() {
                                     if let Some(ref s) = guild.icon_url() {
                                         e = e.thumbnail(s);
                                     }
-                                },
-                                _ => {},
-                            }
-                        },
-                        "color" => {
-                            e = e.colour(u64::from_str_radix(&caps["value"].trim().replace("#",""), 16).unwrap_or(0));
-                        },
-                        "colour" => {
-                            e = e.colour(u64::from_str_radix(&caps["value"].replace("#",""), 16).unwrap_or(0));
-                        },
-                        _ => {},
-                    }
+                                }
+                            },
+                            _ => {},
+                        }
+                    },
+                    "color" | "colour" => {
+                        e = e.colour(u64::from_str_radix(&caps["value"].trim().replace("#",""), 16).unwrap_or(0));
+                    },
+                    _ => {},
                 }
             }
-            e
-        })})
-    } else {
-        Err(Error::Other("Failed to get guild from guild_id"))
-    }
+        }
+        e
+    })})
 }

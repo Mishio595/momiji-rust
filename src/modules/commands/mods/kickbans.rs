@@ -11,6 +11,8 @@ use serenity::model::Permissions;
 use serenity::prelude::Context;
 use std::sync::Arc;
 
+// TODO add case entry on successful kick/ban
+
 pub struct BanUser;
 impl Command for BanUser {
     fn options(&self) -> Arc<CommandOptions> {
