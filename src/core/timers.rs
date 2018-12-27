@@ -142,7 +142,14 @@ impl TimerClient {
                                     }
                                 }
                             },
-                            Err(why) => { debug!("{:?}", why); }
+                            Err(why) => {
+                                debug!("{:?}", why);
+                                use diesel::result::Error::*;
+                                match why {
+                                    NotFound => { let _ = rx.recv(); },
+                                    _ => ()
+                                }
+                            },
                         }
                     }
                 });
