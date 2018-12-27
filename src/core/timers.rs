@@ -63,7 +63,7 @@ fn cooldown(user_id: UserId, guild_id: GuildId, mrole_id: RoleId, crole_id: Role
     }
 }
 
-pub struct TimerClient(Arc<Mutex<Sender<Option<()>>>>);
+pub struct TimerClient(Arc<Mutex<Sender<bool>>>);
 
 impl TimerClient {
     pub fn new() -> Self {
@@ -83,16 +83,16 @@ impl TimerClient {
                                 thread::spawn(move || {
                                     thread::sleep(Duration::from_secs(dur));
                                     if mc.load(Ordering::Relaxed) {
-                                        let _ = itx.lock().send(Some(()));
+                                        let _ = itx.lock().send(true);
                                     }
                                 });
                                 if let Ok(opt) = rx.recv() {
                                     match opt {
-                                        None => {
+                                        false => {
                                             cond.store(false, Ordering::Relaxed);
                                             continue;
                                         },
-                                        Some(()) => {
+                                        true => {
                                             let parts = timer.data.split("||").map(|s| s.to_string()).collect::<Vec<String>>();
                                             match parts[0].as_str() {
                                                 "REMINDER" => {
@@ -152,6 +152,6 @@ impl TimerClient {
     }
 
     pub fn request(&self) {
-        let _ = self.0.lock().send(None);
+        let _ = self.0.lock().send(false);
     }
 }
