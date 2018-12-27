@@ -30,7 +30,7 @@ impl TimerClient {
         let tc = TimerClient {
             recv: Arc::new(Mutex::new(rx)),
             sender: Arc::new(Mutex::new(tx)),
-            pool: ThreadPool::new(5),
+            pool: ThreadPool::new(10),
         };
         let rec = Arc::clone(&tc.recv);
         tc.pool.execute(move || {
