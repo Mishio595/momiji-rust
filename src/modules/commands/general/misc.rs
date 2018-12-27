@@ -410,9 +410,8 @@ impl Command for Reminder {
             if dur>0 {
                 let end_time = start_time + dur;
                 let mut reminder_fmt = format!("REMINDER||{}||{}||{}||{}", channel_id.0, user_id.0, dur, reminder);
-                let timer =  db.new_timer(start_time, end_time, reminder_fmt.clone())?;
-                reminder_fmt.push_str(format!("||{}", timer.id).as_str());
-                tc.request(reminder_fmt, dur as u64);
+                db.new_timer(start_time, end_time, reminder_fmt.clone())?;
+                tc.request();
                 message.channel_id.say(format!("Got it! I'll remind you to {} in {}",
                     reminder,
                     seconds_to_hrtime(dur as usize)

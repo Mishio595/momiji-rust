@@ -319,6 +319,13 @@ impl Database {
         timers::table.select(count_star())
             .get_result(self.conn().deref())
     }
+    /// Get the timer with the closest expiration time to the present
+    pub fn get_earliest_timer(&self) -> QueryResult<Timer> {
+        use db::schema::timers::{all_columns, columns::endtime};
+        timers::table.select(all_columns)
+            .order(endtime.asc())
+            .first(self.conn().deref())
+    }
 
     // Case Tools
     /// Add a Case

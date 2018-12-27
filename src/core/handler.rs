@@ -46,7 +46,7 @@ impl EventHandler for Handler {
         LOAD_TIMERS.call_once(|| {
             if let Some(tc_lock) = data.get::<TC>() {
                 let tc = tc_lock.lock();
-                check_error!(tc.load());
+                tc.request();
             }
             if let Some(api) = data.get::<ApiClient>().cloned() {
                 let bot_id = CACHE.read().user.id.0.clone();

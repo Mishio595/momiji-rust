@@ -64,7 +64,7 @@ impl Command for Mute {
                                 let data = ctx.data.lock();
                                 if let Some(tc_lock) = data.get::<TC>() {
                                     let tc = tc_lock.lock();
-                                    tc.request(format!("UNMUTE||{}||{}||{}||{}||{}||{}",
+                                    let data = format!("UNMUTE||{}||{}||{}||{}||{}||{}",
                                         user.id.0,
                                         guild.id.0,
                                         mute_role.id.0,
@@ -72,8 +72,12 @@ impl Command for Mute {
                                             guild_data.modlog_channel
                                         } else { message.channel_id.0 as i64 },
                                         time,
-                                        case.id), time as u64);
-                                fields.push(("Duration", seconds_to_hrtime(time as usize), true));
+                                        case.id);
+                                    let start_time = Utc::now().timestamp();
+                                    let end_time = start_time + time;
+                                    db.new_timer(start_time, end_time, data)?;
+                                    tc.request();
+                                    fields.push(("Duration", seconds_to_hrtime(time as usize), true));
                                 } else {
                                     message.channel_id.say("Something went wrong with the timer.")?;
                                 }
