@@ -123,7 +123,10 @@ impl Command for ConfigAutorole {
                             guild_data.autoroles.push(role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
-                        None => { message.channel_id.say("I couldn't find that role.")?; }
+                        None => {
+                            message.channel_id.say("I couldn't find that role.")?;
+                            return Ok(())
+                        },
                     }
                 },
                 "remove" => {
@@ -132,7 +135,10 @@ impl Command for ConfigAutorole {
                             guild_data.autoroles.retain(|e| *e != role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
-                        None => { message.channel_id.say("I couldn't find that role.")?; }
+                        None => {
+                            message.channel_id.say("I couldn't find that role.")?;
+                            return Ok(())
+                        },
                     }
                 },
                 "enable" => {
@@ -141,7 +147,10 @@ impl Command for ConfigAutorole {
                 "disable" => {
                     guild_data.autorole = false;
                 },
-                _ => { message.channel_id.say("I didn't understand that option. Valid options are: `add`, `remove`, `enable`, `disable`. For more information see `help config autorole`")?; },
+                _ => {
+                    message.channel_id.say("I didn't understand that option. Valid options are: `add`, `remove`, `enable`, `disable`. For more information see `help config autorole`")?;
+                    return Ok(())
+                },
             }
             let guild = db.update_guild(guild_id.0 as i64, guild_data)?;
             message.channel_id.send_message(|m| m
@@ -186,7 +195,10 @@ impl Command for ConfigAdmin {
                             guild_data.admin_roles.push(role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
-                        None => { message.channel_id.say("I couldn't find that role.")?; }
+                        None => {
+                            message.channel_id.say("I couldn't find that role.")?;
+                            return Ok(())
+                        },
                     }
                 },
                 "remove" => {
@@ -195,10 +207,16 @@ impl Command for ConfigAdmin {
                             guild_data.admin_roles.retain(|e| *e != role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
-                        None => { message.channel_id.say("I couldn't find that role.")?; }
+                        None => {
+                            message.channel_id.say("I couldn't find that role.")?;
+                            return Ok(())
+                        },
                     }
                 },
-                _ => { message.channel_id.say("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config admin`")?; },
+                _ => {
+                    message.channel_id.say("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config admin`")?; 
+                    return Ok(())
+                },
             }
             db.update_guild(guild_id.0 as i64, guild_data)?;
             message.channel_id.send_message(|m| m
@@ -243,7 +261,10 @@ impl Command for ConfigMod {
                             guild_data.mod_roles.push(role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
-                        None => { message.channel_id.say("I couldn't find that role.")?; }
+                        None => {
+                            message.channel_id.say("I couldn't find that role.")?; 
+                            return Ok(())
+                        },
                     }
                 },
                 "remove" => {
@@ -252,10 +273,16 @@ impl Command for ConfigMod {
                             guild_data.mod_roles.retain(|e| *e != role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
-                        None => { message.channel_id.say("I couldn't find that role.")?; }
+                        None => {
+                            message.channel_id.say("I couldn't find that role.")?; 
+                            return Ok(())
+                        },
                     }
                 },
-                _ => { message.channel_id.say("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config mod`")?; },
+                _ => {
+                    message.channel_id.say("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config mod`")?; 
+                    return Ok(())
+                },
             }
             db.update_guild(guild_id.0 as i64, guild_data)?;
             message.channel_id.send_message(|m| m
@@ -306,7 +333,10 @@ impl Command for ConfigAudit {
                             guild_data.audit_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name, channel_id.0);
                         },
-                        None => { message.channel_id.say("I couldn't find that channel.")?; }
+                        None => {
+                            message.channel_id.say("I couldn't find that channel.")?; 
+                            return Ok(())
+                        },
                     }
                 },
                 "threshold" => {
@@ -318,7 +348,10 @@ impl Command for ConfigAudit {
                         Err(_) => { message.channel_id.say("Please input a number as the threshold")?; }
                     }
                 },
-                _ => { message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `threshold`. For more information see `help config audit`")?; },
+                _ => {
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `threshold`. For more information see `help config audit`")?; 
+                    return Ok(())
+                },
             }
             let guild = db.update_guild(guild_id.0 as i64, guild_data)?;
             message.channel_id.send_message(|m| m
@@ -369,10 +402,16 @@ impl Command for ConfigModlog {
                             guild_data.modlog_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name, channel_id.0);
                         },
-                        None => { message.channel_id.say("I couldn't find that channel.")?; }
+                        None => {
+                            message.channel_id.say("I couldn't find that channel.")?; 
+                            return Ok(())
+                        },
                     }
                 },
-                _ => { message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`. For more information see `help config modlog`")?; },
+                _ => {
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`. For more information see `help config modlog`")?; 
+                    return Ok(())
+                },
             }
             let guild = db.update_guild(guild_id.0 as i64, guild_data)?;
             message.channel_id.send_message(|m| m
@@ -423,7 +462,10 @@ impl Command for ConfigWelcome {
                             guild_data.welcome_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name, channel_id.0);
                         },
-                        None => { message.channel_id.say("I couldn't find that channel.")?; }
+                        None => {
+                            message.channel_id.say("I couldn't find that channel.")?; 
+                            return Ok(())
+                        },
                     }
                 },
                 "message" => {
@@ -432,7 +474,10 @@ impl Command for ConfigWelcome {
                 "type" => {
                     guild_data.welcome_type = val.to_string();
                 },
-                _ => { message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config welcome`")?; },
+                _ => {
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config welcome`")?; 
+                    return Ok(())
+                },
             }
             let guild = db.update_guild(guild_id.0 as i64, guild_data)?;
             message.channel_id.send_message(|m| m
@@ -483,7 +528,10 @@ impl Command for ConfigIntroduction {
                             guild_data.introduction_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name, channel_id.0);
                         },
-                        None => { message.channel_id.say("I couldn't find that channel.")?; }
+                        None => {
+                            message.channel_id.say("I couldn't find that channel.")?; 
+                            return Ok(())
+                        },
                     }
                 },
                 "message" => {
@@ -492,7 +540,10 @@ impl Command for ConfigIntroduction {
                 "type" => {
                     guild_data.introduction_type = val.to_string();
                 },
-                _ => { message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config introduction`")?; },
+                _ => {
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config introduction`")?; 
+                    return Ok(())
+                },
             }
             let guild = db.update_guild(guild_id.0 as i64, guild_data)?;
             message.channel_id.send_message(|m| m
@@ -542,7 +593,10 @@ impl Command for ConfigCommands {
                         return Ok(());
                     }
                 },
-                _ => { message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config command`")?; },
+                _ => {
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config command`")?; 
+                    return Ok(())
+                },
             }
             db.update_guild(guild_id.0 as i64, guild_data)?;
             message.channel_id.send_message(|m| m
@@ -599,7 +653,10 @@ impl Command for ConfigLogs {
                         .join(", "))?;
                     return Ok(());
                 },
-                _ => { message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config log`")?; },
+                _ => {
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config log`")?; 
+                    return Ok(())
+                },
             }
             db.update_guild(guild_id.0 as i64, guild_data)?;
             message.channel_id.send_message(|m| m
