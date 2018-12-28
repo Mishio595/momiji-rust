@@ -34,10 +34,10 @@ impl Command for BanUser {
             let (days, reason) = {
                 match args.single_quoted_n::<u8>().ok() {
                     None => {
-                        args.skip();
                         (None, Some(args.rest()))
                     },
                     days => {
+                        args.skip();
                         (days, Some(args.rest()))
                     }
                 }
