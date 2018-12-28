@@ -2,6 +2,7 @@ use core::colours;
 use core::consts::*;
 use core::consts::DB as db;
 use core::utils::*;
+use chrono::Utc;
 use serenity::model::channel::Channel;
 use serenity::model::id::*;
 use serenity::prelude::{Mentionable, Mutex};
@@ -16,7 +17,7 @@ use std::sync::mpsc::{
 use std::thread;
 use std::time::Duration;
 
-fn reminder(channel_id: ChannelId, user_id: UserId, dur: String, reminder: &String, id: i32) {
+fn reminder(channel_id: ChannelId, user_id: UserId, dur: String, reminder: &String) {
     let check = match channel_id.to_channel() {
         Ok(ch) => { match ch {
             Channel::Private(_) => true,
@@ -34,7 +35,6 @@ fn reminder(channel_id: ChannelId, user_id: UserId, dur: String, reminder: &Stri
             .colour(*colours::MAIN)
             .description(reminder)
     )));
-    check_error!(db.del_timer(id));
 }
 
 fn unmute(user_id: UserId, guild_id: GuildId, channel_id: ChannelId, role_id: RoleId) {
@@ -76,7 +76,7 @@ impl TimerClient {
                     loop {
                         match db.get_earliest_timer() {
                             Ok(timer) => {
-                                let dur = (timer.starttime - timer.endtime) as u64;
+                                let dur = u64::checked_sub(timer.endtime as u64, Utc::now().timestamp() as u64).unwrap_or(0);
                                 let itx = mtx.clone();
                                 let cond = Arc::new(AtomicBool::new(true));
                                 let mc = cond.clone();
@@ -101,9 +101,8 @@ impl TimerClient {
                                                     let uid = UserId::from_str(parts[2].as_str()).ok();
                                                     let dur = seconds_to_hrtime(parts[3].parse::<usize>().unwrap_or(0));
                                                     let rem = &parts[4];
-                                                    let id = parts[5].parse::<i32>().unwrap_or(0);
                                                     match (cid, uid) {
-                                                        (Some(cid), Some(uid)) => { reminder(cid, uid, dur, rem, id); },
+                                                        (Some(cid), Some(uid)) => { reminder(cid, uid, dur, rem); },
                                                         _ => (),
                                                     }
                                                 },
