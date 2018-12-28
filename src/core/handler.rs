@@ -73,7 +73,7 @@ impl EventHandler for Handler {
 
                         // Update DBots stats
                         let count = CACHE.read().guilds.len();
-                        api.stats_update(bot_id, count);
+                        check_error!(api.stats_update(bot_id, count));
                     }
                 });
             } else { failed!(API_FAIL); }
