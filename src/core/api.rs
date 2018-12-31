@@ -25,8 +25,10 @@ use reqwest::header::{
 use reqwest::mime;
 use reqwest::{
     Client,
-    Result as ReqwestResult
+    Result as ReqwestResult,
+    Response as ReqwestResponse
 };
+use std::collections::HashMap;
 use std::env;
 use urbandictionary::{
     ReqwestUrbanDictionaryRequester,
@@ -115,15 +117,16 @@ impl ApiClient {
         }
     }
 
-    pub fn stats_update(&self, bot_id: u64, server_count: usize) {
+    pub fn stats_update(&self, bot_id: u64, server_count: usize) -> ReqwestResult<ReqwestResponse> {
         let mut headers = Headers::new();
         headers.set(ContentType::json());
         headers.set(Authorization(env::var("DBOTS_TOKEN").expect("No DiscordBots.org token in env")));
+        let mut data = HashMap::new();
+        data.insert("server_count", server_count);
 
-        let stats = [("server_count", server_count)];
-        check_error!(self.client.post(format!("{}/{}/stats", DBOTS, bot_id).as_str())
-            .json(&stats)
-            .send());
+        self.client.post(format!("{}/{}/stats", DBOTS, bot_id).as_str())
+            .json(&data)
+            .send()
     }
 
     pub fn dog(&self) -> ReqwestResult<Dog> {
