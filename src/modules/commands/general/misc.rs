@@ -691,6 +691,32 @@ impl Command for Urban {
     }
 }
 
+pub struct UserId;
+impl Command for UserId {
+    fn options(&self) -> Arc<CommandOptions> {
+        let default = CommandOptions::default();
+        let options = CommandOptions {
+            desc: Some("Get the unique ID of a user.".to_string()),
+            usage: Some("[user_resolvable]".to_string()),
+            example: Some("@Adelyn".to_string()),
+            guild_only: true,
+            ..default
+        };
+        Arc::new(options)
+    }
+
+    fn execute(&self, _: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
+        if let Some(guild_id) = message.guild_id {
+            if let Some((id,_)) = parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
+                message.channel_id.say(format!("{}", id.0))?;
+            } else {
+                message.channel_id.say("I couldn't find that user.")?;
+            }
+        }
+        Ok(())
+    }
+}
+
 pub struct UserInfo;
 impl Command for UserInfo {
     fn options(&self) -> Arc<CommandOptions> {

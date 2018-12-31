@@ -27,6 +27,7 @@ pub fn init_misc() -> CreateGroup{
         .cmd("serverinfo", ServerInfo)
         .cmd("tags", TagList)
         .cmd("urban", Urban)
+        .cmd("uid", UserId)
         .cmd("userinfo", UserInfo)
         .cmd("weather", Weather)
         .cmd("stats", Stats)
