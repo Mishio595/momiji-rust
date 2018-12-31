@@ -723,18 +723,18 @@ impl Command for UserInfo {
             let dates = format!(
                 "Created: {}\nJoined: {}{}",
                 user.created_at()
-                    .format("%a, %d %h %Y @ %H:%M:%S")
+                    .format("%a, %d %h %Y @ %T")
                     .to_string(),
                 member.joined_at
                     .and_then(|t| Some(t.with_timezone(&Utc)))
                     .unwrap_or(Utc::now())
-                    .format("%a, %d %h %Y @ %H:%M:%S")
+                    .format("%a, %d %h %Y @ %T")
                     .to_string(),
                 db.get_premium(guild_id.0 as i64)
                     .map(|_| {
                         user_data.registered.map_or(String::new(), |r| {
                             format!("\nRegistered: {}", r
-                                .format("%a, %d %h %Y @ %H:%M:%S")
+                                .format("%a, %d %h %Y @ %T")
                                 .to_string())
                         })
                     })
@@ -775,15 +775,15 @@ impl Command for Weather {
         if let Some(api) = data.get::<ApiClient>() {
             let switches = get_switches(args.full().to_string());
             let rest = switches.get("rest");
+            // TODO Refactor this
             let mut units = Units::Auto;
             if switches.len() > 1 {
                 switches.keys().for_each(|k| {
                     match k.as_str() {
                         "uk" => { units = Units::UK; },
-                        "c"  => { units = Units::CA; },
+                        "c" | "ca"  => { units = Units::CA; },
                         "si" => { units = Units::SI; },
                         "us" => { units = Units::Imperial; },
-                        "ca" => { units = Units::CA; },
                         _ => {},
                     }
                 });
@@ -947,6 +947,8 @@ impl Command for Stats {
                     ,db_premium
                 ), false)
                 .field("More coming soon", "...", false)
+                .colour(*colours::MAIN)
+                .timestamp(now!())
         ))?;
         Ok(())
     }

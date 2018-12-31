@@ -15,5 +15,5 @@ macro_rules! failed {
 }
 
 macro_rules! now {
-    () => { Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string() };
+    () => { Utc::now().format("%FT%T").to_string() };
 }
