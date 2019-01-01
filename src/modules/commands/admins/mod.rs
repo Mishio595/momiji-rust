@@ -50,6 +50,7 @@ pub fn init_management() -> CreateGroup {
         .help_available(true)
         .cmd("setup", SetupMute)
         .cmd("prune", Prune)
+        .cmd("cleanup", Cleanup)
 }
 
 pub fn init_premium() -> CreateGroup {

@@ -121,7 +121,86 @@ impl Command for Prune {
     }
 }
 
+pub struct Cleanup;
+impl Command for Cleanup {
+    fn options(&self) -> Arc<CommandOptions> {
+        let default = CommandOptions::default();
+        let options = CommandOptions {
+            desc: Some("Cleans up all commands and responses for Momiji sent in the past 10 minutes in the current channel.".to_string()),
+            required_permissions: Permissions::MANAGE_GUILD,
+            ..default
+        };
+        Arc::new(options)
+    }
 
+    fn execute(&self, _: &mut Context, message: &Message, _: Args) -> Result<(), CommandError> {
+        if let Some(guild_id) = message.guild_id {
+            let guild_data = db.get_guild(guild_id.0 as i64)?;
+            let user = CACHE.read().user.clone();
+            let mut deletions = message.channel_id.messages(|_| re_retriever(100))?;
+            let mut next_deletions;
+            let mut num_del = 0;
+            message.delete()?;
+            loop {
+                deletions.retain(|m|
+                    (Utc::now() - m.timestamp.with_timezone(&Utc)).num_seconds() <= 10*MIN as i64
+                    && (m.author.id == user.id
+                    || m.content.starts_with(&guild_data.prefix)
+                    || m.content.starts_with(&user.mention()))
+                );
+                let mut len = deletions.len();
+                if len<=0 { break; }
+                next_deletions = message.channel_id.messages(|_| be_retriever(deletions[0].id, 100)).ok();
+                match message.channel_id.delete_messages(deletions) {
+                    Ok(_) => {
+                        num_del += len;
+                        deletions = match next_deletions {
+                            Some(s) => s,
+                            None => { break; },
+                        }
+                    },
+                    Err(why) => {
+                        error!("{:?}", why);
+                        break;
+                    },
+                }
+            }
+            if num_del > 0 {
+                if guild_data.modlog {
+                    let channel = {
+                        let cache = CACHE.read();
+                        cache.guild_channel(message.channel_id)
+                    };
+                    ChannelId(guild_data.modlog_channel as u64).send_message(|m| m
+                        .embed(|e| e
+                            .title("Messages Pruned")
+                            .description(format!("**Count:** {}\n**Moderator:** {} ({})\n**Channel:** {}",
+                                num_del,
+                                message.author.mention(),
+                                message.author.tag(),
+                                match channel {
+                                    Some(ch) => {
+                                        let ch = ch.read();
+                                        format!(
+                                            "{} ({})",
+                                            ch.mention(),
+                                            ch.name)
+                                    },
+                                    None => message.channel_id.0.to_string(),
+                                }))
+                            .timestamp(now!())
+                            .colour(*colours::RED)
+                    ))?;
+                } else {
+                    message.channel_id.say(format!("Pruned {} message!", num_del))?;
+                }
+            } else {
+                message.channel_id.say("I wasn't able to delete any messages.")?;
+            }
+        } else { failed!(GUILDID_FAIL); }
+        Ok(())
+    }
+}
 
 pub struct SetupMute;
 impl Command for SetupMute {
