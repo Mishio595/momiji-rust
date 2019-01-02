@@ -1,6 +1,5 @@
 use core::consts::*;
 use core::consts::DB as db;
-use core::utils::*;
 use fuzzy_match::algorithms::*;
 use serenity::framework::standard::{
     Args,
@@ -117,13 +116,14 @@ impl Command for TagRemove {
         if let Some(guild_id) = message.guild_id {
             let tag_input = args.single_quoted::<String>()?;
             let tag = db.get_tag(guild_id.0 as i64, tag_input.clone())?;
-            let mut rank_check = false;
-            let guild_data = db.get_guild(guild_id.0 as i64)?;
-            if let Ok(member) = guild_id.member(&message.author.id) {
-                if check_rank(guild_data.admin_roles, &member.roles) { rank_check = true }
-                if check_rank(guild_data.mod_roles, &member.roles) { rank_check = true }
-            }
-            if message.author.id.0 as i64 == tag.author || rank_check {
+            let check = guild_id
+                .member(message.author.id)
+                .and_then(|m| m
+                    .permissions()
+                    .map(|p| p
+                        .manage_messages()))
+                .unwrap_or(false);
+            if message.author.id.0 as i64 == tag.author || check {
                 let tag = db.del_tag(guild_id.0 as i64, tag_input.clone())?;
                 message.channel_id.say(format!("Successfully deleted tag `{}`", tag.name))?;
             } else { message.channel_id.say("You must own this tag in order to delete it.")?; }
@@ -150,7 +150,14 @@ impl Command for TagEdit {
             let tag_input = args.single_quoted::<String>()?;
             let value = args.rest().to_string();
             let mut tag = db.get_tag(guild_id.0 as i64, tag_input.clone())?;
-            if message.author.id.0 as i64 == tag.author {
+            let check = guild_id
+                .member(message.author.id)
+                .and_then(|m| m
+                    .permissions()
+                    .map(|p| p
+                        .manage_messages()))
+                .unwrap_or(false);
+            if message.author.id.0 as i64 == tag.author || check {
                 tag.data = value.clone();
                 let t = db.update_tag(guild_id.0 as i64, tag_input.clone(), tag)?;
                 message.channel_id.say(format!("Successfully edited tag `{}`", t.name))?;
