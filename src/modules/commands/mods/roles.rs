@@ -40,8 +40,10 @@ impl Command for Register {
             let settings = db.get_premium(guild_id.0 as i64).map_err(|_| "Premium is required to use this command.")?;
             let guild_data = db.get_guild(guild_id.0 as i64)?;
             let roles = db.get_roles(guild_id.0 as i64)?;
+            debug!("REGISTER TRACE: Settings obtained");
             match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
                 Some((user_id, mut member)) => {
+                    debug!("REGISTER TRACE: User matched");
                     let channel = if guild_data.modlog {
                         ChannelId(guild_data.modlog_channel as u64)
                     } else { message.channel_id };
@@ -56,7 +58,9 @@ impl Command for Register {
                             to_add.push(RoleId(roles[i].id as u64));
                         }
                     }
+                    debug!("REGISTER TRACE: Resolved roles");
                     let mut to_add = filter_roles(to_add, guild_id.member(&message.author)?);
+                    debug!("REGISTER TRACE: Filtered roles");
                     for (i, role_id) in to_add.clone().iter().enumerate() {
                         if member.roles.contains(role_id) {
                             to_add.remove(i);
@@ -66,9 +70,12 @@ impl Command for Register {
                             to_add.remove(i);
                         };
                     }
+                    debug!("REGISTER TRACE: Roles added");
                     if let Some(role) = settings.register_cooldown_role {
                         member.add_role(RoleId(role as u64))?;
+                        debug!("REGISTER TRACE: Added cooldown role");
                         if let Some(member_role) = settings.register_member_role {
+                            debug!("REGISTER TRACE: Added member role");
                             let data = ctx.data.lock();
                             let tc_lock = data.get::<TC>().ok_or("Failed to obtain timer client.")?;
                             let tc = tc_lock.lock();
@@ -85,9 +92,11 @@ impl Command for Register {
                             let end_time = start_time + dur as i64;
                             check_error!(db.new_timer(start_time, end_time, data));
                             tc.request();
+                            debug!("REGISTER TRACE: Timer registered");
                         }
                     } else if let Some(role) = settings.register_member_role {
                         member.add_role(RoleId(role as u64))?;
+                        debug!("REGISTER TRACE: Added member role (No cooldown role)");
                     }
                     let desc = if !to_add.is_empty() {
                         to_add.iter().map(|r| match r.to_role_cached() {
@@ -97,6 +106,7 @@ impl Command for Register {
                         .collect::<Vec<String>>()
                         .join("\n")
                     } else { String::new() };
+                    debug!("REGISTER TRACE: Built log message");
                     channel.send_message(|m| m
                         .embed(|e| e
                             .title(format!(
@@ -107,6 +117,7 @@ impl Command for Register {
                             .colour(member.colour().unwrap_or(*colours::MAIN))
                             .timestamp(now!())
                     ))?;
+                    debug!("REGISTER TRACE: Sent log message");
                     if guild_data.introduction && guild_data.introduction_channel>0 {
                         let channel = ChannelId(guild_data.introduction_channel as u64);
                         if guild_data.introduction_type == "embed" {
@@ -114,11 +125,13 @@ impl Command for Register {
                         } else {
                             channel.say(parse_welcome_items(guild_data.introduction_message, &member))?;
                         }
+                        debug!("REGISTER TRACE: Sent introduction message");
                     }
                 },
                 None => { message.channel_id.say("I couldn't find that user.")?; }
             }
         } else { failed!(GUILDID_FAIL); }
+        debug!("REGISTER TRACE: Register completed successfully");
         Ok(())
     }
 }
