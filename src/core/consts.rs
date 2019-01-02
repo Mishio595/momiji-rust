@@ -32,6 +32,11 @@ pub const NOW_LIVE: RoleId          = RoleId(370395740406546432);
 pub const SUPPORT_SERVER: GuildId   = GuildId(373561057639268352);
 pub const TRANSCEND: GuildId        = GuildId(348660188951216129);
 
+pub const SUPPORT_SERV_INVITE: &str = "https://discord.gg/YYdpsNc";
+pub const BOT_INVITE: &str          = "https://discordapp.com/oauth2/authorize/?permissions=335670488&scope=bot&client_id=345316276098433025";
+pub const GITLAB_LINK: &str         = "https://gitlab.com/Mishio595/momiji-rust";
+pub const PATREON_LINK: &str        = "https://www.patreon.com/momijibot";
+
 pub const API_FAIL: &str            = "Failed to get API";
 pub const CACHE_CHANNEL_FAIL: &str  = "Failed to get channel lock from CACHE";
 pub const CACHE_GUILD_FAIL: &str    = "Failed to get guild lock from CACHE";
