@@ -115,6 +115,18 @@ impl MomijiFramework {
                     )));
                 }
             })
+            .on_dispatch_error(|_, message, error| {
+                use serenity::framework::standard::DispatchError;
+                match error {
+                    DispatchError::LackOfPermissions(perm) => check_error!(message.channel_id.say(format!("You lack the following permissions needed to execute this command: {:?}", perm))),
+                    DispatchError::RateLimited(time) => check_error!(message.channel_id.say(format!("A bit too soon for that. Please wait {} seconds before trying again.", time))),
+                    DispatchError::NotEnoughArguments { min, given } => check_error!(message.channel_id.say(format!("Too few arguments provided. {} given, {} minimum.", given, min))),
+                    DispatchError::TooManyArguments { max, given } => check_error!(message.channel_id.say(format!("Too many arguments provided. {} given, {} maximum.", given, max))),
+                    DispatchError::OnlyForDM => check_error!(message.channel_id.say("This command is only available in private channels.")),
+                    DispatchError::OnlyForGuilds => check_error!(message.channel_id.say("This command is only available in guilds.")),
+                    _ => (),
+                }
+            })
             .customised_help(help_commands::plain, |c| c
                 .no_help_available_text("No help is available on this command.")
                 .usage_label("Usage")

@@ -214,7 +214,7 @@ impl Command for ConfigAdmin {
                     }
                 },
                 _ => {
-                    message.channel_id.say("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config admin`")?; 
+                    message.channel_id.say("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config admin`")?;
                     return Ok(())
                 },
             }
@@ -262,7 +262,7 @@ impl Command for ConfigMod {
                             val = format!("{} ({})", role.name, role_id.0);
                         },
                         None => {
-                            message.channel_id.say("I couldn't find that role.")?; 
+                            message.channel_id.say("I couldn't find that role.")?;
                             return Ok(())
                         },
                     }
@@ -274,13 +274,13 @@ impl Command for ConfigMod {
                             val = format!("{} ({})", role.name, role_id.0);
                         },
                         None => {
-                            message.channel_id.say("I couldn't find that role.")?; 
+                            message.channel_id.say("I couldn't find that role.")?;
                             return Ok(())
                         },
                     }
                 },
                 _ => {
-                    message.channel_id.say("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config mod`")?; 
+                    message.channel_id.say("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config mod`")?;
                     return Ok(())
                 },
             }
@@ -334,7 +334,7 @@ impl Command for ConfigAudit {
                             val = format!("{} ({})", channel.name, channel_id.0);
                         },
                         None => {
-                            message.channel_id.say("I couldn't find that channel.")?; 
+                            message.channel_id.say("I couldn't find that channel.")?;
                             return Ok(())
                         },
                     }
@@ -349,7 +349,7 @@ impl Command for ConfigAudit {
                     }
                 },
                 _ => {
-                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `threshold`. For more information see `help config audit`")?; 
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `threshold`. For more information see `help config audit`")?;
                     return Ok(())
                 },
             }
@@ -403,13 +403,13 @@ impl Command for ConfigModlog {
                             val = format!("{} ({})", channel.name, channel_id.0);
                         },
                         None => {
-                            message.channel_id.say("I couldn't find that channel.")?; 
+                            message.channel_id.say("I couldn't find that channel.")?;
                             return Ok(())
                         },
                     }
                 },
                 _ => {
-                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`. For more information see `help config modlog`")?; 
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`. For more information see `help config modlog`")?;
                     return Ok(())
                 },
             }
@@ -463,7 +463,7 @@ impl Command for ConfigWelcome {
                             val = format!("{} ({})", channel.name, channel_id.0);
                         },
                         None => {
-                            message.channel_id.say("I couldn't find that channel.")?; 
+                            message.channel_id.say("I couldn't find that channel.")?;
                             return Ok(())
                         },
                     }
@@ -475,7 +475,7 @@ impl Command for ConfigWelcome {
                     guild_data.welcome_type = val.to_string();
                 },
                 _ => {
-                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config welcome`")?; 
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config welcome`")?;
                     return Ok(())
                 },
             }
@@ -529,7 +529,7 @@ impl Command for ConfigIntroduction {
                             val = format!("{} ({})", channel.name, channel_id.0);
                         },
                         None => {
-                            message.channel_id.say("I couldn't find that channel.")?; 
+                            message.channel_id.say("I couldn't find that channel.")?;
                             return Ok(())
                         },
                     }
@@ -541,7 +541,7 @@ impl Command for ConfigIntroduction {
                     guild_data.introduction_type = val.to_string();
                 },
                 _ => {
-                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config introduction`")?; 
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config introduction`")?;
                     return Ok(())
                 },
             }
@@ -594,7 +594,7 @@ impl Command for ConfigCommands {
                     }
                 },
                 _ => {
-                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config command`")?; 
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config command`")?;
                     return Ok(())
                 },
             }
@@ -654,7 +654,7 @@ impl Command for ConfigLogs {
                     return Ok(());
                 },
                 _ => {
-                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config log`")?; 
+                    message.channel_id.say("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config log`")?;
                     return Ok(())
                 },
             }
