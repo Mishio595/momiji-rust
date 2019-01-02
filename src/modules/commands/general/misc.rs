@@ -756,15 +756,11 @@ impl Command for UserInfo {
                     .unwrap_or(Utc::now())
                     .format("%a, %d %h %Y @ %T")
                     .to_string(),
-                db.get_premium(guild_id.0 as i64)
-                    .map(|_| {
-                        user_data.registered.map_or(String::new(), |r| {
-                            format!("\nRegistered: {}", r
-                                .format("%a, %d %h %Y @ %T")
-                                .to_string())
-                        })
-                    })
-                    .unwrap_or(String::new())
+                user_data.registered.map_or(String::new(), |r| {
+                    format!("\nRegistered: {}", r
+                        .format("%a, %d %h %Y @ %T")
+                        .to_string())
+                })
             );
             message.channel_id.send_message(|m| m
                 .embed(|e| e
