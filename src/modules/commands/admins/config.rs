@@ -71,6 +71,8 @@ impl Command for ConfigPrefix {
             desc: Some("Set a new prefix.".to_string()),
             usage: Some("<prefix>".to_string()),
             example: Some("!!".to_string()),
+            min_args: Some(1),
+            max_args: Some(1),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -105,6 +107,7 @@ impl Command for ConfigAutorole {
             desc: Some("Change autorole settings. A role must be provided for add or remove.".to_string()),
             usage: Some("<add|remove|enable|disable> <role_resolvable|_>".to_string()),
             example: Some("add member".to_string()),
+            min_args: Some(2),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -177,6 +180,7 @@ impl Command for ConfigAdmin {
             desc: Some("Add or remove roles from the bot's admin list.".to_string()),
             usage: Some("<add|remove> <role_resolvable>".to_string()),
             example: Some("add admin".to_string()),
+            min_args: Some(2),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -243,6 +247,7 @@ impl Command for ConfigMod {
             desc: Some("Add or remove roles from the bot's admin list.".to_string()),
             usage: Some("<add|remove> <role_resolvable>".to_string()),
             example: Some("add staff".to_string()),
+            min_args: Some(2),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -309,6 +314,7 @@ impl Command for ConfigAudit {
             desc: Some("Change audit log settings. A channel must be provided for channel.".to_string()),
             usage: Some("<enable|disable|channel> <channel_resolvable>".to_string()),
             example: Some("channel #audit-logs".to_string()),
+            min_args: Some(2),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -378,6 +384,7 @@ impl Command for ConfigModlog {
             desc: Some("Change moderation log settings. A channel must be provided for channel.".to_string()),
             usage: Some("<enable|disable|channel> <channel_resolvable>".to_string()),
             example: Some("channel #mod-logs".to_string()),
+            min_args: Some(2),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -438,6 +445,7 @@ impl Command for ConfigWelcome {
             desc: Some("Change welcome message settings.\nOption is one of enable, disable, channel, message, type and the respective values should be none, none, channel_resolvable, desired message.\nType designates if the message is plain or embed. Anything other than embed will result in plain.".to_string()),
             usage: Some("<option> <value>".to_string()),
             example: Some("message Welcome to {guild}, {user}!".to_string()),
+            min_args: Some(2),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -504,6 +512,7 @@ impl Command for ConfigIntroduction {
             desc: Some("Change introduction message settings. This is exactly like welcome: `help config welcome` for more info. This is a premium only feature related to the Register command.".to_string()),
             usage: Some("<option> <value>".to_string()),
             example: Some("message Hey there {user}, mind introducting yourself?".to_string()),
+            min_args: Some(2),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -570,6 +579,7 @@ impl Command for ConfigCommands {
             desc: Some("Change which commands are disabled. A command name must be provided.".to_string()),
             usage: Some("<enable|disable> <command_name>".to_string()),
             example: Some("disable e621".to_string()),
+            min_args: Some(2),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -623,6 +633,7 @@ impl Command for ConfigLogs {
             desc: Some("Change which log messages are disabled. A log type must be provided.".to_string()),
             usage: Some("<enable|disable|types> [type]".to_string()),
             example: Some("disable message_edit".to_string()),
+            min_args: Some(2),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };

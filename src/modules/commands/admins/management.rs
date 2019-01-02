@@ -36,6 +36,7 @@ impl Command for Prune {
             desc: Some("Bulk delete messages. Filter is one of bot, attachment, !pin, mention, or a user_resolvable.\n`bot` will prune only messages from bots.\n`attachment` will prune only messages with attachments.\n`!pin` will prune all but pinned messages.\n`mention` will prune only messages that mention a user or everyone.\nMentioning a user will prune only that user's messages.".to_string()),
             usage: Some("<count> [filter]".to_string()),
             example: Some("20 bot".to_string()),
+            min_args: Some(1),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -128,6 +129,7 @@ impl Command for Cleanup {
         let options = CommandOptions {
             desc: Some("Cleans up all commands and responses for Momiji sent in the past 10 minutes in the current channel.".to_string()),
             required_permissions: Permissions::MANAGE_GUILD,
+            max_args: Some(0),
             ..default
         };
         Arc::new(options)
@@ -208,6 +210,7 @@ impl Command for SetupMute {
         let default = CommandOptions::default();
         let options = CommandOptions {
             desc: Some("Sets up mute for the server. This command requires the Manage Channels and Manage Roles permissions. It creates the Muted role if it doesn't exist, then iterates through every channel and category to disable Send Messages, Speak, and Add Reactions. Add `bypass` as an arg to skip permission setting.".to_string()),
+            max_args: Some(1),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };

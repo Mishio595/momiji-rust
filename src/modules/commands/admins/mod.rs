@@ -79,4 +79,5 @@ pub fn init_tests() -> CreateGroup {
         .help_available(true)
         .prefix("test")
         .cmd("welcome", TestWelcome)
+        .cmd("intro", TestIntro)
 }

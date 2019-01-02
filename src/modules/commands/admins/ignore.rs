@@ -21,6 +21,8 @@ impl Command for IgnoreAdd {
             desc: Some("Tell the bot to ignore a channel.".to_string()),
             usage: Some("<channel_resolvable>".to_string()),
             example: Some("#general".to_string()),
+            min_args: Some(1),
+            max_args: Some(1),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -59,6 +61,8 @@ impl Command for IgnoreRemove {
             desc: Some("Tell the bot to stop ignoring a channel.".to_string()),
             usage: Some("<channel_resolvable>".to_string()),
             example: Some("#general".to_string()),
+            min_args: Some(1),
+            max_args: Some(1),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
@@ -96,6 +100,7 @@ impl Command for IgnoreList {
         let options = CommandOptions {
             desc: Some("List all ignored channels.".to_string()),
             required_permissions: Permissions::MANAGE_GUILD,
+            max_args: Some(0),
             ..default
         };
         Arc::new(options)
