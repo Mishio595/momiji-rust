@@ -31,8 +31,8 @@ fn fern_setup() -> Result<(), log::SetLoggerError> {
     let term_out = fern::Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(
-                "{time}  {level:level_width$}  {target:target_width$}> {msg}",
-                time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                "{time}  {level:level_width$}{target:target_width$}> {msg}",
+                time = chrono::Utc::now().format("%F %T"),
                 level = colors.color(record.level()),
                 target = format!("{}:{}", record.target(), record.line().unwrap_or(0)),
                 msg = message,
@@ -47,7 +47,7 @@ fn fern_setup() -> Result<(), log::SetLoggerError> {
         .format(|out, message, record| {
             out.finish(format_args!(
                 "{time}  {level:level_width$}{target:target_width$}> {msg}",
-                time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                time = chrono::Utc::now().format("%F %T"),
                 level = record.level(),
                 target = format!("{}:{}", record.target(), record.line().unwrap_or(0)),
                 msg = message,
@@ -60,7 +60,7 @@ fn fern_setup() -> Result<(), log::SetLoggerError> {
 
     fern::Dispatch::new()
         .level(log::LevelFilter::Info)
-        //.level_for("serenity", log::LevelFilter::Trace)
+        .level_for("serenity", log::LevelFilter::Debug)
         .level_for("momiji", log::LevelFilter::Debug)
         .chain(term_out)
         .chain(file_out)
