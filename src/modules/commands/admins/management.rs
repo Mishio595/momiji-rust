@@ -51,51 +51,64 @@ impl Command for Prune {
             let mut filter = get_filter(fsel, guild_id);
             let mut deletions = message.channel_id.messages(|_| re_retriever(100))?;
             let mut next_deletions;
-            let mut num_del = 0;
+            let mut deleted_messages = Vec::new();
             message.delete()?;
             if count<=1000 {
                 while count>0 {
-                    deletions.retain(|m| filter(m));
-                    let mut len = deletions.len();
-                    if len<=0 { break; }
-                    if len>count {
-                        deletions.truncate(count);
-                        len = count;
-                    }
+                    deletions.retain(|m| filter(m) && is_deletable(m));
+                    deleted_messages.append(&mut deletions);
+                    let len = {
+                        match deletions.len() {
+                            n if n <= 0 => { break; },
+                            n if n > count => {
+                                deletions.truncate(count);
+                                count
+                            },
+                            n => n,
+                        }};
                     count -= len;
-                    if count>0 {
-                        next_deletions = message.channel_id.messages(|_| be_retriever(deletions[0].id, 100)).ok();
-                    } else {
-                        next_deletions = None;
-                    }
-                    match message.channel_id.delete_messages(deletions) {
-                        Ok(_) => {
-                            num_del += len;
-                            deletions = match next_deletions {
-                                Some(s) => s,
-                                None => { break; },
-                            }
-                        },
-                        Err(why) => {
-                            error!("{:?}", why);
-                            break;
-                        },
-                    }
+                    next_deletions = message.channel_id
+                        .messages(|_| be_retriever(deletions[0].id, 100))
+                        .ok()
+                        .filter(|_| count>0);
+                    match message.channel_id
+                        .delete_messages(deletions)
+                        .map_err(|why| error!("{:?}", why))
+                        .ok() {
+                            Some(_) => {
+                                deletions = match next_deletions {
+                                    Some(s) => s,
+                                    None => { break; }
+                                }
+                            },
+                            None => { break; },
+                        }
                 }
-                if num_del > 0 {
+                if deleted_messages.len() > 0 {
                     if guild_data.modlog {
                         let channel = {
                             let cache = CACHE.read();
                             cache.guild_channel(message.channel_id)
                         };
-                        ChannelId(guild_data.modlog_channel as u64).send_message(|m| m
+                        let prune_log = deleted_messages.iter()
+                            .map(|m| format!(
+                                "[{}] {} ({}): {}"
+                                ,m.timestamp.with_timezone(&Utc).format("%F %T")
+                                ,m.author.tag()
+                                ,m.author.id.0
+                                ,m.content
+                                ))
+                            .collect::<Vec<String>>()
+                            .join("\n");
+                        ChannelId(guild_data.modlog_channel as u64).send_files(vec![prune_log.as_str()],|m| m
                             .embed(|e| e
                                 .title("Messages Pruned")
-                                .description(format!("**Count:** {}\n**Moderator:** {} ({})\n**Channel:** {}",
-                                    num_del,
-                                    message.author.mention(),
-                                    message.author.tag(),
-                                    match channel {
+                                .description(format!(
+                                    "**Count:** {}\n**Moderator:** {} ({})\n**Channel:** {}"
+                                    ,deleted_messages.len()
+                                    ,message.author.mention()
+                                    ,message.author.tag()
+                                    ,match channel {
                                         Some(ch) => {
                                             let ch = ch.read();
                                             format!(
@@ -109,7 +122,7 @@ impl Command for Prune {
                                 .colour(*colours::RED)
                         ))?;
                     } else {
-                        message.channel_id.say(format!("Pruned {} message!", num_del))?;
+                        message.channel_id.say(format!("Pruned {} message!", deleted_messages.len()))?;
                     }
                 } else {
                     message.channel_id.say("I wasn't able to delete any messages.")?;
@@ -266,6 +279,15 @@ fn be_retriever(id: MessageId, limit: u64) -> GetMessages {
     GetMessages::default()
         .before(id)
         .limit(limit)
+}
+
+fn is_deletable(message: &Message) -> bool {
+    let now = Utc::now()
+        .timestamp();
+    let then = message.timestamp
+        .with_timezone(&Utc)
+        .timestamp();
+    now - then < (WEEK as i64)*2
 }
 
 fn get_filter(input: String, guild_id: GuildId) -> Box<FnMut(&Message) -> bool> {
