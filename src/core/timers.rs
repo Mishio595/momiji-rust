@@ -45,8 +45,8 @@ fn unmute(user_id: UserId, guild_id: GuildId, channel_id: ChannelId, role_id: Ro
                     check_error!(channel_id.send_message(|m| m
                         .embed(|e| e
                             .title("Member Unmuted Automatically")
-                            .colour(*colours::BLUE)
-                            .field("Member", format!("{}\n{}", user.tag(), user_id.0), true)
+                            .colour(*colours::GREEN)
+                            .description(format!("**Member:** {} ({})", user.tag(), user_id.0))
                     )));
                 }
             }

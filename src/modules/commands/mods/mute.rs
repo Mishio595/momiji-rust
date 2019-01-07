@@ -57,9 +57,12 @@ impl Command for Mute {
                                 member.user.read().clone()
                             };
                             let case = db.new_case(user.id.0 as i64, guild.id.0 as i64, "Mute".to_string(), Some(reason.clone()), message.author.id.0 as i64)?;
-                            let mut fields = Vec::new();
-                            fields.push(("User", format!("{}\n{}", user.tag(), user.id.0), true));
-                            fields.push(("Moderator", format!("{}\n{}", message.author.tag(), message.author.id.0), true));
+                            let mut description = format!(
+                                "**User:** {} ({})\n**Moderator:** {} ({})"
+                                ,user.tag()
+                                ,user.id.0
+                                ,message.author.tag()
+                                ,message.author.id.0);
                             if time != 0 {
                                 let data = ctx.data.lock();
                                 if let Some(tc_lock) = data.get::<TC>() {
@@ -77,19 +80,25 @@ impl Command for Mute {
                                     let end_time = start_time + time;
                                     db.new_timer(start_time, end_time, data)?;
                                     tc.request();
-                                    fields.push(("Duration", seconds_to_hrtime(time as usize), true));
+                                    description = format!(
+                                        "{}\n**Duration:** {}"
+                                        ,description
+                                        ,seconds_to_hrtime(time as usize));
                                 } else {
                                     message.channel_id.say("Something went wrong with the timer.")?;
                                 }
                             }
                             if !reason.is_empty() {
-                                fields.push(("Reason", reason.to_string(), true));
+                                description = format!(
+                                    "{}\n**Reason:** {}"
+                                    ,description
+                                    ,reason.to_string());
                             }
                             let response = CreateMessage::default()
                                 .embed(|e| e
                                     .title("Member Muted")
-                                    .colour(*colours::BLUE)
-                                    .fields(fields)
+                                    .colour(*colours::RED)
+                                    .description(description)
                                     .timestamp(now!()));
 
                             if guild_data.modlog && guild_data.modlog_channel > 0 {
@@ -132,17 +141,20 @@ impl Command for Unmute {
                 let guild_data = db.get_guild(guild.id.0 as i64)?;
                 if guild_data.mute_setup {
                     if let Some(mute_role) = guild.roles.values().find(|e| e.name.to_lowercase() == "muted") {
-                        let mut fields = Vec::new();
                         let user = {
                             member.user.read().clone()
                         };
-                        fields.push(("User", format!("{}\n{}", user.tag(), user.id.0), true));
-                        fields.push(("Moderator", format!("{}\n{}", message.author.tag(), message.author.id.0), true));
+                        let mut description = format!(
+                                "**User:** {} ({})\n**Moderator:** {} ({})"
+                                ,user.tag()
+                                ,user.id.0
+                                ,message.author.tag()
+                                ,message.author.id.0);
                         let response = CreateMessage::default()
                             .embed(|e| e
                                 .title("Member Unmuted")
-                                .colour(*colours::BLUE)
-                                .fields(fields)
+                                .colour(*colours::GREEN)
+                                .description(description)
                                 .timestamp(now!()));
 
                         if member.roles.contains(&mute_role.id) {
