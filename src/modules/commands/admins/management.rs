@@ -37,6 +37,7 @@ impl Command for Prune {
             usage: Some("<count> [filter]".to_string()),
             example: Some("20 bot".to_string()),
             min_args: Some(1),
+            aliases: vec!["purge"].iter().map(|e| e.to_string()).collect(),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
