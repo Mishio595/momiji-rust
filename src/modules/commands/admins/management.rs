@@ -119,10 +119,10 @@ impl Command for Prune {
                                 ,m.timestamp.with_timezone(&Utc).format("%F %T")
                                 ,m.author.tag()
                                 ,m.author.id.0
-                                ,m.content
+                                ,m.content_safe()
                                 ))
                             .collect::<Vec<String>>()
-                            .join("\n");
+                            .join("\r\n");
                         ChannelId(guild_data.audit_channel as u64).send_files(vec![
                             (prune_log.as_bytes()
                             ,format!("prune-log-{}.txt", Utc::now().format("%FT%T")).as_str())]
