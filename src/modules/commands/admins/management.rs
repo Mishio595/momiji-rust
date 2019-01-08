@@ -88,17 +88,7 @@ impl Command for Prune {
                             let cache = CACHE.read();
                             cache.guild_channel(message.channel_id)
                         };
-                        let prune_log = deleted_messages.iter()
-                            .map(|m| format!(
-                                "[{}] {} ({}): {}"
-                                ,m.timestamp.with_timezone(&Utc).format("%F %T")
-                                ,m.author.tag()
-                                ,m.author.id.0
-                                ,m.content
-                                ))
-                            .collect::<Vec<String>>()
-                            .join("\n");
-                        ChannelId(guild_data.modlog_channel as u64).send_files(vec![(prune_log.as_bytes(), "log")],|m| m
+                        ChannelId(guild_data.modlog_channel as u64).send_message(|m| m
                             .embed(|e| e
                                 .title("Messages Pruned")
                                 .description(format!(
@@ -121,6 +111,22 @@ impl Command for Prune {
                         ))?;
                     } else {
                         message.channel_id.say(format!("Pruned {} message!", deleted_messages.len()))?;
+                    }
+                    if guild_data.audit {
+                        let prune_log = deleted_messages.iter()
+                            .map(|m| format!(
+                                "[{}] {} ({}): {}"
+                                ,m.timestamp.with_timezone(&Utc).format("%F %T")
+                                ,m.author.tag()
+                                ,m.author.id.0
+                                ,m.content
+                                ))
+                            .collect::<Vec<String>>()
+                            .join("\n");
+                        ChannelId(guild_data.audit_channel as u64).send_files(vec![
+                            (prune_log.as_bytes()
+                            ,format!("prune-log-{}.txt", Utc::now().format("%FT%T")).as_str())]
+                            ,|m| m)?;
                     }
                 } else {
                     message.channel_id.say("I wasn't able to delete any messages.")?;
