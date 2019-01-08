@@ -45,45 +45,42 @@ impl Command for Prune {
     }
 
     fn execute(&self, _: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
+        message.delete()?;
         if let Some(guild_id) = message.guild_id {
-            let guild_data = db.get_guild(guild_id.0 as i64)?;
             let mut count = args.single::<usize>().unwrap_or(0);
-            let fsel = args.single::<String>().unwrap_or(String::new());
-            let mut filter = get_filter(fsel, guild_id);
-            let mut deletions = message.channel_id.messages(|_| re_retriever(100))?;
-            let mut next_deletions;
-            let mut deleted_messages = Vec::new();
-            message.delete()?;
             if count<=1000 {
+                let guild_data = db.get_guild(guild_id.0 as i64)?;
+                let fsel = args.single::<String>().unwrap_or(String::new());
+                let mut filter = get_filter(fsel, guild_id);
+                let mut deletions = message.channel_id.messages(|_| re_retriever(u64::min(100, count as u64)))?;
+                let mut next_deletions;
+                let mut deleted_messages = Vec::new();
                 while count>0 {
                     deletions.retain(|m| filter(m) && is_deletable(m));
-                    deleted_messages.append(&mut deletions);
-                    let len = {
-                        match deletions.len() {
-                            n if n <= 0 => { break; },
-                            n if n > count => {
-                                deletions.truncate(count);
-                                count
-                            },
-                            n => n,
-                        }};
-                    count -= len;
+                    count = match deletions.len() {
+                        n if n <= 0 => { break; },
+                        n if n > count => {
+                            deletions.truncate(count);
+                            0
+                        },
+                        n => count - n,
+                    };
+                    deleted_messages.append(&mut deletions.clone());
                     next_deletions = message.channel_id
-                        .messages(|_| be_retriever(deletions[0].id, 100))
-                        .ok()
-                        .filter(|_| count>0);
-                    match message.channel_id
-                        .delete_messages(deletions)
-                        .map_err(|why| error!("{:?}", why))
-                        .ok() {
-                            Some(_) => {
-                                deletions = match next_deletions {
-                                    Some(s) => s,
-                                    None => { break; }
-                                }
-                            },
-                            None => { break; },
-                        }
+                        .messages(|_| be_retriever(deletions[0].id, u64::min(100, count as u64)))
+                        .ok();
+                    match message.channel_id.delete_messages(deletions) {
+                        Ok(_) => {
+                            deletions = match next_deletions {
+                                Some(s) => s,
+                                None => { break; }
+                            }
+                        },
+                        Err(why) => {
+                            error!("PRUNE ERROR: {:?}", why);
+                            break;
+                        },
+                    }
                 }
                 if deleted_messages.len() > 0 {
                     if guild_data.modlog {
@@ -101,7 +98,7 @@ impl Command for Prune {
                                 ))
                             .collect::<Vec<String>>()
                             .join("\n");
-                        ChannelId(guild_data.modlog_channel as u64).send_files(vec![prune_log.as_str()],|m| m
+                        ChannelId(guild_data.modlog_channel as u64).send_files(vec![(prune_log.as_bytes(), "log")],|m| m
                             .embed(|e| e
                                 .title("Messages Pruned")
                                 .description(format!(
@@ -294,7 +291,7 @@ fn is_deletable(message: &Message) -> bool {
 fn get_filter(input: String, guild_id: GuildId) -> Box<FnMut(&Message) -> bool> {
     match input.as_str() {
         "bot" => Box::new(|m| m.author.bot),
-        "mention" => Box::new(|m| !m.mentions.is_empty() && m.mention_everyone),
+        "mention" => Box::new(|m| !m.mentions.is_empty() || m.mention_everyone),
         "attachment" => Box::new(|m| !m.attachments.is_empty()),
         "!pin" => Box::new(|m| !m.pinned),
         _ => {
