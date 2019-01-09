@@ -52,7 +52,7 @@ impl Command for Prune {
                 let guild_data = db.get_guild(guild_id.0 as i64)?;
                 let fsel = args.single::<String>().unwrap_or(String::new());
                 let mut filter = get_filter(fsel, guild_id);
-                let mut deletions = message.channel_id.messages(|_| re_retriever(u64::min(100, count as u64)))?;
+                let mut deletions = message.channel_id.messages(|_| re_retriever(100))?;
                 let mut next_deletions;
                 let mut deleted_messages = Vec::new();
                 while count>0 {
@@ -67,7 +67,7 @@ impl Command for Prune {
                     };
                     deleted_messages.append(&mut deletions.clone());
                     next_deletions = message.channel_id
-                        .messages(|_| be_retriever(deletions[0].id, u64::min(100, count as u64)))
+                        .messages(|_| be_retriever(deletions[0].id, 100))
                         .ok();
                     match message.channel_id.delete_messages(deletions) {
                         Ok(_) => {
