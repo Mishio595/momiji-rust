@@ -65,7 +65,7 @@ impl Command for Prune {
                         },
                         n => count - n,
                     };
-                    deleted_messages.append(&mut deletions.clone());
+                    deleted_messages.append(&mut deletions.iter().cloned().rev().collect());
                     next_deletions = message.channel_id
                         .messages(|_| be_retriever(deletions[0].id, u64::min(100, count as u64)))
                         .ok();
