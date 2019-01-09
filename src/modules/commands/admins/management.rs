@@ -65,7 +65,7 @@ impl Command for Prune {
                         },
                         n => count - n,
                     };
-                    deleted_messages.append(&mut deletions.iter().cloned().rev().collect());
+                    deleted_messages.append(&mut deletions.clone());
                     next_deletions = message.channel_id
                         .messages(|_| be_retriever(deletions[0].id, u64::min(100, count as u64)))
                         .ok();
@@ -113,6 +113,7 @@ impl Command for Prune {
                         message.channel_id.say(format!("Pruned {} message!", deleted_messages.len()))?;
                     }
                     if guild_data.audit {
+                        deleted_messages.reverse();
                         let prune_log = deleted_messages.iter()
                             .map(|m| format!(
                                 "[{}] {} ({}): {}"
