@@ -56,19 +56,19 @@ impl Command for Prune {
                 let mut next_deletions;
                 let mut deleted_messages = Vec::new();
                 while count>0 {
+                    next_deletions = message.channel_id
+                        .messages(|_| be_retriever(deletions[0].id, 100))
+                        .ok();
                     deletions.retain(|m| filter(m) && is_deletable(m));
                     count = match deletions.len() {
                         n if n <= 0 => { break; },
                         n if n > count => {
                             deletions.truncate(count);
-                            0
+                            count - n
                         },
                         n => count - n,
                     };
                     deleted_messages.append(&mut deletions.clone());
-                    next_deletions = message.channel_id
-                        .messages(|_| be_retriever(deletions[0].id, 100))
-                        .ok();
                     match message.channel_id.delete_messages(deletions) {
                         Ok(_) => {
                             deletions = match next_deletions {
