@@ -56,6 +56,9 @@ impl Command for Prune {
                 let mut next_deletions;
                 let mut deleted_messages = Vec::new();
                 while deleted_messages.len() < count {
+                    next_deletions = message.channel_id
+                        .messages(|_| be_retriever(deletions[0].id, u64::min(100, count as u64)))
+                        .ok();
                     deletions.retain(|m| filter(m) && is_deletable(m));
                     match deletions.len() {
                         n if n <= 0 => { break; },
@@ -64,9 +67,6 @@ impl Command for Prune {
                         },
                         _ => (),
                     }
-                    next_deletions = message.channel_id
-                        .messages(|_| be_retriever(deletions[0].id, u64::min(100, count as u64)))
-                        .ok();
                     match message.channel_id.delete_messages(&deletions) {
                         Ok(_) => {
                             deletions = match next_deletions {
