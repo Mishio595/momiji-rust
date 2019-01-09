@@ -228,7 +228,7 @@ impl ApiClient {
                     }
                 }
             },
-            Err(why) => { trace!("Failed to resolve location: {:?}", why); }
+            Err(why) => { debug!("Failed to resolve location: {:?}", why); }
         }
         None
     }
