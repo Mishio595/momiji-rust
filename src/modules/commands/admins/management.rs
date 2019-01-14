@@ -47,7 +47,7 @@ impl Command for Prune {
     fn execute(&self, _: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
         message.delete()?;
         if let Some(guild_id) = message.guild_id {
-            let mut count = args.single::<usize>().unwrap_or(0);
+            let count = args.single::<usize>().unwrap_or(0);
             if count<=1000 {
                 let guild_data = db.get_guild(guild_id.0 as i64)?;
                 let fsel = args.single::<String>().unwrap_or(String::new());
@@ -71,7 +71,7 @@ impl Command for Prune {
                         Ok(_) => {
                             deleted_messages.append(&mut deletions);
                             deletions = match next_deletions {
-                                Some(s) => s,
+                                Some(s) => if s.is_empty() { break; } else { s },
                                 None => { break; }
                             }
                         },
