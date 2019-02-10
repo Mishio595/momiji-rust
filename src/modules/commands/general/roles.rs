@@ -251,18 +251,18 @@ impl Command for ListSelfRoles {
                     let category = args.full().to_string();
                     roles.retain(|e| *e.category.to_lowercase() == category.to_lowercase());
                     if !roles.is_empty() {
-                        let roles_out = roles
+                        let mut roles = roles
                             .iter()
                             .map(|e| match RoleId(e.id as u64).to_role_cached() {
                                 Some(r) => r.name,
                                 None => e.id.to_string(),
                             })
-                            .collect::<Vec<String>>()
-                            .join("\n");
+                            .collect::<Vec<String>>();
+                        roles.sort();
                         message.channel_id.send_message(|m| m
                             .embed(|e| e
                                 .title(category)
-                                .description(roles_out)
+                                .description(roles.join("\n"))
                                 .colour(*colours::MAIN)
                         ))?;
                     } else {
