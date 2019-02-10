@@ -761,6 +761,11 @@ impl Command for UserInfo {
                 })
                 .collect::<Vec<String>>();
             roles.sort();
+            let roles = if roles.is_empty() {
+                "None".to_string()
+            } else {
+                roles.join(", ")
+            };
             let dates = format!(
                 "Created: {}\nJoined: {}{}",
                 user.created_at()
@@ -786,7 +791,7 @@ impl Command for UserInfo {
                     .field("Mention", user.mention(), true)
                     .field("Nickname", member.display_name().into_owned(), true)
                     .field("Dates", dates, false)
-                    .field(format!("Roles [{}]", member.roles.len()), roles.join(", "), false)
+                    .field(format!("Roles [{}]", member.roles.len()), roles, false)
             ))?;
         }
         Ok(())
