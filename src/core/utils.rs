@@ -38,12 +38,8 @@ pub fn parse_role(input: String, guild_id: GuildId) -> Option<(RoleId, Role)> {
     match ROLE_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = RoleId::from_str(&s[1]) {
-                let guild_lock = CACHE.read().guild(&guild_id);
-                if let Some(guild_lock) = guild_lock {
-                    let guild = guild_lock.read();
-                    if let Some(role) = guild.roles.get(&id) {
-                        return Some((id, role.clone()));
-                    }
+                if let Some(role) = id.to_role_cached() {
+                    return Some((id, role.clone()));
                 }
             }
             None
@@ -70,9 +66,15 @@ pub fn parse_user(input: String, guild_id: GuildId) -> Option<(UserId, Member)> 
     match USER_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = UserId::from_str(&s[1]) {
-                let member = CACHE.read().member(&guild_id, &id);
-                if let Some(member) = member {
-                    return Some((id, member.clone()));
+                match CACHE.read().member(&guild_id, &id) {
+                    Some(member) => {
+                        return Some((id, member.clone()));
+                    },
+                    None => {
+                        if let Ok(member) = guild_id.member(id) {
+                            return Some((id, member));
+                        }
+                    },
                 }
             }
             None
@@ -215,7 +217,7 @@ pub fn seconds_to_hrtime(secs: usize) -> String {
             },
         }
     }
-    
+
     make_parts(secs, &[WEEK, DAY, HOUR, MIN, 1], Vec::new())
         .iter()
         .enumerate()
