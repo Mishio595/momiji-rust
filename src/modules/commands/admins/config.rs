@@ -633,7 +633,7 @@ impl Command for ConfigLogs {
             desc: Some("Change which log messages are disabled. A log type must be provided.".to_string()),
             usage: Some("<enable|disable|types> [type]".to_string()),
             example: Some("disable message_edit".to_string()),
-            min_args: Some(2),
+            min_args: Some(1),
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
