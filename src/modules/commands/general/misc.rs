@@ -944,7 +944,10 @@ impl Command for Stats {
                 (cache.guilds.len()
                 ,cache.channels.len()
                 ,cache.users.len()
-                ,cache.messages.len())
+                ,cache.messages.values()
+                    .fold(0, |a,m| {
+                        a + m.len()
+                    }))
             };
         let (db_guilds
             ,db_users
