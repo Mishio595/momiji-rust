@@ -42,6 +42,7 @@ pub fn init_ignore() -> CreateGroup {
         .cmd("add", IgnoreAdd)
         .cmd("remove", IgnoreRemove)
         .cmd("list", IgnoreList)
+        .cmd("level", IgnoreLevel)
 }
 
 pub fn init_management() -> CreateGroup {

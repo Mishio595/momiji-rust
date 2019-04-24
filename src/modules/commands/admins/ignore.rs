@@ -130,3 +130,39 @@ impl Command for IgnoreList {
         Ok(())
     }
 }
+
+pub struct IgnoreLevel;
+impl Command for IgnoreLevel {
+    fn options(&self) -> Arc<CommandOptions> {
+        let default = CommandOptions::default();
+        let options = CommandOptions {
+            desc: Some("Set the rank threshold required to bypass ignored channels. 4 = bot owner, 3 = guild owner, 2 = admin, 1 = mod, 0 = everyone.".to_string()),
+            usage: Some("<0..4>".to_string()),
+            example: Some("2".to_string()),
+            min_args: Some(1),
+            max_args: Some(1),
+            required_permissions: Permissions::MANAGE_GUILD,
+            ..default
+        };
+        Arc::new(options)
+    }
+
+    fn execute(&self, _: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
+        if let Some(guild_id) = message.guild_id {
+            let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+            match args.single::<i16>() {
+                Ok(level) => {
+                    guild_data.ignore_level = level;
+                    db.update_guild(guild_id.0 as i64, guild_data)?;
+                    message.channel_id.say(format!("Successfully set ignore level to {}", level))?;
+                },
+                Err(_) => {
+                    message.channel_id.say("Please enter an integer between 0 and 4.")?;
+                },
+            }
+        } else {
+            failed!(GUILDID_FAIL);
+        }
+        Ok(())
+    }
+}
