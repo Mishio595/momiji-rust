@@ -48,6 +48,11 @@ impl Command for BanUser {
                 (None, Some(r)) => { member.ban(&r)?; },
                 (None, None) => { member.ban(&0)?; },
             }
+            message.channel_id.say(format!(
+                "Banned {} successfully{}."
+                ,member.user.read().tag()
+                ,if let Some(r) = reason { format!("with reason {}", r) } else { "".to_string() }
+            ))?;
         } else {
             if let Ok(id) = arg.parse::<i64>() {
                 db.new_hackban(id, guild_id.0 as i64, args.single::<String>().ok())?;
@@ -78,6 +83,10 @@ impl Command for KickUser {
         if let Some((_, member)) = parse_user(args.single::<String>()?, guild_id) {
             let _reason = args.rest();
             member.kick()?;
+            message.channel_id.say(format!(
+                "Kicked {} successfully."
+                ,member.user.read().tag()
+            ))?;
         } else {
             message.channel_id.say("User does not exist in guild.")?;
         }
