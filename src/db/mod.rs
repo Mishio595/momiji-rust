@@ -79,7 +79,7 @@ impl Database {
     /// Delete a guild by the ID.
     /// Returns Result<guild_id, err>
     pub fn del_guild(&self, g_id: i64) -> QueryResult<i64> {
-        use db::schema::guilds::columns::id;
+        use crate::db::schema::guilds::columns::id;
         diesel::delete(guilds::table)
             .filter(id.eq(&g_id))
             .returning(id)
@@ -121,7 +121,7 @@ impl Database {
     /// Delete a user by user ID and guild ID.
     /// Returns the ID on success.
     pub fn del_user(&self, u_id: i64, g_id: i64) -> QueryResult<i64> {
-        use db::schema::users::columns::{id, guild_id};
+        use crate::db::schema::users::columns::{id, guild_id};
         diesel::delete(users::table)
             .filter(id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
@@ -137,7 +137,7 @@ impl Database {
     /// Select all users in a guild
     /// Returns a vector of users on success
     pub fn get_users(&self, g_id: i64) -> QueryResult<Vec<User<Utc>>> {
-        use db::schema::users::columns::guild_id;
+        use crate::db::schema::users::columns::guild_id;
         users::table.filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
     }
@@ -152,7 +152,7 @@ impl Database {
     /// Upsert a user
     /// Returns the new user on success
     pub fn upsert_user(&self, user: UserUpdate) -> QueryResult<User<Utc>> {
-        use db::schema::users::columns::{id, guild_id};
+        use crate::db::schema::users::columns::{id, guild_id};
         diesel::insert_into(users::table)
             .values(&user)
             .on_conflict((id, guild_id))
@@ -163,7 +163,7 @@ impl Database {
     /// Upserts multiple users with a vector of UserUpdates
     /// Returns Result<count, err>
     pub fn upsert_users(&self, users: &[UserUpdate]) -> QueryResult<usize> {
-        use db::schema::users::columns::*;
+        use crate::db::schema::users::columns::*;
         diesel::insert_into(users::table)
             .values(users)
             .on_conflict((id, guild_id))
@@ -197,7 +197,7 @@ impl Database {
     /// Delete a role by role ID and guild ID.
     /// Returns the ID on success.
     pub fn del_role(&self, r_id: i64, g_id: i64) -> QueryResult<i64> {
-        use db::schema::roles::columns::{id, guild_id};
+        use crate::db::schema::roles::columns::{id, guild_id};
         diesel::delete(roles::table)
             .filter(id.eq(&r_id))
             .filter(guild_id.eq(&g_id))
@@ -213,7 +213,7 @@ impl Database {
     /// Select all roles by guild id
     /// Returns a vector of roles on success
     pub fn get_roles(&self, g_id: i64) -> QueryResult<Vec<Role>> {
-        use db::schema::roles::columns::guild_id;
+        use crate::db::schema::roles::columns::guild_id;
         roles::table.filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
     }
@@ -249,7 +249,7 @@ impl Database {
     /// Delete a note by index, user ID, and guild ID.
     /// Returns the Note.note on success.
     pub fn del_note(&self, n_id: i32, u_id: i64, g_id: i64) -> QueryResult<String> {
-        use db::schema::notes::columns::{user_id, guild_id, id, note};
+        use crate::db::schema::notes::columns::{user_id, guild_id, id, note};
         diesel::delete(notes::table)
             .filter(user_id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
@@ -267,7 +267,7 @@ impl Database {
     /// Select all notes for a user
     /// Returns a vec of notes on success
     pub fn get_notes(&self, u_id: i64, g_id: i64) -> QueryResult<Vec<Note<Utc>>> {
-        use db::schema::notes::columns::{user_id, guild_id};
+        use crate::db::schema::notes::columns::{user_id, guild_id};
         notes::table.filter(user_id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
@@ -295,7 +295,7 @@ impl Database {
     /// Delete a timer with the given ID.
     /// Returns the note data on success.
     pub fn del_timer(&self, t_id: i32) -> QueryResult<String> {
-        use db::schema::timers::columns::{id, data};
+        use crate::db::schema::timers::columns::{id, data};
         diesel::delete(timers::table)
             .filter(id.eq(&t_id))
             .returning(data)
@@ -321,7 +321,7 @@ impl Database {
     }
     /// Get the timer with the closest expiration time to the present
     pub fn get_earliest_timer(&self) -> QueryResult<Timer> {
-        use db::schema::timers::{all_columns, columns::endtime};
+        use crate::db::schema::timers::{all_columns, columns::endtime};
         timers::table.select(all_columns)
             .order(endtime.asc())
             .first(self.conn().deref())
@@ -362,7 +362,7 @@ impl Database {
     /// Select all cases for a user
     /// Returns a vector of cases on success
     pub fn get_cases(&self, u_id: i64, g_id: i64) -> QueryResult<Vec<Case<Utc>>> {
-        use db::schema::cases::columns::{guild_id, user_id};
+        use crate::db::schema::cases::columns::{guild_id, user_id};
         cases::table.filter(user_id.eq(&u_id))
             .filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
@@ -391,7 +391,7 @@ impl Database {
     /// Delete a Tag
     /// Returns the Tag on success.
     pub fn del_tag(&self, g_id: i64, nm: String) -> QueryResult<Tag> {
-        use db::schema::tags::columns::{name, guild_id};
+        use crate::db::schema::tags::columns::{name, guild_id};
         diesel::delete(tags::table)
             .filter(name.eq(&nm))
             .filter(guild_id.eq(&g_id))
@@ -406,7 +406,7 @@ impl Database {
     /// Select all tags by guild
     /// Returns Vec<Tag> on success on success
     pub fn get_tags(&self, g_id: i64) -> QueryResult<Vec<Tag>> {
-        use db::schema::tags::columns::guild_id;
+        use crate::db::schema::tags::columns::guild_id;
         tags::table.filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
     }
@@ -439,7 +439,7 @@ impl Database {
     /// Delete premium by a guild ID.
     /// Returns the ID on success.
     pub fn del_premium(&self, g_id: i64) -> QueryResult<i64> {
-        use db::schema::premium::columns::id;
+        use crate::db::schema::premium::columns::id;
         diesel::delete(premium::table)
             .filter(id.eq(&g_id))
             .returning(id)
@@ -483,7 +483,7 @@ impl Database {
     /// Delete a Hackban
     /// Returns the Hackban on success.
     pub fn del_hackban(&self, h_id: i64, g_id: i64) -> QueryResult<Hackban> {
-        use db::schema::hackbans::columns::{id, guild_id};
+        use crate::db::schema::hackbans::columns::{id, guild_id};
         diesel::delete(hackbans::table)
             .filter(id.eq(&h_id))
             .filter(guild_id.eq(&g_id))
@@ -498,7 +498,7 @@ impl Database {
     /// Select all hackbans by guild
     /// Returns Vec<Hackban> on success on success
     pub fn get_hackbans(&self, g_id: i64) -> QueryResult<Vec<Hackban>> {
-        use db::schema::hackbans::columns::guild_id;
+        use crate::db::schema::hackbans::columns::guild_id;
         hackbans::table.filter(guild_id.eq(&g_id))
             .get_results(self.conn().deref())
     }

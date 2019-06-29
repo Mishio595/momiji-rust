@@ -1,5 +1,5 @@
-use core::colours;
-use core::consts::DB as db;
+use crate::core::colours;
+use crate::core::consts::DB as db;
 use serenity::framework::standard::{
     Args,
     Command,

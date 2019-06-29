@@ -1,4 +1,4 @@
-use db::Database;
+use crate::db::Database;
 use serenity::model::id::{GuildId, ChannelId, RoleId};
 
 lazy_static!{

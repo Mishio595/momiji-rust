@@ -1,5 +1,5 @@
-use core::model::ApiClient;
-use core::consts::*;
+use crate::core::model::ApiClient;
+use crate::core::consts::*;
 use serenity::framework::standard::{
     Args,
     Command,

@@ -29,4 +29,4 @@ pub mod db;
 pub mod modules;
 pub mod momiji_client;
 
-pub use momiji_client::MomijiClient;
+pub use crate::momiji_client::MomijiClient;

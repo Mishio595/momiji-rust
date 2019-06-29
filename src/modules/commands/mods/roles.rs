@@ -1,9 +1,9 @@
 use chrono::Utc;
-use core::colours;
-use core::consts::*;
-use core::consts::DB as db;
-use core::model::TC;
-use core::utils::*;
+use crate::core::colours;
+use crate::core::consts::*;
+use crate::core::consts::DB as db;
+use crate::core::model::TC;
+use crate::core::utils::*;
 use serenity::framework::standard::{
     Args,
     Command,

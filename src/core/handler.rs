@@ -1,10 +1,10 @@
 use chrono::Utc;
-use core::colours;
-use core::consts::*;
-use core::consts::DB as db;
-use core::model::*;
-use core::utils::*;
-use db::models::UserUpdate;
+use crate::core::colours;
+use crate::core::consts::*;
+use crate::core::consts::DB as db;
+use crate::core::model::*;
+use crate::core::utils::*;
+use crate::db::models::UserUpdate;
 use levenshtein::levenshtein;
 use rand::prelude::*;
 use serenity::CACHE;

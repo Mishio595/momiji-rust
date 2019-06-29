@@ -1,10 +1,10 @@
 use chrono::Utc;
-use core::colours;
-use core::consts::*;
-use core::consts::DB as db;
-use core::model::Owner;
-use core::utils::check_rank;
-use modules::commands::{
+use crate::core::colours;
+use crate::core::consts::*;
+use crate::core::consts::DB as db;
+use crate::core::model::Owner;
+use crate::core::utils::check_rank;
+use crate::modules::commands::{
     admins,
     general,
     mods,
