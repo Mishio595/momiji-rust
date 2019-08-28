@@ -35,7 +35,7 @@ impl Command for Furry {
                 .embed(|e| e
                     .image(&post.file_url)
                     .description(format!("**Tags:** {}\n**Post:** [{}]({})\n**Artist:** {}\n**Score:** {}",
-                        &post.tags,
+                        &post.tags.replace("_", "\\_"),
                         &post.id,
                         format!("https://e621.net/post/show/{}", &post.id),
                         &post.artist[0],
