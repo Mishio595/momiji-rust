@@ -26,6 +26,8 @@ impl Command for Furry {
     }
 
     fn execute(&self, ctx: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
+        message.channel_id.say("This command has been disabled. For more information see the following message in the support server. https://discordapp.com/channels/373561057639268352/377927171274047498/616441590612885526")?;
+        return Ok(());
         let data = ctx.data.lock();
         message.channel_id.broadcast_typing()?;
         if let Some(api) = data.get::<ApiClient>() {

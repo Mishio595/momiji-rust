@@ -185,7 +185,6 @@ impl ApiClient {
             .query(&[("tags", input.into()+" order:random"), ("limit", count.to_string())])
             .send() {
                 Ok(mut res) => {
-                    debug!("{:#?}", res);
                     res.json::<Vec<FurPost>>()
                 },
                 Err(why) => {
