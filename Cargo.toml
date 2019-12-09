@@ -48,7 +48,7 @@ features = ["colored"]
 
 [dependencies.serenity]
 git = "https://github.com/Mishio595/serenity.git"
-#path = "/home/lynn/builds/serenity"
+#path = "/home/adelyn/dev/serenity"
 default-features = false
 features = ["builder", "client", "cache", "framework", "standard_framework", "gateway", "http", "model", "utils"]
 
