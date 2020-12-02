@@ -272,30 +272,28 @@ impl EventHandler for Handler {
         } else { failed!(GUILDID_FAIL); }
     }
 
-    fn guild_create(&self, _: Context, guild: Guild, is_new: bool) {
-        if is_new {
-            match db.new_guild(guild.id.0 as i64) {
-                Ok(_) => {
-                    match guild.owner_id.to_user() {
-                        Ok(owner) => {
-                        check_error!(GUILD_LOG.send_message(|m| m
-                            .embed(|e| e
-                                .title("Joined Guild")
-                                .timestamp(now!())
-                                .colour(*colours::GREEN)
-                                .description(format!("**Name:** {}\n**ID:** {}\n**Owner:** {} ({})",
-                                    guild.name,
-                                    guild.id.0,
-                                    owner.tag(),
-                                    owner.id.0))
-                        )));
-                        },
-                        Err(why) => { failed!(USER_FAIL, why); },
-                    }
-                },
-                Err(why) => { failed!(DB_GUILD_ENTRY_FAIL, why); }
-            }
-        }
+    fn guild_create(&self, _: Context, guild: Guild, _is_new: bool) {
+	match db.new_guild(guild.id.0 as i64) {
+	    Ok(_) => {
+		match guild.owner_id.to_user() {
+		    Ok(owner) => {
+			check_error!(GUILD_LOG.send_message(|m| m
+			    .embed(|e| e
+			    .title("Joined Guild")
+			    .timestamp(now!())
+			    .colour(*colours::GREEN)
+			    .description(format!("**Name:** {}\n**ID:** {}\n**Owner:** {} ({})",
+				guild.name,
+				guild.id.0,
+				owner.tag(),
+				owner.id.0))
+			    )));
+		    },
+		    Err(why) => { failed!(USER_FAIL, why); },
+		}
+	     },
+	     Err(why) => { failed!(DB_GUILD_ENTRY_FAIL, why); }
+	 }
     }
 
     fn guild_delete(&self, _: Context, partial_guild: PartialGuild, _: Option<Arc<RwLock<Guild>>>) {
