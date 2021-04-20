@@ -272,11 +272,12 @@ impl EventHandler for Handler {
         } else { failed!(GUILDID_FAIL); }
     }
 
-    fn guild_create(&self, _: Context, guild: Guild, _is_new: bool) {
+    fn guild_create(&self, _: Context, guild: Guild, is_new: bool) {
 	match db.new_guild(guild.id.0 as i64) {
 	    Ok(_) => {
 		match guild.owner_id.to_user() {
 		    Ok(owner) => {
+                if !is_new { return; }
 			check_error!(GUILD_LOG.send_message(|m| m
 			    .embed(|e| e
 			    .title("Joined Guild")
