@@ -275,12 +275,12 @@ pub fn build_welcome_embed(input: String, member: &Member, cache: &InMemoryCache
                 "thumbnail" => {
                     match caps["value"].to_lowercase().trim() {
                         "user" | "member" => {
-                            embed = embed.thumbnail(ImageSource::url(member.user.avatar.clone().unwrap_or_default())?);
+                            embed = embed.thumbnail(ImageSource::url(user_avatar_url(&member.user, member.user.avatar.clone()))?);
                         },
                         "guild" => {
                             if let Some(guild) = cache.guild((&member).guild_id.clone()) {
                                 if let Some(ref s) = guild.icon {
-                                    embed = embed.thumbnail(ImageSource::url(s)?);
+                                    embed = embed.thumbnail(ImageSource::url(guild_icon_url(guild.id, s.clone()))?);
                                 }
                             }
                         },
@@ -331,4 +331,15 @@ pub(crate) fn member_tag(m: Arc<CachedMember>) -> String {
 
 pub(crate) fn user_tag(user: Arc<User>) -> String {
     format!("{}#{}", user.name, user.discriminator)
+}
+
+pub(crate) fn user_avatar_url(user: &User, avatar: Option<String>) -> String {
+    match avatar {
+        Some(hash) => dbg!(format!("https://cdn.discordapp.com/avatars/{}/{}.png", user.id.0, hash)),
+        None => dbg!(format!("https://cdn.discordapp.com/embed/avatars/{}.png", user.discriminator.parse::<usize>().unwrap() % 5))
+    }
+}
+
+pub(crate) fn guild_icon_url(id: GuildId, hash: String) -> String {
+    format!("https://cdn.discordapp.com/icons/{}/{}.png", id.0, hash)
 }
