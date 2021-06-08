@@ -29,7 +29,7 @@ impl Command for IgnoreAdd {
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
+    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let mut guild_data = db.get_guild(guild_id.0 as i64)?;
             if let Some((channel_id, channel)) = parse_channel(args.full().to_string(), guild_id) {
@@ -69,7 +69,7 @@ impl Command for IgnoreRemove {
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
+    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let mut guild_data = db.get_guild(guild_id.0 as i64)?;
             if let Some((channel_id, channel)) = parse_channel(args.full().to_string(), guild_id) {
@@ -106,7 +106,7 @@ impl Command for IgnoreList {
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, _: Args) -> Result<(), CommandError> {
+    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let guild_data = db.get_guild(guild_id.0 as i64)?;
             if !guild_data.ignored_channels.is_empty() {
@@ -147,7 +147,7 @@ impl Command for IgnoreLevel {
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
+    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let mut guild_data = db.get_guild(guild_id.0 as i64)?;
             match args.single::<i16>() {

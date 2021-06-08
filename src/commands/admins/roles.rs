@@ -1,33 +1,35 @@
-use crate::core::consts::*;
-use crate::core::consts::DB as db;
-use crate::core::utils::*;
-use serenity::framework::standard::{
-    Args,
-    Command,
-    CommandError,
-    CommandOptions
+use momiji::core::consts::*;
+use momiji::core::timers::TimerClient;
+use momiji::core::utils::*;
+use momiji::db::DatabaseConnection;
+use momiji::framework::args::Args;
+use momiji::framework::command::{Command, Options};
+use tracing::debug;
+use twilight_cache_inmemory::InMemoryCache;
+use twilight_http::Client as HttpClient;
+use twilight_model::{
+    channel::Message,
+    guild::Permissions,
 };
-use serenity::model::channel::Message;
-use serenity::model::Permissions;
-use serenity::prelude::Context;
+use std::error::Error;
 use std::sync::Arc;
 
 pub struct CreateSelfRole;
+#[async_trait]
 impl Command for CreateSelfRole {
-    fn options(&self) -> Arc<CommandOptions> {
-        let default = CommandOptions::default();
-        let options = CommandOptions {
-            desc: Some("Create a self role from a discord role. Also optionally takes a category and/or aliases.".to_string()),
+    fn options(&self) -> Arc<Options> {
+        let default = Options::default();
+        let options = Options {
+            description: Some("Create a self role from a discord role. Also optionally takes a category and/or aliases.".to_string()),
             usage: Some("<role_resolvable> [/c category] [/a aliases as CSV]".to_string()),
-            example: Some("NSFW /c Opt-in /a porn, lewd".to_string()),
-            aliases: vec!["createselfrole".to_string()],
+            examples: vec!["NSFW /c Opt-in /a porn, lewd".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
+    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let switches = get_switches(args
                 .full()
@@ -36,7 +38,7 @@ impl Command for CreateSelfRole {
             let rest = switches
                 .get("rest")
                 .unwrap_or(&backup);
-            if let Some((role_id, role)) = parse_role(rest.clone(), guild_id) {
+            if let Some((role_id, role)) = parse_role(rest.clone(), guild_id, &cache) {
                 let category = switches
                     .get("c")
                     .cloned();
@@ -54,7 +56,7 @@ impl Command for CreateSelfRole {
                     guild_id.0 as i64,
                     category,
                     aliases)?;
-                message.channel_id.say(format!(
+                http.create_message(message.channel_id).reply(message.id).content(format!(
                     "Successfully added role {} to category {} {}"
                     ,role.name
                     ,data.category
@@ -63,64 +65,64 @@ impl Command for CreateSelfRole {
                     } else {
                         String::new()
                     }
-                ))?;
-            } else { message.channel_id.say("I couldn't find that role.")?; }
+                ))?.await?;
+            } else { http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
         } else {
-            failed!(GUILDID_FAIL);
+            debug!("{}", GUILDID_FAIL);
         }
         Ok(())
     }
 }
 
 pub struct DeleteSelfRole;
+#[async_trait]
 impl Command for DeleteSelfRole {
-    fn options(&self) -> Arc<CommandOptions> {
-        let default = CommandOptions::default();
-        let options = CommandOptions {
-            desc: Some("Delete a self role.".to_string()),
+    fn options(&self) -> Arc<Options> {
+        let default = Options::default();
+        let options = Options {
+            description: Some("Delete a self role.".to_string()),
             usage: Some("<role_resolvable>".to_string()),
-            example: Some("NSFW".to_string()),
-            aliases: vec!["deleteselfrole".to_string()],
+            examples: vec!["NSFW".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
+    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id) {
+            if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id, &cache) {
                 db.del_role(role_id.0 as i64, guild_id.0 as i64)?;
-                message.channel_id.say(format!("Successfully deleted role {}", role.name))?;
-            } else { message.channel_id.say("I couldn't find that role.")?; }
+                http.create_message(message.channel_id).reply(message.id).content(format!("Successfully deleted role {}", role.name))?.await?;
+            } else { http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
         } else {
-            failed!(GUILDID_FAIL);
+            debug!("{}", GUILDID_FAIL);
         }
         Ok(())
     }
 }
 
 pub struct EditSelfRole;
+#[async_trait]
 impl Command for EditSelfRole {
-    fn options(&self) -> Arc<CommandOptions> {
-        let default = CommandOptions::default();
-        let options = CommandOptions {
-            desc: Some("Edit a self role. Optionally takes a category and/or aliases. This operation is lazy and won't change anything you don't specify. Replace switch tells the bot to override aliases instead of append.".to_string()),
+    fn options(&self) -> Arc<Options> {
+        let default = Options::default();
+        let options = Options {
+            description: Some("Edit a self role. Optionally takes a category and/or aliases. This operation is lazy and won't change anything you don't specify. Replace switch tells the bot to override aliases instead of append.".to_string()),
             usage: Some("<role_resolvable> [/c category] [/a aliases as CSV] [/replace]".to_string()),
-            example: Some("NSFW /c Opt-in /a porn, lewd /replace".to_string()),
-            aliases: vec!["editselfrole".to_string()],
+            examples: vec!["NSFW /c Opt-in /a porn, lewd /replace".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
             ..default
         };
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
+    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let switches = get_switches(args.full().to_string());
             let backup = String::new();
             let rest = switches.get("rest").unwrap_or(&backup);
-            if let Some((role_id, d_role)) = parse_role(rest.clone(), guild_id) {
+            if let Some((role_id, d_role)) = parse_role(rest.clone(), guild_id, &cache) {
                 let category = switches
                     .get("c")
                     .cloned();
@@ -142,7 +144,7 @@ impl Command for EditSelfRole {
                     }
                 }
                 let data = db.update_role(role_id.0 as i64, guild_id.0 as i64, role)?;
-                message.channel_id.say(format!("Successfully update role {} in category {} {}",
+                http.create_message(message.channel_id).reply(message.id).content(format!("Successfully update role {} in category {} {}",
                     d_role.name,
                     data.category,
                     if !data.aliases.is_empty() {
@@ -150,10 +152,10 @@ impl Command for EditSelfRole {
                     } else {
                         String::new()
                     }
-                ))?;
-            } else { message.channel_id.say("I couldn't find that role.")?; }
+                ))?.await?;
+            } else { http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
         } else {
-            failed!(GUILDID_FAIL);
+            debug!("{}", GUILDID_FAIL);
         }
         Ok(())
     }

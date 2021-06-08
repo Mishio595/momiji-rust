@@ -27,7 +27,7 @@ impl Command for PRegisterMember {
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
+    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let mut settings = db.get_premium(guild_id.0 as i64)?;
             if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id) {
@@ -57,7 +57,7 @@ impl Command for PRegisterCooldown {
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
+    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let mut settings = db.get_premium(guild_id.0 as i64)?;
             if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id) {
@@ -87,7 +87,7 @@ impl Command for PRegisterDuration {
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
+    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let mut settings = db.get_premium(guild_id.0 as i64)?;
             if let Ok(dur) = args.full().parse::<String>() {
@@ -118,7 +118,7 @@ impl Command for PRegisterRestrictions {
         Arc::new(options)
     }
 
-    fn execute(&self, _: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
+    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let op = args.single::<String>().unwrap_or(String::new());
             let mut sec = "";
