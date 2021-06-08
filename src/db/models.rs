@@ -1,5 +1,5 @@
 use chrono::{DateTime, TimeZone, Utc};
-use serenity::model::id::{UserId, RoleId};
+use twilight_model::id::UserId;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use super::schema::*;
 
@@ -203,28 +203,19 @@ pub struct UserUpdate {
 impl Display for Guild {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "**Admin Roles:** {}\n**Audit:** {}\n**Audit Channel:** {}\n**Audit Threshold:** {}\n**Autorole:** {}\n**Autoroles:** {}\n**Ignored Channels:** {}\n**Ignore Level:** {}\n**Introduction:** {}\n**Introduction Channel:** {}\n**Introduction Type:** {}\n**Introduction Message:** {}\n**Mod Roles: ** {}\n**Modlog:** {}\n**Modlog Channel:** {}\n**Mute Setup:** {}\n**Prefix:** {}\n**Welcome:** {}\n**Welcome Channel:** {}\n**Welcome Type:** {}\n**Welcome Message:** {}\n**Disabled Commands:** {}\n**Disabled Log Types:** {}",
-            self.admin_roles.iter().map(|e| match RoleId(*e as u64).to_role_cached() {
-                Some(role) => role.name,
-                None => format!("{}", e),
-            }).collect::<Vec<String>>().join(", "),
+            self.admin_roles.iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", "),
             self.audit,
             format!("<#{}>", self.audit_channel),
             self.audit_threshold,
             self.autorole,
-            self.autoroles.iter().map(|e| match RoleId(*e as u64).to_role_cached() {
-                Some(role) => role.name,
-                None => format!("{}", e),
-            }).collect::<Vec<String>>().join(", "),
+            self.autoroles.iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", "),
             self.ignored_channels.iter().map(|e| format!("<#{}>", e)).collect::<Vec<String>>().join(", "),
             self.ignore_level,
             self.introduction,
             format!("<#{}>", self.introduction_channel),
             self.introduction_type,
             self.introduction_message,
-            self.mod_roles.iter().map(|e| match RoleId(*e as u64).to_role_cached() {
-                Some(role) => role.name,
-                None => format!("{}", e),
-            }).collect::<Vec<String>>().join(", "),
+            self.mod_roles.iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", "),
             self.modlog,
             format!("<#{}>", self.modlog_channel),
             self.mute_setup,
@@ -241,10 +232,7 @@ impl Display for Guild {
 impl Display for Note<Utc> {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{} wrote on {} (ID: {})\n`{}`",
-            match UserId(self.moderator as u64).to_user() {
-                Ok(user) => user.tag(),
-                Err(_) => format!("{}", self.moderator),
-            },
+            UserId(self.moderator as u64),
             self.timestamp.format("%a, %d %h %Y @ %H:%M:%S").to_string(),
             self.id,
             self.note)

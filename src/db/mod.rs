@@ -16,15 +16,17 @@ use self::models::*;
 use self::schema::*;
 use std::env;
 use std::ops::Deref;
+use std::sync::Arc;
 
 /// While the struct itself and the connection are public, Database cannot be manually
 /// instantiated. Use Database::connect() to start it.
-pub struct Database {
-    pub pool: Pool<ConnectionManager<PgConnection>>,
-    _hidden: (),
+#[derive(Clone)]
+#[non_exhaustive]
+pub struct DatabaseConnection {
+    pub pool: Arc<Pool<ConnectionManager<PgConnection>>>,
 }
 
-impl Database {
+impl DatabaseConnection {
     /// Create a new database with a connection.
     /// Returns a new Database.
     pub fn connect() -> Self {
@@ -35,9 +37,8 @@ impl Database {
             .build(manager)
             .expect("Failed to make connection pool");
 
-        Database {
-            pool,
-            _hidden: (),
+        Self {
+            pool: Arc::new(pool),
         }
     }
 
