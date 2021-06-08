@@ -1,68 +1,32 @@
-#[macro_use] extern crate log;
-#[macro_use] extern crate momiji;
-extern crate chrono;
-extern crate fern;
-extern crate kankyo;
+#[macro_use] extern crate async_trait;
 
-use fern::colors::{
-    Color,
-    ColoredLevelConfig
-};
-use momiji::MomijiClient;
+pub(crate) mod client;
+pub(crate) mod standard_framework;
+pub(crate) mod commands;
 
-fn main() {
-    kankyo::load().expect("Failed to load .env file");
-    fern_setup().expect("Failed to apply fern settings.");
-    let mut client = MomijiClient::new();
-    check_error!(client.start());
-}
+use std::{env, error::Error};
+use client::Client;
+use twilight_model::gateway::Intents;
 
-fn fern_setup() -> Result<(), log::SetLoggerError> {
-    // This is a bit verbose, but it allows for logging to console with colors and to a file
-    // without to avoid ANSI color codes showing up in the log. This is mostly to improve
-    // visibility.
-    let colors = ColoredLevelConfig::new()
-        .trace(Color::Magenta)
-        .debug(Color::Cyan)
-        .info(Color::Green)
-        .warn(Color::Yellow)
-        .error(Color::Red);
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let subscriber = tracing_subscriber::fmt()
+        .with_env_filter("momiji=debug")
+        .with_target(false)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("Unable to set global default subscriber");
 
-    let term_out = fern::Dispatch::new()
-        .format(move |out, message, record| {
-            out.finish(format_args!(
-                "{time}  {level:level_width$}{target:target_width$}> {msg}",
-                time = chrono::Utc::now().format("%F %T"),
-                level = colors.color(record.level()),
-                target = format!("{}:{}", record.target(), record.line().unwrap_or(0)),
-                msg = message,
-                level_width = 8,
-                target_width = 60
-            ))
-        })
-        .chain(std::io::stdout())
-        .into_shared();
+    kankyo::load(false).expect("Failed to load .env file");
+    
+    let token = env::var("DISCORD_TOKEN")?;
+    let intents = Intents::all()
+        ^ Intents::GUILD_PRESENCES
+        ^ Intents::GUILD_MESSAGE_TYPING
+        ^ Intents::DIRECT_MESSAGE_TYPING;
 
-    let file_out = fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "{time}  {level:level_width$}{target:target_width$}> {msg}",
-                time = chrono::Utc::now().format("%F %T"),
-                level = record.level(),
-                target = format!("{}:{}", record.target(), record.line().unwrap_or(0)),
-                msg = message,
-                level_width = 8,
-                target_width = 60
-            ))
-        })
-        .chain(fern::log_file("output.log").expect("Failed to load log file"))
-        .into_shared();
+    let client = Client::new(&token, intents).await;
+    client.start().await;
 
-    fern::Dispatch::new()
-        .level(log::LevelFilter::Info)
-        .level_for("serenity", log::LevelFilter::Debug)
-        .level_for("momiji", log::LevelFilter::Debug)
-        .chain(term_out)
-        .chain(file_out)
-        .apply()
+    Ok(())
 }
