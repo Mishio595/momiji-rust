@@ -2,8 +2,7 @@ pub mod args;
 pub mod command;
 pub mod parser;
 
-use crate::core::timers::TimerClient;
-use crate::db::DatabaseConnection;
+use crate::Context;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt;
@@ -15,10 +14,6 @@ use self::command::{
     Module,
     ModuleBuilder
 };
-use self::parser::Parser;
-use twilight_cache_inmemory::InMemoryCache as Cache;
-use twilight_gateway::Cluster;
-use twilight_http::Client as HttpClient;
 use twilight_model::{channel::Message, guild::Permissions};
 use twilight_model::id::UserId;
 
@@ -54,14 +49,14 @@ impl fmt::Display for DispatchError {
 pub struct Config {
     case_sensitive: bool,
     delimiters: Vec<String>,
-    dynamic_prefix: Arc<dyn Fn(&Message, &DatabaseConnection) -> Option<String> + Send + Sync>,
+    dynamic_prefix: Arc<dyn Fn(&Message, Context) -> Option<String> + Send + Sync>,
     ignore_bots: bool,
     on_dm: bool,
     on_mention: bool,
     owners: HashSet<UserId>,
     prefix: String,
-    before: Arc<dyn Fn(&Message, &str, &HttpClient, &Cache, &DatabaseConnection) -> bool + Send + Sync>,
-    after: Arc<dyn Fn(&Message, &str, &HttpClient, &Cache, &DatabaseConnection,  Box<dyn Error>) + Send + Sync>,
+    before: Arc<dyn Fn(&Message, &str, Context) -> bool + Send + Sync>,
+    after: Arc<dyn Fn(&Message, &str, Context,  Box<dyn Error>) + Send + Sync>,
 }
 
 #[derive(Clone)]
@@ -69,14 +64,14 @@ pub struct Config {
 pub struct ConfigBuilder {
     case_sensitive: bool,
     delimiters: Vec<String>,
-    dynamic_prefix: Arc<dyn Fn(&Message, &DatabaseConnection) -> Option<String> + Send + Sync>,
+    dynamic_prefix: Arc<dyn Fn(&Message, Context) -> Option<String> + Send + Sync>,
     ignore_bots: bool,
     on_dm: bool,
     on_mention: bool,
     owners: HashSet<UserId>,
     prefix: String,
-    before: Arc<dyn Fn(&Message, &str, &HttpClient, &Cache, &DatabaseConnection) -> bool + Send + Sync>,
-    after: Arc<dyn Fn(&Message, &str, &HttpClient, &Cache, &DatabaseConnection,  Box<dyn Error>) + Send + Sync>,
+    before: Arc<dyn Fn(&Message, &str, Context) -> bool + Send + Sync>,
+    after: Arc<dyn Fn(&Message, &str, Context,  Box<dyn Error>) + Send + Sync>,
 }
 
 impl Default for ConfigBuilder {
@@ -90,8 +85,8 @@ impl Default for ConfigBuilder {
             on_mention: true,
             owners: HashSet::new(),
             prefix: "!".to_string(),
-            before: Arc::new(|_,_,_,_,_| true),
-            after: Arc::new(|_,_,_,_,_,_| {}),
+            before: Arc::new(|_,_,_| true),
+            after: Arc::new(|_,_,_,_| {}),
         }
     }
 }
@@ -114,7 +109,7 @@ impl ConfigBuilder {
     }
 
     pub fn dynamic_prefix<F>(&mut self, f: F) -> &mut Self
-        where F: Fn(&Message, &DatabaseConnection) -> Option<String> + Send + Sync + 'static {
+        where F: Fn(&Message, Context) -> Option<String> + Send + Sync + 'static {
         self.dynamic_prefix = Arc::new(f);
 
         self
@@ -178,20 +173,16 @@ impl From<&ConfigBuilder> for Config {
     }
 }
 
-pub struct FrameworkBuilder<P: Parser + Clone> {
+pub struct FrameworkBuilder {
     config: Config,
     modules: HashMap<String, Module>,
-    parser: Option<P>,
-    cluster: Option<Cluster>,
 }
 
-impl<P: Parser + Clone> FrameworkBuilder<P> {
-    pub fn build(self) -> Framework<P> {
+impl FrameworkBuilder {
+    pub fn build(self) -> Framework {
         Framework {
             config: self.config,
             modules: self.modules,
-            parser: Arc::new(self.parser.expect("Cannot build framework without parser")),
-            cluster: self.cluster.expect("Cannot build framework without cluster"),
         }
     }
 
@@ -212,56 +203,40 @@ impl<P: Parser + Clone> FrameworkBuilder<P> {
             S: ToString {
         self.raw_add_module(name, builder(Module::builder()).build())
     }
-
-    pub fn parser(mut self, parser: P) -> Self {
-        self.parser = Some(parser);
-
-        self
-    }
-
-    pub fn cluster(mut self, cluster: Cluster) -> Self {
-        self.cluster = Some(cluster);
-
-        self
-    }
 }
 
-impl<P: Parser + Clone> Default for FrameworkBuilder<P> {
+impl Default for FrameworkBuilder {
     fn default() -> Self {
         Self {
             config: Config::new(),
             modules: HashMap::new(),
-            parser: None,
-            cluster: None,
         }
     }
 }
 
 #[non_exhaustive]
-pub struct Framework<P: Parser> {
+pub struct Framework {
     //TODO add before/after checks for all commands. Dispatch errors?
     //TODO help command?
     config: Config,
     modules: HashMap<String, Module>,
-    parser: Arc<P>,
-    cluster: Cluster,
 }
 
-impl<P: Parser + Clone> Framework<P> {
-    pub fn builder() -> FrameworkBuilder<P> {
+impl Framework {
+    pub fn builder() -> FrameworkBuilder {
         FrameworkBuilder::default()
     }
 
-    pub async fn handle_command(&self, message: Message, http: HttpClient, cache: Cache, db: DatabaseConnection, timers: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let prefix = match (*self.config.dynamic_prefix)(&message, &db) {
+    pub async fn handle_command(&self, message: Message, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let prefix = match (*self.config.dynamic_prefix)(&message, ctx.clone()) {
             Some(p) => p,
             None => self.config.prefix.clone(),
         };
         //TODO add before and after hooks, add dispatch error hook
-        if let Some((command, args)) = self.parser.parse_with_prefix(prefix.as_str(), message.content.as_str(), &self.config.delimiters[..]) {
+        if let Some((command, args)) = ctx.parser.parse_with_prefix(prefix.as_str(), message.content.as_str(), &self.config.delimiters[..]) {
             let res= self.get_command(command, args);
             if let Some((c, args)) = res {
-                self.execute_command_with_hooks(c, message, args, http, cache, db, timers).await?;
+                self.execute_command_with_hooks(c, message, args, ctx).await?;
             }
         };
 
@@ -301,7 +276,7 @@ impl<P: Parser + Clone> Framework<P> {
         None
     }
 
-    async fn execute_command_with_hooks(&self, comm: Arc<dyn CommandTrait>, message: Message, args: Args, http: HttpClient, cache: Cache, db: DatabaseConnection, timers: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn execute_command_with_hooks(&self, comm: Arc<dyn CommandTrait>, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         let options = comm.options();
     
         if options.guild_only && message.guild_id.is_none() {
@@ -311,7 +286,7 @@ impl<P: Parser + Clone> Framework<P> {
         if !self.config.owners.contains(&message.author.id) {
             if let Some(m) = &message.member {
                 let p = m.roles.iter().fold(Permissions::empty(), |p, r| {
-                    cache.role(*r)
+                    ctx.cache.role(*r)
                         .and_then(|r| Some((*r).permissions))
                         .unwrap_or(Permissions::empty()) | p
                 });
@@ -328,12 +303,12 @@ impl<P: Parser + Clone> Framework<P> {
             }
         }
     
-        if !(*comm).before(message.clone(), args.clone(), http.clone(), cache.clone(), db.clone()) {
+        if !(*comm).before(message.clone(), args.clone(), ctx.clone()) {
             return Err(Box::new(DispatchError::FailedCheck));
         }
     
-        if let Err(err) = (*comm).run(message.clone(), args.clone(), http.clone(), cache.clone(), db.clone(), timers.clone()).await {
-            (*comm).after(message.clone(), args.clone(), http.clone(), cache.clone(), db.clone(), err);
+        if let Err(err) = (*comm).run(message.clone(), args.clone(), ctx.clone()).await {
+            (*comm).after(message.clone(), args.clone(), ctx.clone(), err);
         }
     
         Ok(())

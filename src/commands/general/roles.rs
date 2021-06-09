@@ -1,14 +1,11 @@
 use fuzzy_match::fuzzy_match;
+use momiji::Context;
 use momiji::core::consts::*;
-use momiji::core::timers::TimerClient;
-use momiji::db::DatabaseConnection;
 use momiji::core::utils::*;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
 use tracing::debug;
-use twilight_cache_inmemory::InMemoryCache;
 use twilight_embed_builder::{EmbedBuilder, EmbedFieldBuilder};
-use twilight_http::Client as HttpClient;
 use twilight_http::request::AuditLogReason;
 use twilight_model::{
     channel::Message,
@@ -31,7 +28,9 @@ impl Command for AddSelfRole {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = ctx.db.clone();
+        let cache = ctx.cache.clone();
         if let Some(guild_id) = message.guild_id {
             if let Some(member) = message.member {
                 let roles = db.get_roles(guild_id.0 as i64)?;
@@ -92,7 +91,7 @@ impl Command for AddSelfRole {
                                 None => role_id.0.to_string(),
                             }));
                         }
-                        if let Err(_) = http.add_guild_member_role(guild_id, message.author.id, *role_id).reason("Self role")?.await {
+                        if let Err(_) = ctx.http.add_guild_member_role(guild_id, message.author.id, *role_id).reason("Self role")?.await {
                             to_add.remove(i);
                             failed.push(format!("Failed to add {}", match role_names.iter().find(|r| &r.id == role_id) {
                                 Some(s) => s.name.clone(),
@@ -118,9 +117,9 @@ impl Command for AddSelfRole {
                         embed = embed.field(EmbedFieldBuilder::new("Failed to Add", failed.join("\n")));
                     }
 
-                    http.create_message(message.channel_id).reply(message.id).embed(embed.build()?)?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).embed(embed.build()?)?.await?;
                 } else {
-                    http.create_message(message.channel_id).reply(message.id).content("There are no self roles.")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("There are no self roles.")?.await?;
                 }
             } else { debug!("{}", MEMBER_FAIL); }
         } else { debug!("{}", GUILDID_FAIL); }
@@ -141,7 +140,9 @@ impl Command for RemoveSelfRole {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = ctx.db.clone();
+        let cache = ctx.cache.clone();
         if let Some(guild_id) = message.guild_id {
             if let Some(member) = message.member {
                 let roles = db.get_roles(guild_id.0 as i64)?;
@@ -176,7 +177,7 @@ impl Command for RemoveSelfRole {
                                 None => role_id.0.to_string(),
                             }));
                         }
-                        if let Err(_) = http.remove_guild_member_role(guild_id, message.author.id, *role_id).reason("Self role")?.await {
+                        if let Err(_) = ctx.http.remove_guild_member_role(guild_id, message.author.id, *role_id).reason("Self role")?.await {
                             to_remove.remove(i);
                             failed.push(format!("Failed to remove {}", match role_names.iter().find(|r| &r.id == role_id) {
                                 Some(s) => s.name.clone(),
@@ -200,9 +201,9 @@ impl Command for RemoveSelfRole {
                         embed = embed.field(EmbedFieldBuilder::new("Failed to remove", failed.join("\n")));
                     }
 
-                    http.create_message(message.channel_id).reply(message.id).embed(embed.build()?)?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).embed(embed.build()?)?.await?;
                 } else {
-                    http.create_message(message.channel_id).reply(message.id).content("There are no self roles.")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("There are no self roles.")?.await?;
                 }
             } else { debug!("{}", MEMBER_FAIL); }
         } else { debug!("{}", GUILDID_FAIL); }
@@ -222,7 +223,9 @@ impl Command for ListSelfRoles {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = ctx.db.clone();
+        let cache = ctx.cache.clone();
         if let Some(guild_id) = message.guild_id {
             let mut roles = db.get_roles(guild_id.0 as i64)?;
             if !roles.is_empty() {
@@ -248,7 +251,7 @@ impl Command for ListSelfRoles {
                         val.sort();
                         embed = embed.field(EmbedFieldBuilder::new(key, val.join("\n")));
                     }
-                    http.create_message(message.channel_id).reply(message.id).embed(embed.build()?)?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).embed(embed.build()?)?.await?;
                 } else {
                     let category = args.full().to_string();
                     roles.retain(|e| *e.category.to_lowercase() == category.to_lowercase());
@@ -268,13 +271,13 @@ impl Command for ListSelfRoles {
                             .color(colors::MAIN)
                             .build()?;
 
-                        http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
+                        ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
                     } else {
-                        http.create_message(message.channel_id).reply(message.id).content(format!("The category `{}` does not exist.", category))?.await?;
+                        ctx.http.create_message(message.channel_id).reply(message.id).content(format!("The category `{}` does not exist.", category))?.await?;
                     }
                 }
             } else {
-                http.create_message(message.channel_id).reply(message.id).content("There are no self roles.")?.await?;
+                ctx.http.create_message(message.channel_id).reply(message.id).content("There are no self roles.")?.await?;
             }
         } else { debug!("{}", GUILDID_FAIL); }
         Ok(())

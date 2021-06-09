@@ -1,15 +1,12 @@
 use chrono::Utc;
+use momiji::Context;
 use momiji::core::consts::*;
-use momiji::core::timers::TimerClient;
-use momiji::db::DatabaseConnection;
 use momiji::core::utils::*;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
 use std::error::Error;
 use std::sync::Arc;
-use twilight_cache_inmemory::InMemoryCache;
 use twilight_embed_builder::{EmbedBuilder, EmbedFieldBuilder};
-use twilight_http::Client as HttpClient;
 use twilight_model::channel::Message;
 
 // lazy_static! {
@@ -29,7 +26,7 @@ use twilight_model::channel::Message;
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         use serenity::builder::CreateEmbed;
 
 //         let data = ctx.data.lock();
@@ -96,7 +93,7 @@ use twilight_model::channel::Message;
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         let data = ctx.data.lock();
 //         if let Some(api) = data.get::<ApiClient>() {
 //             let res = api.cat()?;
@@ -120,7 +117,7 @@ use twilight_model::channel::Message;
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         let data = ctx.data.lock();
 //         if let Some(api) = data.get::<ApiClient>() {
 //             let res = api.dog()?;
@@ -144,7 +141,7 @@ use twilight_model::channel::Message;
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         let data = ctx.data.lock();
 //         if let Some(api) = data.get::<ApiClient>() {
 //             let res = api.joke()?;
@@ -167,7 +164,7 @@ use twilight_model::channel::Message;
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         use kitsu::model::Status::*;
 //         let data = ctx.data.lock();
 //         message.channel_id.broadcast_typing()?;
@@ -229,7 +226,7 @@ use twilight_model::channel::Message;
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         use kitsu::model::Status::*;
 //         let data = ctx.data.lock();
 //         message.channel_id.broadcast_typing()?;
@@ -287,7 +284,7 @@ use twilight_model::channel::Message;
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         use chrono::offset::FixedOffset;
 //         let utc = Utc::now();
 //         let datetime = match args.single::<i32>() {
@@ -324,19 +321,29 @@ impl Command for Ping {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, _: Args, http: HttpClient, _: InMemoryCache, _: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, _: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        use chrono::DateTime;
+        let shard_latency = {
+            let info = ctx.cluster.info();
+            // This only works in a single sharded situation
+            info.get(&0).and_then(|info| info.latency().average())
+                .map(|dur| dur.as_millis().to_string())
+                .unwrap_or("unknown".to_string())
+        };
         let embed = EmbedBuilder::new()
-            .title("Pong")
-            .color(colors::MAIN);
-        http.create_message(message.channel_id).reply(message.id)
-            .embed(embed.build()?)?
+            .title("Pong!")
+            .color(colors::MAIN)
+            .description(format!("**Shard Latency:** {}", shard_latency));
+        let response = ctx.http.create_message(message.channel_id).reply(message.id)
+            .embed(embed.clone().build()?)?
             .await?;
-        // let t = m.timestamp.timestamp_millis() - message.timestamp.timestamp_millis();
-        // m.edit(|m| m.embed(|e| e
-        //     .title("Pong!")
-        //     .descriptionription(format!("**Shard Latency:** {}\n**Response Time:** {} ms", if lat==0 { String::from("Failed to retrieve") } else { format!("{} ms", lat) }, t))
-        //     .colour(colors::MAIN)
-        // ))?;
+        let rtt =
+            DateTime::parse_from_rfc3339(response.timestamp.as_str()).map(|ts| ts.timestamp_millis()).unwrap_or(0)
+            - DateTime::parse_from_rfc3339(message.timestamp.as_str()).map(|ts| ts.timestamp_millis()).unwrap_or(0);
+        let embed = embed
+            .description(format!("**Shard Latency:** {} ms\n**HTTP Response Time:** {} ms", shard_latency, rtt));
+        ctx.http.update_message(response.channel_id, response.id).embed(embed.build()?)?.await?;
+        
         Ok(())
     }
 }
@@ -353,12 +360,12 @@ impl Command for Prefix {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, _: Args, http: HttpClient, _: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, _: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            if let Ok(settings) = db.get_guild(guild_id.0 as i64) {
-                http.create_message(message.channel_id).reply(message.id).content(format!("The prefix for this guild is `{}`", settings.prefix))?.await?;
+            if let Ok(settings) = ctx.db.get_guild(guild_id.0 as i64) {
+                ctx.http.create_message(message.channel_id).reply(message.id).content(format!("The prefix for this guild is `{}`", settings.prefix))?.await?;
             } else {
-                http.create_message(message.channel_id).reply(message.id).content("Failed to get guild data.")?.await?;
+                ctx.http.create_message(message.channel_id).reply(message.id).content("Failed to get guild data.")?.await?;
             }
         }
         Ok(())
@@ -378,7 +385,7 @@ impl Command for Reminder {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, args: Args, http: HttpClient, _: InMemoryCache, db: DatabaseConnection, timers: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         let channel_id = message.channel_id;
         let user_id = message.author.id;
         let switches = get_switches(args.rest().to_string());
@@ -394,14 +401,14 @@ impl Command for Reminder {
         if dur>0 {
             let end_time = start_time + dur;
             let reminder_fmt = format!("REMINDER||{}||{}||{}||{}", channel_id.0, user_id.0, dur, reminder);
-            db.new_timer(start_time, end_time, reminder_fmt.clone())?;
-            timers.request();
-            http.create_message(channel_id).content(format!("Got it! I'll remind you to {} in {}",
+            ctx.db.new_timer(start_time, end_time, reminder_fmt.clone())?;
+            ctx.tc.request();
+            ctx.http.create_message(channel_id).content(format!("Got it! I'll remind you to {} in {}",
                 reminder,
                 seconds_to_hrtime(dur as usize)
             ))?.await?;
         } else {
-            http.create_message(channel_id).content("Sorry, I wasn't able to find a time there. Make sure you to add `/t time_resolvable` after your reminder text.")?.await?;
+            ctx.http.create_message(channel_id).content("Sorry, I wasn't able to find a time there. Make sure you to add `/t time_resolvable` after your reminder text.")?.await?;
         }
 
         Ok(())
@@ -423,7 +430,7 @@ impl Command for Reminder {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         if let Some(guild_id) = message.guild_id {
 //             match parse_role(args.rest().to_string(), guild_id) {
 //                 Some((role_id, role)) => {
@@ -475,7 +482,7 @@ impl Command for Reminder {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         let expr = args.single::<String>().unwrap_or(String::new());
 //         if let Some(caps) = DICE_MATCH.captures(expr.as_str()) {
 //             let count: u32 = caps["count"].parse().unwrap_or(1);
@@ -512,7 +519,7 @@ impl Command for Reminder {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         use serenity::model::channel::ChannelType::*;
 //         use serenity::model::user::OnlineStatus::*;
 
@@ -611,7 +618,7 @@ impl Command for Reminder {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         let api = {
 //             let data = ctx.data.lock();
 //             data.get::<ApiClient>().cloned()
@@ -689,7 +696,7 @@ impl Command for Reminder {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         if let Some(guild_id) = message.guild_id {
 //             if let Some((id,_)) = parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
 //                 message.channel_id.say(format!("{}", id.0))?;
@@ -716,7 +723,7 @@ impl Command for Reminder {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         if let Some(guild_id) = message.guild_id {
 //             let (user, member) = match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id) {
 //                 Some((id, member)) => (id.to_user()?, member),
@@ -781,7 +788,7 @@ impl Command for Reminder {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         let data = ctx.data.lock();
 //         if let Some(api) = data.get::<ApiClient>() {
 //             let switches = get_switches(args.full().to_string());
@@ -904,7 +911,7 @@ impl Command for Reminder {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         let (cached_guilds
 //             ,cached_channels
 //             ,cached_users

@@ -1,13 +1,10 @@
 use chrono::Utc;
+use momiji::Context;
 use momiji::core::consts::*;
 use momiji::core::utils::*;
-use momiji::core::timers::TimerClient;
-use momiji::db::DatabaseConnection;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
 use tracing::debug;
-use twilight_cache_inmemory::InMemoryCache;
-use twilight_http::Client as HttpClient;
 use twilight_model::channel::Message;
 use twilight_model::guild::{PartialMember, Permissions};
 use twilight_model::id::{ChannelId, RoleId};
@@ -28,14 +25,16 @@ impl Command for Register {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, timers: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let db = ctx.db.clone();
+        let http = ctx.http.clone();
         debug!("REGISTER TRACE: Begin register for user: {}", message.author.id.0);
         if let Some(guild_id) = message.guild_id {
             let settings = db.get_premium(guild_id.0 as i64).map_err(|_| "Premium is required to use this command.")?;
             let guild_data = db.get_guild(guild_id.0 as i64)?;
             let roles = db.get_roles(guild_id.0 as i64)?;
             debug!("REGISTER TRACE: Settings obtained");
-            match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id, &cache) {
+            match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id, &ctx.cache) {
                 Some((user_id, mut member)) => {
                     debug!("REGISTER TRACE: User matched");
                     let channel = if guild_data.modlog {
@@ -44,7 +43,7 @@ impl Command for Register {
                     let list = args.rest().split(",").map(|s| s.trim().to_string());
                     let mut to_add = Vec::new();
                     for r1 in list {
-                        if let Some((r, _)) = parse_role(r1.clone(), guild_id, &cache) {
+                        if let Some((r, _)) = parse_role(r1.clone(), guild_id, &ctx.cache) {
                             if settings.cooldown_restricted_roles.contains(&(r.0 as i64)) { continue; }
                             to_add.push(r);
                         } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
@@ -84,7 +83,7 @@ impl Command for Register {
                             let start_time = Utc::now().timestamp();
                             let end_time = start_time + dur as i64;
                             db.new_timer(start_time, end_time, data)?;
-                            timers.request();
+                            ctx.tc.request();
                             debug!("REGISTER TRACE: Timer registered");
                         }
                     } else if let Some(role) = settings.register_member_role {
@@ -92,7 +91,7 @@ impl Command for Register {
                         debug!("REGISTER TRACE: Added member role (No cooldown role)");
                     }
                     let desc = if !to_add.is_empty() {
-                        to_add.iter().map(|r| match cache.role(*r) {
+                        to_add.iter().map(|r| match ctx.cache.role(*r) {
                             Some(role) => role.name.clone(),
                             None => r.0.to_string(),
                         })
@@ -115,10 +114,10 @@ impl Command for Register {
                     if guild_data.introduction && guild_data.introduction_channel>0 {
                         let channel = ChannelId(guild_data.introduction_channel as u64);
                         if guild_data.introduction_type == "embed" {
-                            let embed = build_welcome_embed(guild_data.introduction_message, &member, &cache)?.build()?;
+                            let embed = build_welcome_embed(guild_data.introduction_message, &member, &ctx.cache)?.build()?;
                             http.create_message(channel).embed(embed)?.await?;
                         } else {
-                            http.create_message(channel).content(parse_welcome_items(guild_data.introduction_message, &member, &cache))?.await?;
+                            http.create_message(channel).content(parse_welcome_items(guild_data.introduction_message, &member, &ctx.cache))?.await?;
                         }
                         debug!("REGISTER TRACE: Sent introduction message");
                     }
@@ -145,7 +144,7 @@ impl Command for Register {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         if let Some(guild_id) = message.guild_id {
 //             if let Some((_, mut member)) = parse_user(args.single::<String>()?, guild_id, &cache) {
 //                 let list = args.rest().split(",").map(|s| s.trim().to_string());
@@ -220,7 +219,7 @@ impl Command for Register {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         if let Some(guild_id) = message.guild_id {
 //             if let Some((_, mut member)) = parse_user(args.single::<String>()?, guild_id, &cache) {
 //                 let list = args.rest().split(",").map(|s| s.trim().to_string());
@@ -294,7 +293,7 @@ impl Command for Register {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         if let Some(guild_id) = message.guild_id {
 //             match parse_role(args.single_quoted::<String>().unwrap_or(String::new()), guild_id, &cache) {
 //                 Some((_, mut role)) => {

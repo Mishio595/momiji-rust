@@ -1,14 +1,12 @@
 use chrono::Utc;
+use momiji::Context;
 use momiji::core::consts::*;
-use momiji::core::timers::TimerClient;
-use momiji::db::DatabaseConnection;
 use momiji::core::utils::*;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
 use tracing::{event, Level};
 use twilight_cache_inmemory::InMemoryCache;
 use twilight_embed_builder::EmbedBuilder;
-use twilight_http::Client as HttpClient;
 use twilight_model::channel::Message;
 use twilight_model::guild::Permissions;
 use twilight_model::id::{ChannelId, GuildId, MessageId};
@@ -30,21 +28,21 @@ impl Command for Prune {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
-        http.delete_message(message.channel_id, message.id).await?;
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        ctx.http.delete_message(message.channel_id, message.id).await?;
         if let Some(guild_id) = message.guild_id {
             let count = args.single::<usize>().unwrap_or(0);
             if count<=1000 {
-                let guild_data = db.get_guild(guild_id.0 as i64)?;
+                let guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
                 let fsel = args.single::<String>().unwrap_or(String::new());
-                let mut filter = get_filter(fsel, guild_id, &cache);
-                let mut deletions = http.channel_messages(message.channel_id)
+                let mut filter = get_filter(fsel, guild_id, &ctx.cache);
+                let mut deletions = ctx.http.channel_messages(message.channel_id)
                     .limit(u64::min(100, count as u64))?
                     .await?;
                 let mut next_deletions;
                 let mut deleted_messages = Vec::new();
                 while deleted_messages.len() < count {
-                    next_deletions = http.channel_messages(message.channel_id)
+                    next_deletions = ctx.http.channel_messages(message.channel_id)
                         .before(deletions[deletions.len() - 1].id)
                         .limit(u64::min(100, (count - deleted_messages.len()) as u64))?
                         .await?;
@@ -57,7 +55,7 @@ impl Command for Prune {
                         _ => (),
                     }
                     let message_ids: Vec<MessageId> = deletions.iter().map(|m| m.id).collect();
-                    match http.delete_messages(message.channel_id, message_ids).await {
+                    match ctx.http.delete_messages(message.channel_id, message_ids).await {
                         Ok(_) => {
                             deleted_messages.append(&mut deletions);
                             deletions = if next_deletions.is_empty() {
@@ -72,7 +70,7 @@ impl Command for Prune {
                 }
                 if deleted_messages.len() > 0 {
                     if guild_data.modlog {
-                        let channel_name = cache.guild_channel(message.channel_id)
+                        let channel_name = ctx.cache.guild_channel(message.channel_id)
                             .map(|c| c.name().to_string())
                             .unwrap_or(message.channel_id.to_string());
                         let embed = EmbedBuilder::new()
@@ -86,11 +84,11 @@ impl Command for Prune {
                             .timestamp(Utc::now().to_rfc3339())
                             .color(colors::RED)
                             .build()?;
-                        http.create_message(ChannelId(guild_data.modlog_channel as u64))
+                        ctx.http.create_message(ChannelId(guild_data.modlog_channel as u64))
                             .embed(embed)?
                             .await?;
                     } else {
-                        http.create_message(message.channel_id).reply(message.id).content(format!("Pruned {} message!", deleted_messages.len()))?.await?;
+                        ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Pruned {} message!", deleted_messages.len()))?.await?;
                     }
                     if guild_data.audit {
                         deleted_messages.reverse();
@@ -104,15 +102,15 @@ impl Command for Prune {
                                 ))
                             .collect::<Vec<String>>()
                             .join("\r\n");
-                        http.create_message(ChannelId(guild_data.audit_channel as u64))
+                        ctx.http.create_message(ChannelId(guild_data.audit_channel as u64))
                             .file(format!("prune-log-{}.txt", Utc::now().format("%FT%T")).as_str(), prune_log.as_bytes())
                             .await?;
                     }
                 } else {
-                    http.create_message(message.channel_id).reply(message.id).content("I wasn't able to delete any messages.")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("I wasn't able to delete any messages.")?.await?;
                 }
             } else {
-                http.create_message(message.channel_id).reply(message.id).content("Please enter a number no greater than 1000.")?.await?;
+                ctx.http.create_message(message.channel_id).reply(message.id).content("Please enter a number no greater than 1000.")?.await?;
             }
         }
         Ok(())
@@ -132,10 +130,10 @@ impl Command for Prune {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         if let Some(guild_id) = message.guild_id {
-//             let guild_data = db.get_guild(guild_id.0 as i64)?;
-//             let user = CACHE.read().user.clone();
+//             let guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
+//             let user = ctx.cache.read().user.clone();
 //             let mut deletions = message.channel_id.messages(|_| re_retriever(100))?;
 //             let mut next_deletions;
 //             let mut num_del = 0;
@@ -167,8 +165,8 @@ impl Command for Prune {
 //             if num_del > 0 {
 //                 if guild_data.modlog {
 //                     let channel = {
-//                         let cache = CACHE.read();
-//                         cache.guild_channel(message.channel_id)
+//                         let ctx.cache = ctx.cache.read();
+//                         ctx.cache.guild_channel(message.channel_id)
 //                     };
 //                     ChannelId(guild_data.modlog_channel as u64).send_message(|m| m
 //                         .embed(|e| e
@@ -213,15 +211,15 @@ impl Command for Prune {
 //         Arc::new(options)
 //     }
 
-//     async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
 //         if let Some(guild_id) = message.guild_id {
 //             let guild = {
-//                 let cache = CACHE.read();
-//                 cache.guild(guild_id)
+//                 let ctx.cache = ctx.cache.read();
+//                 ctx.cache.guild(guild_id)
 //             };
 //             if let Some(guild_lock) = guild {
 //                 let guild = guild_lock.read().clone();
-//                 let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+//                 let mut guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
 //                 let bypass = args.single::<String>().unwrap_or("".to_string());
 //                 let mute_role = match guild.roles.values().find(|e| e.name.to_lowercase() == "muted") {
 //                     Some(role) => role.clone(),
@@ -244,7 +242,7 @@ impl Command for Prune {
 //                     }
 //                 }
 //                 guild_data.mute_setup = true;
-//                 db.update_guild(guild.id.0 as i64, guild_data)?;
+//                 ctx.db.update_guild(guild.id.0 as i64, guild_data)?;
 //                 message.channel_id.say(format!("Setup permissions for {} channels.", guild.channels.len()))?;
 //             }
 //         } else { failed!(GUILDID_FAIL); }

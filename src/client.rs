@@ -1,9 +1,10 @@
 use crate::standard_framework::StandardFramework;
 use tracing::debug;
+use momiji::Context;
 use momiji::core::timers::TimerClient;
 use momiji::db::DatabaseConnection;
 use momiji::{core::handler::EventHandler};
-use momiji::framework::parser::StandardParser;
+use momiji::framework::parser::Parser;
 use std::collections::HashSet;
 use twilight_cache_inmemory::InMemoryCache;
 use twilight_gateway::cluster::Cluster;
@@ -16,19 +17,16 @@ use twilight_model::gateway::{
 
 #[non_exhaustive]
 pub struct Client {
-    pub cache: InMemoryCache,
-    pub cluster: Cluster,
-    pub handler: EventHandler<StandardParser>,
-    pub http: HttpClient,
-    pub database: DatabaseConnection,
-    pub timers: TimerClient,
+    pub handler: EventHandler,
+    pub ctx: Context,
 }
 
 impl Client {
     pub async fn new(token: &str, intents: Intents) -> Self {
         let http = HttpClient::new(token);
         let cache = InMemoryCache::new();
-        let database = DatabaseConnection::connect();
+        let db = DatabaseConnection::connect();
+        let parser = Parser;
         
         let owner = http.current_user_application().await.expect("Unable to retrieve application info.").owner.id;
         let mut owners = HashSet::new();
@@ -43,24 +41,29 @@ impl Client {
                 panic!("Unable to start cluster\n{}", err);
             });
 
-        let timers = TimerClient::new(http.clone(), cache.clone(), database.clone());
+        let tc = TimerClient::new(http.clone(), cache.clone(), db.clone());
 
-        let framework = StandardFramework::new(owners, cluster.clone());
-        let handler = EventHandler::new(framework);
-
-        Self {
+        let ctx = Context {
             cache,
             cluster,
-            handler,
+            db,
             http,
-            database,
-            timers,
+            parser,
+            tc
+        };
+
+        let framework = StandardFramework::new(owners, ctx.clone());
+        let handler = EventHandler::new(framework, ctx.clone());
+
+        Self {
+            ctx,
+            handler,
         }
     }
 
     pub async fn start(self) {
-        let cluster_spawn = self.cluster.clone();
-        let timers = self.timers.clone();
+        let cluster_spawn = self.ctx.cluster.clone();
+        let timers = self.ctx.tc.clone();
 
         debug!("Starting Cluster");
         let cluster_handle = tokio::spawn(async move {
@@ -79,7 +82,7 @@ impl Client {
     }
 
     async fn start_handler(&self) {
-        self.handler.start(&self.cluster, &self.http, &self.cache, self.database.clone(), self.timers.clone()).await
+        self.handler.start().await
     }
 }
 

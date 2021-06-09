@@ -1,12 +1,9 @@
-use momiji::core::timers::TimerClient;
-use momiji::db::DatabaseConnection;
+use momiji::Context;
 use momiji::core::utils::*;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
 use std::error::Error;
 use std::sync::Arc;
-use twilight_cache_inmemory::InMemoryCache;
-use twilight_http::Client as HttpClient;
 use twilight_model::channel::Message;
 
 pub struct Premium;
@@ -20,11 +17,13 @@ impl Command for Premium {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let http = ctx.http.clone();
+        let db = ctx.db.clone();
         let op = args.single::<String>()?;
         let g = args.single_quoted::<String>()?;
         let mut reply = http.create_message(message.channel_id).reply(message.id);
-        if let Some((guild_id, guild)) = parse_guild(g, &cache) {
+        if let Some((guild_id, guild)) = parse_guild(g, &ctx.cache) {
             match op.to_lowercase().as_str() {
                 "enable" => {
                     if let Ok(_) = db.new_premium(guild_id.0 as i64) {

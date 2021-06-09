@@ -1,12 +1,9 @@
-use crate::core::timers::TimerClient;
-use crate::db::DatabaseConnection;
+use crate::Context;
 use std::collections::HashMap;
 use std::{fmt, fmt::{Debug, Formatter}};
 use std::error::Error as StdError;
 use std::sync::Arc;
 use super::args::Args;
-use twilight_cache_inmemory::InMemoryCache;
-use twilight_http::Client as HttpClient;
 use twilight_model::channel::Message;
 use twilight_model::guild::Permissions;
 
@@ -269,35 +266,35 @@ lazy_static::lazy_static! {
 
 #[async_trait]
 pub trait Command: Send + Sync + 'static {
-    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, timers: TimerClient)
+    async fn run(&self, message: Message, args: Args, ctx: Context)
         -> Result<(), Box<dyn StdError + Send + Sync>>;
 
     fn options(&self) -> Arc<Options> {
         Arc::clone(&DEFAULT_OPTIONS)
     }
 
-    fn before(&self, _: Message, _: Args, _: HttpClient, _: InMemoryCache, _: DatabaseConnection) -> bool { true }
+    fn before(&self, _: Message, _: Args, _: Context) -> bool { true }
 
-    fn after(&self, _: Message, _: Args, _: HttpClient, _: InMemoryCache, _: DatabaseConnection, _: Box<dyn StdError + Send + Sync>) {}
+    fn after(&self, _: Message, _: Args, _: Context, _: Box<dyn StdError + Send + Sync>) {}
 }
 
 #[async_trait]
 impl Command for Arc<dyn Command> {
-    async fn run(&self, m: Message, a: Args, h: HttpClient , c: InMemoryCache , d: DatabaseConnection, t: TimerClient)
+    async fn run(&self, m: Message, a: Args, ctx: Context)
         -> Result<(), Box<dyn StdError + Send + Sync>> {
-            (**self).run(m, a, h, c, d, t).await
+            (**self).run(m, a, ctx).await
         }
     
     fn options(&self) -> Arc<Options> {
         (**self).options()
     }
 
-    fn before(&self, m: Message, a: Args, h: HttpClient , c: InMemoryCache , d: DatabaseConnection) -> bool {
-        (**self).before(m, a, h, c, d)
+    fn before(&self, m: Message, a: Args, ctx: Context) -> bool {
+        (**self).before(m, a, ctx)
     }
 
-    fn after(&self, m: Message, a: Args, h: HttpClient , c: InMemoryCache , d: DatabaseConnection, e: Box<dyn StdError + Send + Sync>) {
-        (**self).after(m, a, h, c, d, e)
+    fn after(&self, m: Message, a: Args, ctx: Context, e: Box<dyn StdError + Send + Sync>) {
+        (**self).after(m, a, ctx, e)
     }
 }
 

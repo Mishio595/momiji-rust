@@ -1,12 +1,9 @@
+use momiji::Context;
 use momiji::core::consts::*;
-use momiji::core::timers::TimerClient;
 use momiji::core::utils::*;
-use momiji::db::DatabaseConnection;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
 use tracing::debug;
-use twilight_cache_inmemory::InMemoryCache;
-use twilight_http::Client as HttpClient;
 use twilight_model::{
     channel::Message,
     guild::Permissions,
@@ -29,7 +26,7 @@ impl Command for CreateSelfRole {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let switches = get_switches(args
                 .full()
@@ -38,7 +35,7 @@ impl Command for CreateSelfRole {
             let rest = switches
                 .get("rest")
                 .unwrap_or(&backup);
-            if let Some((role_id, role)) = parse_role(rest.clone(), guild_id, &cache) {
+            if let Some((role_id, role)) = parse_role(rest.clone(), guild_id, &ctx.cache) {
                 let category = switches
                     .get("c")
                     .cloned();
@@ -51,12 +48,12 @@ impl Command for CreateSelfRole {
                             .to_string()
                             .to_lowercase())
                     .collect());
-                let data = db.new_role(
+                let data = ctx.db.new_role(
                     role_id.0 as i64,
                     guild_id.0 as i64,
                     category,
                     aliases)?;
-                http.create_message(message.channel_id).reply(message.id).content(format!(
+                ctx.http.create_message(message.channel_id).reply(message.id).content(format!(
                     "Successfully added role {} to category {} {}"
                     ,role.name
                     ,data.category
@@ -66,7 +63,7 @@ impl Command for CreateSelfRole {
                         String::new()
                     }
                 ))?.await?;
-            } else { http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
+            } else { ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -89,12 +86,12 @@ impl Command for DeleteSelfRole {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id, &cache) {
-                db.del_role(role_id.0 as i64, guild_id.0 as i64)?;
-                http.create_message(message.channel_id).reply(message.id).content(format!("Successfully deleted role {}", role.name))?.await?;
-            } else { http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
+            if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id, &ctx.cache) {
+                ctx.db.del_role(role_id.0 as i64, guild_id.0 as i64)?;
+                ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Successfully deleted role {}", role.name))?.await?;
+            } else { ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -117,12 +114,12 @@ impl Command for EditSelfRole {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
             let switches = get_switches(args.full().to_string());
             let backup = String::new();
             let rest = switches.get("rest").unwrap_or(&backup);
-            if let Some((role_id, d_role)) = parse_role(rest.clone(), guild_id, &cache) {
+            if let Some((role_id, d_role)) = parse_role(rest.clone(), guild_id, &ctx.cache) {
                 let category = switches
                     .get("c")
                     .cloned();
@@ -135,7 +132,7 @@ impl Command for EditSelfRole {
                             .to_string()
                             .to_lowercase())
                     .collect());
-                let mut role = db.get_role(role_id.0 as i64, guild_id.0 as i64)?;
+                let mut role = ctx.db.get_role(role_id.0 as i64, guild_id.0 as i64)?;
                 if let Some(s) = category { role.category = s; }
                 if let Some(mut a) = aliases {
                     match switches.get("replace") {
@@ -143,8 +140,8 @@ impl Command for EditSelfRole {
                         None => { role.aliases.append(&mut a); },
                     }
                 }
-                let data = db.update_role(role_id.0 as i64, guild_id.0 as i64, role)?;
-                http.create_message(message.channel_id).reply(message.id).content(format!("Successfully update role {} in category {} {}",
+                let data = ctx.db.update_role(role_id.0 as i64, guild_id.0 as i64, role)?;
+                ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Successfully update role {} in category {} {}",
                     d_role.name,
                     data.category,
                     if !data.aliases.is_empty() {
@@ -153,7 +150,7 @@ impl Command for EditSelfRole {
                         String::new()
                     }
                 ))?.await?;
-            } else { http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
+            } else { ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
         } else {
             debug!("{}", GUILDID_FAIL);
         }

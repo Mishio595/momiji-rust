@@ -11,19 +11,15 @@ peg::parser! { grammar command_parser() for str {
         }
 }}
 
-pub trait Parser: Send + Sync + 'static {
-    fn parse(&self, body: &str, possible_delimiters: &[String]) -> Option<(String, Args)>;
-
-    fn parse_with_prefix<'a>(&self, prefix: &'a str, body: &'a str, possible_delimiters: &[String]) -> Option<(String, Args)> {
-        body.strip_prefix(prefix).and_then(|body| self.parse(body, possible_delimiters))
-    }
-}
-
 #[derive(Clone, Debug)]
-pub struct StandardParser;
+pub struct Parser;
 
-impl Parser for StandardParser {
-    fn parse(&self, body: &str, possible_delimiters: &[String]) -> Option<(String, Args)> {
+impl Parser {
+    pub fn parse(&self, body: &str, possible_delimiters: &[String]) -> Option<(String, Args)> {
         command_parser::command(body, possible_delimiters).ok()
+    }
+
+    pub fn parse_with_prefix<'a>(&self, prefix: &'a str, body: &'a str, possible_delimiters: &[String]) -> Option<(String, Args)> {
+        body.strip_prefix(prefix).and_then(|body| self.parse(body, possible_delimiters))
     }
 }

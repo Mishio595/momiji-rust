@@ -1,13 +1,10 @@
+use momiji::Context;
 use momiji::core::consts::*;
-use momiji::core::timers::TimerClient;
-use momiji::db::DatabaseConnection;
 use momiji::core::utils::*;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
 use tracing::debug;
-use twilight_cache_inmemory::InMemoryCache;
 use twilight_embed_builder::EmbedBuilder;
-use twilight_http::Client as HttpClient;
 use twilight_model::channel::Message;
 use twilight_model::guild::Permissions;
 use std::sync::Arc;
@@ -25,10 +22,10 @@ impl Command for ConfigRaw {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, _: Args, http: HttpClient, _: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, _: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let guild_data = db.get_guild(guild_id.0 as i64)?;
-            http.create_message(message.channel_id).reply(message.id).content(format!("{:?}", guild_data))?.await?;
+            let guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
+            ctx.http.create_message(message.channel_id).reply(message.id).content(format!("{:?}", guild_data))?.await?;
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -48,16 +45,16 @@ impl Command for ConfigList {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, _: Args, http: HttpClient, _: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, _: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let guild_data = db.get_guild(guild_id.0 as i64)?;
+            let guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
 
             let embed = EmbedBuilder::new()
                 .color(colors::MAIN)
                 .description(format!("{}", guild_data))
                 .build()?;
 
-            http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
+            ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -80,17 +77,17 @@ impl Command for ConfigPrefix {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, _: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+            let mut guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
             let pre = args.single::<String>()?;
             guild_data.prefix = pre;
-            match db.update_guild(guild_id.0 as i64, guild_data) {
+            match ctx.db.update_guild(guild_id.0 as i64, guild_data) {
                 Ok(guild) => {
-                    http.create_message(message.channel_id).reply(message.id).content(format!("Set prefix to {}", guild.prefix))?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Set prefix to {}", guild.prefix))?.await?;
                 },
                 Err(_) => {
-                    http.create_message(message.channel_id).reply(message.id).content("Failed to change prefix")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("Failed to change prefix")?.await?;
                 },
             }
         } else {
@@ -114,32 +111,32 @@ impl Command for ConfigAutorole {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+            let mut guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
             let op = args.single::<String>().unwrap_or(String::new());
             let mut val = args.rest().to_string();
             match op.to_lowercase().as_str() {
                 "add" => {
-                    match parse_role(val.to_string(), guild_id, &cache) {
+                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
                         Some((role_id, role)) => {
                             guild_data.autoroles.push(role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
                         None => {
-                            http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
+                            ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
                             return Ok(())
                         },
                     }
                 },
                 "remove" => {
-                    match parse_role(val.to_string(), guild_id, &cache) {
+                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
                         Some((role_id, role)) => {
                             guild_data.autoroles.retain(|e| *e != role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
                         None => {
-                            http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
+                            ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
                             return Ok(())
                         },
                     }
@@ -151,11 +148,11 @@ impl Command for ConfigAutorole {
                     guild_data.autorole = false;
                 },
                 _ => {
-                    http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `add`, `remove`, `enable`, `disable`. For more information see `help config autorole`")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `add`, `remove`, `enable`, `disable`. For more information see `help config autorole`")?.await?;
                     return Ok(())
                 },
             }
-            let guild = db.update_guild(guild_id.0 as i64, guild_data)?;
+            let guild = ctx.db.update_guild(guild_id.0 as i64, guild_data)?;
 
             let embed = EmbedBuilder::new()
                 .title("Config Autorole Summary")
@@ -166,7 +163,7 @@ impl Command for ConfigAutorole {
                 ))
                 .build()?;
 
-            http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
+            ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -188,42 +185,42 @@ impl Command for ConfigAdmin {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+            let mut guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
             let op = args.single::<String>().unwrap_or(String::new());
             let mut val = args.rest().to_string();
             match op.to_lowercase().as_str() {
                 "add" => {
-                    match parse_role(val.to_string(), guild_id, &cache) {
+                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
                         Some((role_id, role)) => {
                             guild_data.admin_roles.push(role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
                         None => {
-                            http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
+                            ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
                             return Ok(())
                         },
                     }
                 },
                 "remove" => {
-                    match parse_role(val.to_string(), guild_id, &cache) {
+                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
                         Some((role_id, role)) => {
                             guild_data.admin_roles.retain(|e| *e != role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
                         None => {
-                            http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
+                            ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
                             return Ok(())
                         },
                     }
                 },
                 _ => {
-                    http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config admin`")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config admin`")?.await?;
                     return Ok(())
                 },
             }
-            db.update_guild(guild_id.0 as i64, guild_data)?;
+            ctx.db.update_guild(guild_id.0 as i64, guild_data)?;
 
             let embed = EmbedBuilder::new()
                 .title("Config Admin Summary")
@@ -234,7 +231,7 @@ impl Command for ConfigAdmin {
                 ))
                 .build()?;
             
-            http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
+            ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -256,42 +253,42 @@ impl Command for ConfigMod {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+            let mut guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
             let op = args.single::<String>().unwrap_or(String::new());
             let mut val = args.rest().to_string();
             match op.to_lowercase().as_str() {
                 "add" => {
-                    match parse_role(val.to_string(), guild_id, &cache) {
+                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
                         Some((role_id, role)) => {
                             guild_data.mod_roles.push(role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
                         None => {
-                            http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
+                            ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
                             return Ok(())
                         },
                     }
                 },
                 "remove" => {
-                    match parse_role(val.to_string(), guild_id, &cache) {
+                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
                         Some((role_id, role)) => {
                             guild_data.mod_roles.retain(|e| *e != role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
                         },
                         None => {
-                            http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
+                            ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?;
                             return Ok(())
                         },
                     }
                 },
                 _ => {
-                    http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config mod`")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `add`, `remove`. For more information see `help config mod`")?.await?;
                     return Ok(())
                 },
             }
-            db.update_guild(guild_id.0 as i64, guild_data)?;
+            ctx.db.update_guild(guild_id.0 as i64, guild_data)?;
             
             let embed = EmbedBuilder::new()
                 .title("Config Mod Summary")
@@ -302,7 +299,7 @@ impl Command for ConfigMod {
                 ))
                 .build()?;
 
-            http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
+            ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -324,9 +321,9 @@ impl Command for ConfigAudit {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+            let mut guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
             let op = args.single::<String>().unwrap_or(String::new());
             let mut val = args.rest().to_string();
             match op.to_lowercase().as_str() {
@@ -337,13 +334,13 @@ impl Command for ConfigAudit {
                     guild_data.audit = false;
                 },
                 "channel" => {
-                    match parse_channel(val.to_string(), guild_id, &cache) {
+                    match parse_channel(val.to_string(), guild_id, &ctx.cache) {
                         Some((channel_id, channel)) => {
                             guild_data.audit_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name(), channel_id.0);
                         },
                         None => {
-                            http.create_message(message.channel_id).reply(message.id).content("I couldn't find that channel.")?.await?;
+                            ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that channel.")?.await?;
                             return Ok(())
                         },
                     }
@@ -354,15 +351,15 @@ impl Command for ConfigAudit {
                             guild_data.audit_threshold = th;
                             val = th.to_string();
                         },
-                        Err(_) => { http.create_message(message.channel_id).reply(message.id).content("Please input a number as the threshold")?.await?; }
+                        Err(_) => { ctx.http.create_message(message.channel_id).reply(message.id).content("Please input a number as the threshold")?.await?; }
                     }
                 },
                 _ => {
-                    http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `threshold`. For more information see `help config audit`")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `threshold`. For more information see `help config audit`")?.await?;
                     return Ok(())
                 },
             }
-            let guild = db.update_guild(guild_id.0 as i64, guild_data)?;
+            let guild = ctx.db.update_guild(guild_id.0 as i64, guild_data)?;
             
             let embed = EmbedBuilder::new()
                 .title("Config Audit Summary")
@@ -373,7 +370,7 @@ impl Command for ConfigAudit {
                 ))
                 .build()?;
             
-            http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
+            ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -395,9 +392,9 @@ impl Command for ConfigModlog {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+            let mut guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
             let op = args.single::<String>().unwrap_or(String::new());
             let mut val = args.rest().to_string();
             match op.to_lowercase().as_str() {
@@ -408,23 +405,23 @@ impl Command for ConfigModlog {
                     guild_data.modlog = false;
                 },
                 "channel" => {
-                    match parse_channel(val.to_string(), guild_id, &cache) {
+                    match parse_channel(val.to_string(), guild_id, &ctx.cache) {
                         Some((channel_id, channel)) => {
                             guild_data.modlog_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name(), channel_id.0);
                         },
                         None => {
-                            http.create_message(message.channel_id).reply(message.id).content("I couldn't find that channel.")?.await?;
+                            ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that channel.")?.await?;
                             return Ok(())
                         },
                     }
                 },
                 _ => {
-                    http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`. For more information see `help config modlog`")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`. For more information see `help config modlog`")?.await?;
                     return Ok(())
                 },
             }
-            let guild = db.update_guild(guild_id.0 as i64, guild_data)?;
+            let guild = ctx.db.update_guild(guild_id.0 as i64, guild_data)?;
             
             let embed = EmbedBuilder::new()
                 .title("Config Modlog Summary")
@@ -435,7 +432,7 @@ impl Command for ConfigModlog {
                 ))
                 .build()?;
 
-            http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
+            ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -457,9 +454,9 @@ impl Command for ConfigWelcome {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+            let mut guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
             let op = args.single::<String>().unwrap_or(String::new());
             let mut val = args.rest().to_string();
             match op.to_lowercase().as_str() {
@@ -470,13 +467,13 @@ impl Command for ConfigWelcome {
                     guild_data.welcome = false;
                 },
                 "channel" => {
-                    match parse_channel(val.to_string(), guild_id, &cache) {
+                    match parse_channel(val.to_string(), guild_id, &ctx.cache) {
                         Some((channel_id, channel)) => {
                             guild_data.welcome_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name(), channel_id.0);
                         },
                         None => {
-                            http.create_message(message.channel_id).reply(message.id).content("I couldn't find that channel.")?.await?;
+                            ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that channel.")?.await?;
                             return Ok(())
                         },
                     }
@@ -488,11 +485,11 @@ impl Command for ConfigWelcome {
                     guild_data.welcome_type = val.to_string();
                 },
                 _ => {
-                    http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config welcome`")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config welcome`")?.await?;
                     return Ok(())
                 },
             }
-            let guild = db.update_guild(guild_id.0 as i64, guild_data)?;
+            let guild = ctx.db.update_guild(guild_id.0 as i64, guild_data)?;
             
             let embed = EmbedBuilder::new()
                 .title("Config Welcome Summary")
@@ -503,7 +500,7 @@ impl Command for ConfigWelcome {
                 ))
                 .build()?;
             
-            http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
+            ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -525,9 +522,9 @@ impl Command for ConfigIntroduction {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, cache: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+            let mut guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
             let op = args.single::<String>().unwrap_or(String::new());
             let mut val = args.rest().to_string();
             match op.to_lowercase().as_str() {
@@ -538,13 +535,13 @@ impl Command for ConfigIntroduction {
                     guild_data.introduction = false;
                 },
                 "channel" => {
-                    match parse_channel(val.to_string(), guild_id, &cache) {
+                    match parse_channel(val.to_string(), guild_id, &ctx.cache) {
                         Some((channel_id, channel)) => {
                             guild_data.introduction_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name(), channel_id.0);
                         },
                         None => {
-                            http.create_message(message.channel_id).reply(message.id).content("I couldn't find that channel.")?.await?;
+                            ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that channel.")?.await?;
                             return Ok(())
                         },
                     }
@@ -556,11 +553,11 @@ impl Command for ConfigIntroduction {
                     guild_data.introduction_type = val.to_string();
                 },
                 _ => {
-                    http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config introduction`")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`, `channel`, `message`, `type`. For more information see `help config introduction`")?.await?;
                     return Ok(())
                 },
             }
-            let guild = db.update_guild(guild_id.0 as i64, guild_data)?;
+            let guild = ctx.db.update_guild(guild_id.0 as i64, guild_data)?;
             
             let embed = EmbedBuilder::new()
                 .title("Config Introduction Summary")
@@ -571,7 +568,7 @@ impl Command for ConfigIntroduction {
                 ))
                 .build()?;
             
-            http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
+            ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -593,9 +590,9 @@ impl Command for ConfigCommands {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, _: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+            let mut guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
             let op = args.single::<String>().unwrap_or(String::new());
             let val = args.rest().to_string();
             match op.to_lowercase().as_str() {
@@ -606,16 +603,16 @@ impl Command for ConfigCommands {
                     if !val.starts_with("conf") {
                         guild_data.commands.push(val.clone());
                     } else {
-                        http.create_message(message.channel_id).reply(message.id).content("Config commands cannot be disabled.")?.await?;
+                        ctx.http.create_message(message.channel_id).reply(message.id).content("Config commands cannot be disabled.")?.await?;
                         return Ok(());
                     }
                 },
                 _ => {
-                    http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config command`")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config command`")?.await?;
                     return Ok(())
                 },
             }
-            db.update_guild(guild_id.0 as i64, guild_data)?;
+            ctx.db.update_guild(guild_id.0 as i64, guild_data)?;
             
             let embed = EmbedBuilder::new()
                 .title("Config Command Summary")
@@ -626,7 +623,7 @@ impl Command for ConfigCommands {
                 ))
                 .build()?;
 
-            http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
+            ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
         } else {
             debug!("{}", GUILDID_FAIL);
         }
@@ -648,9 +645,9 @@ impl Command for ConfigLogs {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, mut args: Args, http: HttpClient, _: InMemoryCache, db: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            let mut guild_data = db.get_guild(guild_id.0 as i64)?;
+            let mut guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
             let op = args.single::<String>().unwrap_or(String::new());
             let val = args.rest().to_string();
             match op.to_lowercase().as_str() {
@@ -661,12 +658,12 @@ impl Command for ConfigLogs {
                     if LOG_TYPES.contains(&val.as_str()) {
                         guild_data.logging.push(val.clone());
                     } else {
-                        http.create_message(message.channel_id).reply(message.id).content("Invalid log type. See `config log types` for valid types.")?.await?;
+                        ctx.http.create_message(message.channel_id).reply(message.id).content("Invalid log type. See `config log types` for valid types.")?.await?;
                         return Ok(());
                     }
                 },
                 "types" => {
-                    http.create_message(message.channel_id).reply(message.id).content(LOG_TYPES.iter()
+                    ctx.http.create_message(message.channel_id).reply(message.id).content(LOG_TYPES.iter()
                         .map(|e| format!("`{}`", e))
                         .collect::<Vec<String>>()
                         .join(", "))?
@@ -674,11 +671,11 @@ impl Command for ConfigLogs {
                     return Ok(());
                 },
                 _ => {
-                    http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config log`")?.await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id).content("I didn't understand that option. Valid options are: `enable`, `disable`. For more information see `help config log`")?.await?;
                     return Ok(())
                 },
             }
-            db.update_guild(guild_id.0 as i64, guild_data)?;
+            ctx.db.update_guild(guild_id.0 as i64, guild_data)?;
             
             let embed = EmbedBuilder::new()
                 .title("Config Log Summary")
@@ -689,7 +686,7 @@ impl Command for ConfigLogs {
                 ))
                 .build()?;
 
-            http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
+            ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
         } else {
             debug!("{}", GUILDID_FAIL);
         }

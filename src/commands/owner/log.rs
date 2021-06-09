@@ -1,10 +1,7 @@
 // use momiji::core::consts::*;
-use momiji::db::DatabaseConnection;
-use momiji::core::timers::TimerClient;
+use momiji::Context;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
-use twilight_cache_inmemory::InMemoryCache;
-use twilight_http::Client as HttpClient;
 use twilight_model::channel::Message;
 use std::sync::Arc;
 use std::error::Error;
@@ -20,8 +17,8 @@ impl Command for Log {
         Arc::new(options)
     }
 
-    async fn run(&self, message: Message, _: Args, http: HttpClient, _: InMemoryCache, _: DatabaseConnection, _: TimerClient) -> Result<(), Box<dyn Error + Send + Sync>> {
-        http.create_message(message.channel_id).reply(message.id).content("Command not yet implemented")?.await?;
+    async fn run(&self, message: Message, _: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        ctx.http.create_message(message.channel_id).reply(message.id).content("Command not yet implemented")?.await?;
 
         Ok(())
     }

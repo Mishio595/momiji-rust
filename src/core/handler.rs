@@ -1,58 +1,61 @@
 use chrono::Utc;
+use crate::Context;
 use crate::core::consts::*;
 use crate::core::utils::*;
-use crate::core::timers::TimerClient;
 use crate::core::utils::user_tag;
-use crate::db::DatabaseConnection;
 use crate::framework::Framework;
-use crate::framework::parser::Parser;
 use futures::stream::StreamExt;
 use levenshtein::levenshtein;
 use tracing::{event, Level};
 use twilight_mention::Mention;
 use std::error::Error;
 use std::sync::Arc;
-use twilight_cache_inmemory::InMemoryCache;
 use twilight_embed_builder::{EmbedBuilder, EmbedFooterBuilder, ImageSource};
-use twilight_gateway::{cluster::Cluster, Event, EventType};
-use twilight_http::Client as HttpClient;
+use twilight_gateway::{Event, EventType};
 use twilight_model::id::{ChannelId, GuildId, RoleId};
 
 use super::utils::build_welcome_embed;
 use super::utils::parse_welcome_items;
 
-pub struct EventHandler<P: Parser + Clone>(Arc<Framework<P>>);
+pub struct EventHandler {
+    framework: Arc<Framework>,
+    ctx: Context,
+}
 
-impl<P: Parser + Clone> EventHandler<P> {
-    pub fn new(framework: Framework<P>) -> Self {
-        Self(Arc::new(framework))
+impl EventHandler {
+    pub fn new(framework: Framework, ctx: Context) -> Self {
+        Self {
+            framework: Arc::new(framework),
+            ctx
+        }
     }
  
-    pub async fn start(&self, cluster: &Cluster, http: &HttpClient, cache: &InMemoryCache, db: DatabaseConnection, timers: TimerClient) {
-        let mut events = cluster.events();
+    pub async fn start(&self) {
+        let mut events = self.ctx.cluster.events();
         while let Some((shard_id, event)) = events.next().await {
             // Bypass cache update for message delete to enable logging
             if event.kind() != EventType::MessageDelete {
-                cache.update(&event);
+                self.ctx.cache.update(&event);
             }
     
-            tokio::spawn(handle_event(shard_id, event, http.clone(), self.0.clone(), cache.clone(), db.clone(), timers.clone()));
+            tokio::spawn(handle_event(shard_id, event, self.ctx.clone(), self.framework.clone()));
         }
     }
 }
 
-async fn handle_event<P: Parser + Clone>(
+async fn handle_event(
     shard_id: u64,
     event: Event,
-    http: HttpClient,
-    framework: Arc<Framework<P>>,
-    cache: InMemoryCache,
-    db: DatabaseConnection,
-    timers: TimerClient,
+    ctx: Context,
+    framework: Arc<Framework>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let (cache, db, http) = {
+        let c = ctx.clone();
+        (c.cache, c.db, c.http)
+    };
     match event {
         Event::MessageCreate(message) => {
-            if let Err(e) = (*framework).handle_command(message.0, http, cache, db, timers).await {
+            if let Err(e) = (*framework).handle_command(message.0, ctx.clone()).await {
                 event!(Level::DEBUG, "{}", e);
             }
         }
@@ -220,11 +223,31 @@ async fn handle_event<P: Parser + Clone>(
             }
         }
         Event::MemberRemove(member) => {
-
+            match db.get_guild(member.guild_id.0 as i64) {
+                Ok(guild_data) => {
+                    db.del_user(member.user.id.0 as i64, member.guild_id.0 as i64);
+                    if guild_data.logging.contains(&String::from("member_leave")) { return Ok(()) }
+                    if guild_data.audit && guild_data.audit_channel > 0 {
+                        let audit_channel = ChannelId(guild_data.audit_channel as u64);
+                        let embed = EmbedBuilder::new()
+                            .title("Member Left")
+                            .color(colors::RED)
+                            // .thumbnail()
+                            .timestamp(Utc::now().to_rfc3339())
+                            .description(format!("<@{}>\n{}#{}\n{}", member.user.id.0, member.user.name, member.user.discriminator , member.user.id))
+                            .build()?;
+                        http.create_message(audit_channel).embed(embed)?.await?;
+                    }
+                    //TODO kick log
+                }
+                _ => {}
+            }
         }
         Event::MemberUpdate(member) => {
-
+            //TODO Figure out how to get old member data
         }
+        Event::BanAdd(ban) => {}
+        Event::BanRemove(ban) => {}
         Event::Ready(ready) => {
             event!(Level::DEBUG, "Connected with session_id {}", ready.session_id);
         }
