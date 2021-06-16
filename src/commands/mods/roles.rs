@@ -33,7 +33,7 @@ impl Command for Register {
             let guild_data = db.get_guild(guild_id.0 as i64)?;
             let roles = db.get_roles(guild_id.0 as i64)?;
             event!(Level::DEBUG, "REGISTER TRACE: Settings obtained");
-            match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id, &ctx.cache) {
+            match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id, ctx.clone()).await {
                 Some((user_id, member)) => {
                     event!(Level::DEBUG, "REGISTER TRACE: User matched");
                     let channel_id = if guild_data.modlog {
@@ -42,7 +42,7 @@ impl Command for Register {
                     let list = args.rest().split(",").map(|s| s.trim().to_string());
                     let mut to_add = Vec::new();
                     for r1 in list {
-                        if let Some((r, _)) = parse_role(r1.clone(), guild_id, &ctx.cache) {
+                        if let Some((r, _)) = parse_role(r1.clone(), guild_id, ctx.clone()) {
                             if guild_data.cooldown_restricted_roles.contains(&(r.0 as i64)) { continue; }
                             to_add.push(r);
                         } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
@@ -113,10 +113,10 @@ impl Command for Register {
                     if guild_data.introduction && guild_data.introduction_channel>0 {
                         let channel = ChannelId(guild_data.introduction_channel as u64);
                         if guild_data.introduction_type == "embed" {
-                            let embed = build_welcome_embed(guild_data.introduction_message, &member, &ctx.cache)?.build()?;
+                            let embed = build_welcome_embed(guild_data.introduction_message, &member, ctx.clone())?.build()?;
                             http.create_message(channel).embed(embed)?.await?;
                         } else {
-                            http.create_message(channel).content(parse_welcome_items(guild_data.introduction_message, &member, &ctx.cache))?.await?;
+                            http.create_message(channel).content(parse_welcome_items(guild_data.introduction_message, &member, ctx.clone()))?.await?;
                         }
                         event!(Level::DEBUG, "REGISTER TRACE: Sent introduction message");
                     }

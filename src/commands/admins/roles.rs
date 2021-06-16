@@ -35,7 +35,7 @@ impl Command for CreateSelfRole {
             let rest = switches
                 .get("rest")
                 .unwrap_or(&backup);
-            if let Some((role_id, role)) = parse_role(rest.clone(), guild_id, &ctx.cache) {
+            if let Some((role_id, role)) = parse_role(rest.clone(), guild_id, ctx.clone()) {
                 let category = switches
                     .get("c")
                     .cloned();
@@ -88,7 +88,7 @@ impl Command for DeleteSelfRole {
 
     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(guild_id) = message.guild_id {
-            if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id, &ctx.cache) {
+            if let Some((role_id, role)) = parse_role(args.full().to_string(), guild_id, ctx.clone()) {
                 ctx.db.del_role(role_id.0 as i64, guild_id.0 as i64)?;
                 ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Successfully deleted role {}", role.name))?.await?;
             } else { ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
@@ -119,7 +119,7 @@ impl Command for EditSelfRole {
             let switches = get_switches(args.full().to_string());
             let backup = String::new();
             let rest = switches.get("rest").unwrap_or(&backup);
-            if let Some((role_id, d_role)) = parse_role(rest.clone(), guild_id, &ctx.cache) {
+            if let Some((role_id, d_role)) = parse_role(rest.clone(), guild_id, ctx.clone()) {
                 let category = switches
                     .get("c")
                     .cloned();

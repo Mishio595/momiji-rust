@@ -22,14 +22,13 @@ impl Command for RegisterMember {
     }
 
     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let db = ctx.db;
         if let Some(guild_id) = message.guild_id {
-            let mut settings = db.get_guild(guild_id.0 as i64)?;
+            let mut settings = ctx.db.get_guild(guild_id.0 as i64)?;
             event!(Level::DEBUG, "Obtained settings");
             event!(Level::DEBUG, "Args: {:?}", args.rest());
-            if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id, &ctx.cache) {
+            if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id, ctx.clone()) {
                 settings.register_member_role = Some(role_id.0 as i64);
-                db.update_guild(guild_id.0 as i64, settings)?;
+                ctx.db.update_guild(guild_id.0 as i64, settings)?;
                 event!(Level::DEBUG, "Updated settings");
                 ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Set member role to {}", role.name))?.await?;
             }
@@ -54,12 +53,11 @@ impl Command for RegisterCooldown {
     }
 
     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let db = ctx.db;
         if let Some(guild_id) = message.guild_id {
-            let mut settings = db.get_guild(guild_id.0 as i64)?;
-            if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id, &ctx.cache) {
+            let mut settings = ctx.db.get_guild(guild_id.0 as i64)?;
+            if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id, ctx.clone()) {
                 settings.register_cooldown_role = Some(role_id.0 as i64);
-                db.update_guild(guild_id.0 as i64, settings)?;
+                ctx.db.update_guild(guild_id.0 as i64, settings)?;
                 ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Set cooldown role to {}", role.name))?.await?;
             }
         }
@@ -83,13 +81,12 @@ impl Command for RegisterDuration {
     }
 
     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let db = ctx.db;
         if let Some(guild_id) = message.guild_id {
-            let mut settings = db.get_guild(guild_id.0 as i64)?;
+            let mut settings = ctx.db.get_guild(guild_id.0 as i64)?;
             if let Ok(dur) = args.rest().parse::<String>() {
                 let dur = hrtime_to_seconds(dur);
                 settings.register_cooldown_duration = Some(dur as i32);
-                db.update_guild(guild_id.0 as i64, settings)?;
+                ctx.db.update_guild(guild_id.0 as i64, settings)?;
                 ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Set duration of cooldown to {}", seconds_to_hrtime(dur as usize)))?.await?;
             }
         }
@@ -113,22 +110,21 @@ impl Command for RegisterRestrictions {
     }
 
     async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let db = ctx.db;
         if let Some(guild_id) = message.guild_id {
             let op = args.single::<String>().unwrap_or(String::new());
             let mut sec = "";
             let mut val = String::new();
-            let mut settings = db.get_guild(guild_id.0 as i64)?;
+            let mut settings = ctx.db.get_guild(guild_id.0 as i64)?;
             match op.as_str() {
                 "add" => {
-                    if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id, &ctx.cache) {
+                    if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id, ctx.clone()) {
                         settings.cooldown_restricted_roles.push(role_id.0 as i64);
                         sec = "Added";
                         val = role.name.clone();
                     }
                 },
                 "remove" => {
-                    if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id, &ctx.cache) {
+                    if let Some((role_id, role)) = parse_role(args.rest().to_string(), guild_id, ctx.clone()) {
                         settings.cooldown_restricted_roles.push(role_id.0 as i64);
                         sec = "Removed";
                         val = role.name.clone();
@@ -139,7 +135,7 @@ impl Command for RegisterRestrictions {
                     let mut roles = Vec::new();
                     let mut role_names = Vec::new();
                     for role in list {
-                        if let Some((role_id, role)) = parse_role(role, guild_id, &ctx.cache) {
+                        if let Some((role_id, role)) = parse_role(role, guild_id, ctx.clone()) {
                             roles.push(role_id.0 as i64);
                             role_names.push(role.name.clone());
                         }
@@ -153,7 +149,7 @@ impl Command for RegisterRestrictions {
                     return Ok(())
                 },
             }
-            db.update_guild(guild_id.0 as i64, settings)?;
+            ctx.db.update_guild(guild_id.0 as i64, settings)?;
             ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Successfully modified restricted roles. {} {}", sec, val))?.await?;
         }
 

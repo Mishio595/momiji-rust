@@ -118,7 +118,7 @@ impl Command for ConfigAutorole {
             let mut val = args.rest().to_string();
             match op.to_lowercase().as_str() {
                 "add" => {
-                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
+                    match parse_role(val.to_string(), guild_id, ctx.clone()) {
                         Some((role_id, role)) => {
                             guild_data.autoroles.push(role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
@@ -130,7 +130,7 @@ impl Command for ConfigAutorole {
                     }
                 },
                 "remove" => {
-                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
+                    match parse_role(val.to_string(), guild_id, ctx.clone()) {
                         Some((role_id, role)) => {
                             guild_data.autoroles.retain(|e| *e != role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
@@ -192,7 +192,7 @@ impl Command for ConfigAdmin {
             let mut val = args.rest().to_string();
             match op.to_lowercase().as_str() {
                 "add" => {
-                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
+                    match parse_role(val.to_string(), guild_id, ctx.clone()) {
                         Some((role_id, role)) => {
                             guild_data.admin_roles.push(role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
@@ -204,7 +204,7 @@ impl Command for ConfigAdmin {
                     }
                 },
                 "remove" => {
-                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
+                    match parse_role(val.to_string(), guild_id, ctx.clone()) {
                         Some((role_id, role)) => {
                             guild_data.admin_roles.retain(|e| *e != role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
@@ -260,7 +260,7 @@ impl Command for ConfigMod {
             let mut val = args.rest().to_string();
             match op.to_lowercase().as_str() {
                 "add" => {
-                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
+                    match parse_role(val.to_string(), guild_id, ctx.clone()) {
                         Some((role_id, role)) => {
                             guild_data.mod_roles.push(role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
@@ -272,7 +272,7 @@ impl Command for ConfigMod {
                     }
                 },
                 "remove" => {
-                    match parse_role(val.to_string(), guild_id, &ctx.cache) {
+                    match parse_role(val.to_string(), guild_id, ctx.clone()) {
                         Some((role_id, role)) => {
                             guild_data.mod_roles.retain(|e| *e != role_id.0 as i64);
                             val = format!("{} ({})", role.name, role_id.0);
@@ -334,7 +334,7 @@ impl Command for ConfigAudit {
                     guild_data.audit = false;
                 },
                 "channel" => {
-                    match parse_channel(val.to_string(), guild_id, &ctx.cache) {
+                    match parse_channel(val.to_string(), guild_id, ctx.clone()) {
                         Some((channel_id, channel)) => {
                             guild_data.audit_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name(), channel_id.0);
@@ -405,7 +405,7 @@ impl Command for ConfigModlog {
                     guild_data.modlog = false;
                 },
                 "channel" => {
-                    match parse_channel(val.to_string(), guild_id, &ctx.cache) {
+                    match parse_channel(val.to_string(), guild_id, ctx.clone()) {
                         Some((channel_id, channel)) => {
                             guild_data.modlog_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name(), channel_id.0);
@@ -467,7 +467,7 @@ impl Command for ConfigWelcome {
                     guild_data.welcome = false;
                 },
                 "channel" => {
-                    match parse_channel(val.to_string(), guild_id, &ctx.cache) {
+                    match parse_channel(val.to_string(), guild_id, ctx.clone()) {
                         Some((channel_id, channel)) => {
                             guild_data.welcome_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name(), channel_id.0);
@@ -535,7 +535,7 @@ impl Command for ConfigIntroduction {
                     guild_data.introduction = false;
                 },
                 "channel" => {
-                    match parse_channel(val.to_string(), guild_id, &ctx.cache) {
+                    match parse_channel(val.to_string(), guild_id, ctx.clone()) {
                         Some((channel_id, channel)) => {
                             guild_data.introduction_channel = channel_id.0 as i64;
                             val = format!("{} ({})", channel.name(), channel_id.0);

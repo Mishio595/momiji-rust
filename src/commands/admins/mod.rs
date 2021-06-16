@@ -30,6 +30,7 @@ pub fn init_config(module: ModuleBuilder) -> ModuleBuilder {
         .add_command("modlog", Command(Arc::new(ConfigModlog)))
         .add_command("welcome", Command(Arc::new(ConfigWelcome)))
         .add_command("introduction", Command(Arc::new(ConfigIntroduction)))
+        .add_command("intro", Alias("introduction".to_string()))
         .add_command("cmd", Command(Arc::new(ConfigCommands)))
         .add_command("log", Command(Arc::new(ConfigLogs)))
         .add_command("register_member", Command(Arc::new(RegisterMember)))

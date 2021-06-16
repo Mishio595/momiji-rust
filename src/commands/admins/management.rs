@@ -5,7 +5,6 @@ use momiji::core::utils::*;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
 use tracing::{event, Level};
-use twilight_cache_inmemory::InMemoryCache;
 use twilight_embed_builder::EmbedBuilder;
 use twilight_model::channel::Message;
 use twilight_model::guild::Permissions;
@@ -35,7 +34,7 @@ impl Command for Prune {
             if count<=1000 {
                 let guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
                 let fsel = args.single::<String>().unwrap_or(String::new());
-                let mut filter = get_filter(fsel, guild_id, &ctx.cache);
+                let mut filter = get_filter(fsel, guild_id, ctx.clone()).await;
                 let mut deletions = ctx.http.channel_messages(message.channel_id)
                     .limit(u64::min(100, count as u64))?
                     .await?;
@@ -259,14 +258,14 @@ fn is_deletable(message: &Message) -> bool {
     now - then < (WEEK as i64)*2
 }
 
-fn get_filter(input: String, guild_id: GuildId, cache: &InMemoryCache) -> Box<dyn FnMut(&Message) -> bool + Send + Sync> {
+async fn get_filter(input: String, guild_id: GuildId, ctx: Context) -> Box<dyn FnMut(&Message) -> bool + Send + Sync> {
     match input.as_str() {
         "bot" => Box::new(|m| m.author.bot),
         "mention" => Box::new(|m| !m.mentions.is_empty() || m.mention_everyone),
         "attachment" => Box::new(|m| !m.attachments.is_empty()),
         "!pin" => Box::new(|m| !m.pinned),
         _ => {
-            match parse_user(input.to_string(), guild_id, cache) {
+            match parse_user(input.to_string(), guild_id, ctx.clone()).await {
                 Some((user_id, _)) => {
                     Box::new(move |m| m.author.id == user_id)
                 },

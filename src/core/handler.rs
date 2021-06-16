@@ -199,10 +199,10 @@ async fn handle_event(
                             if guild_data.welcome && guild_data.welcome_channel > 0 {
                                 let channel_id = ChannelId(guild_data.welcome_channel as u64);
                                 if guild_data.welcome_type.as_str() == "embed" {
-                                    let embed = build_welcome_embed(guild_data.welcome_message, &member, &cache)?.build()?;
+                                    let embed = build_welcome_embed(guild_data.welcome_message, &member, ctx)?.build()?;
                                     http.create_message(channel_id).embed(embed)?.await?;
                                 } else {
-                                    let content = parse_welcome_items(guild_data.welcome_message, &member, &cache);
+                                    let content = parse_welcome_items(guild_data.welcome_message, &member, ctx);
                                     http.create_message(channel_id).content(content)?.await?;
                                 }
                             }

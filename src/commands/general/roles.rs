@@ -56,7 +56,7 @@ impl Command for AddSelfRole {
                         None => None,
                     }).collect();
                     for r1 in list {
-                        if let Some((r, r2)) = parse_role(r1.clone(), guild_id, &cache) {
+                        if let Some((r, r2)) = parse_role(r1.clone(), guild_id, ctx.clone()) {
                             if has_cooldown && restricted_roles.contains(&(r.0 as i64)) {
                                 failed.push(format!("{} is not available on cooldown", r2.name));
                                 continue;
@@ -155,7 +155,7 @@ impl Command for RemoveSelfRole {
                         None => None,
                     }).collect::<Vec<Arc<Role>>>();
                     for r1 in list {
-                        if let Some((r, r2)) = parse_role(r1.clone(), guild_id, &cache) {
+                        if let Some((r, r2)) = parse_role(r1.clone(), guild_id, ctx.clone()) {
                             if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
                                 to_remove.push(r);
                             } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }

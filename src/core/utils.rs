@@ -1,9 +1,10 @@
+use crate::Context;
 use super::consts::*;
 use regex::Regex;
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
-use twilight_cache_inmemory::{InMemoryCache, model::CachedMember, model::CachedGuild};
+use twilight_cache_inmemory::{model::CachedMember, model::CachedGuild};
 use twilight_embed_builder::{EmbedBuilder, ImageSource};
 use twilight_model::channel::GuildChannel;
 use twilight_model::guild::{Member, Role, Permissions};
@@ -27,21 +28,28 @@ lazy_static::lazy_static! {
 /// Attempts to parse a role ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached roles
 /// This method is case insensitive
-pub fn parse_role(input: String, guild_id: GuildId, cache: &InMemoryCache) -> Option<(RoleId, Arc<Role>)> {
+pub fn parse_role(input: String, guild_id: GuildId, ctx: Context) -> Option<(RoleId, Arc<Role>)> {
     match ROLE_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = s[1].parse::<u64>() {
                 let rid = RoleId(id);
-                if let Some(role) = cache.role(rid) {
+                if let Some(role) = ctx.cache.role(rid) {
                     return Some((rid, role.clone()));
+                // } else {
+                //     let roles = ctx.http.roles(guild_id).await.unwrap_or(Vec::new());
+                //     for r in roles.iter() {
+                //         if r.id == rid {
+                //             return Some((rid, Arc::new(r.clone())))
+                //         }
+                //     }
                 }
             }
             None
         },
         None => {
-            if let Some(roles) = cache.guild_roles(guild_id) {
+            if let Some(roles) = ctx.cache.guild_roles(guild_id) {
                 for id in roles.iter() {
-                    let r = cache.role(*id)
+                    let r = ctx.cache.role(*id)
                         .and_then(|role| {
                             if role.name.to_lowercase() == input.to_lowercase() { Some((*id, role.clone())) }
                             else { None }
@@ -58,23 +66,26 @@ pub fn parse_role(input: String, guild_id: GuildId, cache: &InMemoryCache) -> Op
 /// Attempts to parse a user ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached users
 /// This method is case insensitive
-pub fn parse_user(input: String, guild_id: GuildId, cache: &InMemoryCache) -> Option<(UserId, Arc<Member>)> {
+pub async fn parse_user(input: String, guild_id: GuildId, ctx: Context) -> Option<(UserId, Arc<Member>)> {
     match USER_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = s[1].parse::<u64>() {
                 let uid = UserId(id);
-                return cache.member(guild_id, uid)
-                    .and_then(|m| {
-                        let member = cached_member_to_member(m);
-                        Some((uid, Arc::new(member)))
-                    });
+                if let Some(member) = ctx.cache.member(guild_id, uid) {
+                    let member = cached_member_to_member(member);
+                    return Some((uid, Arc::new(member)))
+                } else {
+                    if let Ok(Some(member)) = ctx.http.guild_member(guild_id, uid).await {
+                        return Some((uid, Arc::new(member)))
+                    }
+                }
             }
             None
         },
         None => {
-            if let Some(members) = cache.guild_members(guild_id) {
+            if let Some(members) = ctx.cache.guild_members(guild_id) {
                 for user_id in members.iter() {
-                    return cache.member(guild_id, *user_id)
+                    return ctx.cache.member(guild_id, *user_id)
                         .and_then(|m| {
                             if m.user.name.to_lowercase() == input.to_lowercase()
                                 || member_tag(m.clone()) == input.to_lowercase()
@@ -92,12 +103,12 @@ pub fn parse_user(input: String, guild_id: GuildId, cache: &InMemoryCache) -> Op
 /// Attempts to parse a channel ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached GuildChannels
 /// This method is case insensitive
-pub fn parse_channel(input: String, guild_id: GuildId, cache: &InMemoryCache) -> Option<(ChannelId, Arc<GuildChannel>)> {
+pub fn parse_channel(input: String, guild_id: GuildId, ctx: Context) -> Option<(ChannelId, Arc<GuildChannel>)> {
     match CHANNEL_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = s[1].parse::<u64>() {
                 let channel_id = ChannelId(id);
-                return cache.guild_channel(channel_id)
+                return ctx.cache.guild_channel(channel_id)
                     .and_then(|channel| {
                         Some((channel_id, channel))
                     });
@@ -106,9 +117,9 @@ pub fn parse_channel(input: String, guild_id: GuildId, cache: &InMemoryCache) ->
             None
         },
         None => {
-            if let Some(channels) = cache.guild_channels(guild_id) {
+            if let Some(channels) = ctx.cache.guild_channels(guild_id) {
                 for channel_id in channels.iter() {
-                    return cache.guild_channel(*channel_id)
+                    return ctx.cache.guild_channel(*channel_id)
                         .and_then(|channel| {
                             if channel.name().to_lowercase() == input.to_lowercase() {
                                 Some((*channel_id, channel.clone()))
@@ -126,12 +137,12 @@ pub fn parse_channel(input: String, guild_id: GuildId, cache: &InMemoryCache) ->
 /// Attempts to parse a guild ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached guild
 /// This method is case insensitive
-pub fn parse_guild(input: String, cache: &InMemoryCache) -> Option<(GuildId, Arc<CachedGuild>)> {
+pub fn parse_guild(input: String, ctx: Context) -> Option<(GuildId, Arc<CachedGuild>)> {
     match GUILD_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = s[0].parse::<u64>() {
                 let id = GuildId(id);
-                if let Some(guild) = cache.guild(id) {
+                if let Some(guild) = ctx.cache.guild(id) {
                     return Some((id, guild));
                 }
             }
@@ -231,7 +242,7 @@ pub fn seconds_to_hrtime(secs: usize) -> String {
         .join(", ")
 }
 
-pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member, cache: &InMemoryCache) -> String {
+pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member, ctx: Context) -> String {
     let input = input.into();
     let mut ret = input.clone();
     for word in PLAIN_PARTS.captures_iter(input.as_str()) {
@@ -246,12 +257,12 @@ pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member, cache: &I
                 ret = ret.replace(&word[0], member.user.name.as_str());
             },
             "{guild}" => {
-                if let Some(guild) = cache.guild(member.guild_id) {
+                if let Some(guild) = ctx.cache.guild(member.guild_id) {
                     ret = ret.replace(&word[0], guild.name.as_str());
                 }
             },
             "{membercount}" => {
-                if let Some(guild) = cache.guild(member.guild_id) {
+                if let Some(guild) = ctx.cache.guild(member.guild_id) {
                     ret = ret.replace(&word[0], guild.member_count.unwrap_or(0).to_string().as_str());
                 }
             },
@@ -261,16 +272,16 @@ pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member, cache: &I
     ret
 }
 
-pub fn build_welcome_embed(input: String, member: &Member, cache: &InMemoryCache) -> Result<EmbedBuilder, Box<dyn Error+ Send + Sync>> {
+pub fn build_welcome_embed(input: String, member: &Member, ctx: Context) -> Result<EmbedBuilder, Box<dyn Error+ Send + Sync>> {
     let mut embed = EmbedBuilder::new();
     for item in EMBED_ITEM.captures_iter(input.as_str()) {
         if let Some(caps) = EMBED_PARTS.captures(&item[0]) {
             match caps["field"].to_lowercase().as_str() {
                 "title" => {
-                    embed = embed.title(parse_welcome_items(&caps["value"], &member, cache));
+                    embed = embed.title(parse_welcome_items(&caps["value"], &member, ctx.clone()));
                 },
                 "description" => {
-                    embed = embed.description(parse_welcome_items(&caps["value"], &member, cache));
+                    embed = embed.description(parse_welcome_items(&caps["value"], &member, ctx.clone()));
                 },
                 "thumbnail" => {
                     match caps["value"].to_lowercase().trim() {
@@ -278,7 +289,7 @@ pub fn build_welcome_embed(input: String, member: &Member, cache: &InMemoryCache
                             embed = embed.thumbnail(ImageSource::url(user_avatar_url(&member.user))?);
                         },
                         "guild" => {
-                            if let Some(guild) = cache.guild((&member).guild_id.clone()) {
+                            if let Some(guild) = ctx.cache.guild((&member).guild_id.clone()) {
                                 if let Some(ref s) = guild.icon {
                                     embed = embed.thumbnail(ImageSource::url(guild_icon_url(guild.id, s.clone()))?);
                                 }
@@ -298,9 +309,9 @@ pub fn build_welcome_embed(input: String, member: &Member, cache: &InMemoryCache
     Ok(embed)
 }
 
-pub fn get_permissions_for_member(m: Arc<CachedMember>, cache: &InMemoryCache) -> Permissions {
+pub fn get_permissions_for_member(m: Arc<CachedMember>, ctx: Context) -> Permissions {
     m.roles.iter().fold(Permissions::empty(), |p, role_id| {
-        p | cache.role(*role_id).and_then(|role| {
+        p | ctx.cache.role(*role_id).and_then(|role| {
             Some(role.permissions)
         }).unwrap_or(Permissions::empty())
     })

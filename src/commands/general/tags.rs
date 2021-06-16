@@ -116,7 +116,7 @@ impl Command for TagRemove {
             let tag = ctx.db.get_tag(guild_id.0 as i64, tag_input.clone())?;
             let check = ctx.cache.member(guild_id, message.author.id)
                 .and_then(|m| {
-                    Some(get_permissions_for_member(m, &ctx.cache).contains(Permissions::MANAGE_MESSAGES))
+                    Some(get_permissions_for_member(m, ctx.clone()).contains(Permissions::MANAGE_MESSAGES))
                 }).unwrap_or(false);
             if message.author.id.0 as i64 == tag.author || check {
                 let tag = ctx.db.del_tag(guild_id.0 as i64, tag_input.clone())?;
@@ -147,7 +147,7 @@ impl Command for TagEdit {
             let mut tag = ctx.db.get_tag(guild_id.0 as i64, tag_input.clone())?;
             let check = ctx.cache.member(guild_id, message.author.id)
                 .and_then(|m| {
-                    Some(get_permissions_for_member(m, &ctx.cache).contains(Permissions::MANAGE_MESSAGES))
+                    Some(get_permissions_for_member(m, ctx.clone()).contains(Permissions::MANAGE_MESSAGES))
                 }).unwrap_or(false);
             if message.author.id.0 as i64 == tag.author || check {
                 tag.data = value.clone();
