@@ -12,7 +12,7 @@ use std::error::Error;
 use std::sync::Arc;
 use twilight_embed_builder::{EmbedBuilder, EmbedFooterBuilder, ImageSource};
 use twilight_gateway::{Event, EventType};
-use twilight_model::id::{ChannelId, GuildId, RoleId};
+use twilight_model::id::{ChannelId, GuildId, RoleId, UserId};
 
 use super::utils::build_welcome_embed;
 use super::utils::parse_welcome_items;
@@ -190,7 +190,7 @@ async fn handle_event(
                                 let embed = EmbedBuilder::new()
                                     .title("Member Joined")
                                     .color(colors::GREEN)
-                                    .thumbnail(ImageSource::url(user_avatar_url(&member.user, member.user.avatar.clone()))?)
+                                    .thumbnail(ImageSource::url(user_avatar_url(&member.user))?)
                                     .timestamp(Utc::now().to_rfc3339())
                                     .description(format!("<@{}>\n{}\n{}", member.user.id.0, format!("{}#{}", member.user.name, member.user.discriminator), member.user.id.0))
                                     .build()?;
@@ -246,8 +246,92 @@ async fn handle_event(
         Event::MemberUpdate(member) => {
             //TODO Figure out how to get old member data
         }
-        Event::BanAdd(ban) => {}
-        Event::BanRemove(ban) => {}
+        Event::BanAdd(ban) => {
+            use twilight_model::guild::audit_log::AuditLogEvent;
+            let audit_request = ctx.http.audit_log(ban.guild_id)
+                .action_type(AuditLogEvent::MemberBanAdd)
+                .limit(1)?;
+            if let Some(audit_log) = audit_request.await? {
+                if let Some(audit) = audit_log.audit_log_entries.first() {
+                    match ctx.db.get_guild(ban.guild_id.0 as i64) {
+                        Ok(guild_data) => {
+                            if guild_data.logging.contains(&String::from("member_ban")) { return Ok(()) }
+                            let target_id = audit.target_id.clone()
+                                .map(|ref s| UserId(s.parse::<u64>().unwrap_or(0)))
+                                .unwrap();
+                            if guild_data.modlog && guild_data.modlog_channel > 0 && target_id == ban.user.id {
+                                let modlog_channel = ChannelId(guild_data.modlog_channel as u64);
+                                let moderator = match audit.user_id {
+                                    Some(user_id) => { match ctx.http.user(user_id).await? {
+                                        Some(user) => { format!("{}#{} ({})", user.name, user.discriminator, user.id.0) }
+                                        None => { "unknown".to_string() }
+                                    }}
+                                    None => { "unknown".to_string() }
+                                };
+                                let embed = EmbedBuilder::new()
+                                    .title("Member Banned")
+                                    .color(colors::RED)
+                                    .thumbnail(ImageSource::url(user_avatar_url(&ban.user))?)
+                                    .timestamp(chrono::Utc::now().to_rfc3339())
+                                    .description(format!("**Member:** {}#{} ({}) - {}\n**Responsible Moderator:** {}\n**Reason:** {}",
+                                        ban.user.name,
+                                        ban.user.discriminator,
+                                        ban.user.id.0,
+                                        ban.user.mention(),
+                                        moderator,
+                                        audit.reason.clone().unwrap_or("None".to_string())
+                                    )).build()?;
+                                ctx.http.create_message(modlog_channel).embed(embed)?.await?;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        Event::BanRemove(ban) => {
+            use twilight_model::guild::audit_log::AuditLogEvent;
+            let audit_request = ctx.http.audit_log(ban.guild_id)
+                .action_type(AuditLogEvent::MemberBanRemove)
+                .limit(1)?;
+            if let Some(audit_log) = audit_request.await? {
+                if let Some(audit) = audit_log.audit_log_entries.first() {
+                    match ctx.db.get_guild(ban.guild_id.0 as i64) {
+                        Ok(guild_data) => {
+                            if guild_data.logging.contains(&String::from("member_unban")) { return Ok(()) }
+                            let target_id = audit.target_id.clone()
+                                .map(|ref s| UserId(s.parse::<u64>().unwrap_or(0)))
+                                .unwrap();
+                            if guild_data.modlog && guild_data.modlog_channel > 0 && target_id == ban.user.id {
+                                let modlog_channel = ChannelId(guild_data.modlog_channel as u64);
+                                let moderator = match audit.user_id {
+                                    Some(user_id) => { match ctx.http.user(user_id).await? {
+                                        Some(user) => { format!("{}#{} ({})", user.name, user.discriminator, user.id.0) }
+                                        None => { "unknown".to_string() }
+                                    }}
+                                    None => { "unknown".to_string() }
+                                };
+                                let embed = EmbedBuilder::new()
+                                    .title("Member Unbanned")
+                                    .color(colors::GREEN)
+                                    .thumbnail(ImageSource::url(user_avatar_url(&ban.user))?)
+                                    .timestamp(chrono::Utc::now().to_rfc3339())
+                                    .description(format!("**Member:** {}#{} ({}) - {}\n**Responsible Moderator:** {}\n**Reason:** {}",
+                                        ban.user.name,
+                                        ban.user.discriminator,
+                                        ban.user.id.0,
+                                        ban.user.mention(),
+                                        moderator,
+                                        audit.reason.clone().unwrap_or("None".to_string())
+                                    )).build()?;
+                                ctx.http.create_message(modlog_channel).embed(embed)?.await?;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
         Event::Ready(ready) => {
             event!(Level::DEBUG, "Connected with session_id {}", ready.session_id);
         }

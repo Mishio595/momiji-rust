@@ -275,7 +275,7 @@ pub fn build_welcome_embed(input: String, member: &Member, cache: &InMemoryCache
                 "thumbnail" => {
                     match caps["value"].to_lowercase().trim() {
                         "user" | "member" => {
-                            embed = embed.thumbnail(ImageSource::url(user_avatar_url(&member.user, member.user.avatar.clone()))?);
+                            embed = embed.thumbnail(ImageSource::url(user_avatar_url(&member.user))?);
                         },
                         "guild" => {
                             if let Some(guild) = cache.guild((&member).guild_id.clone()) {
@@ -333,10 +333,10 @@ pub(crate) fn user_tag(user: Arc<User>) -> String {
     format!("{}#{}", user.name, user.discriminator)
 }
 
-pub(crate) fn user_avatar_url(user: &User, avatar: Option<String>) -> String {
-    match avatar {
-        Some(hash) => dbg!(format!("https://cdn.discordapp.com/avatars/{}/{}.png", user.id.0, hash)),
-        None => dbg!(format!("https://cdn.discordapp.com/embed/avatars/{}.png", user.discriminator.parse::<usize>().unwrap() % 5))
+pub(crate) fn user_avatar_url(user: &User) -> String {
+    match user.avatar {
+        Some(ref hash) => format!("https://cdn.discordapp.com/avatars/{}/{}.png", user.id.0, hash),
+        None => format!("https://cdn.discordapp.com/embed/avatars/{}.png", user.discriminator.parse::<usize>().unwrap() % 5)
     }
 }
 
