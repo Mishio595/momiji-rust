@@ -32,6 +32,10 @@ pub struct Guild {
     pub welcome_type: String,
     pub commands: Vec<String>,
     pub logging: Vec<String>,
+    pub register_member_role: Option<i64>,
+    pub register_cooldown_role: Option<i64>,
+    pub register_cooldown_duration: Option<i32>,
+    pub cooldown_restricted_roles: Vec<i64>,
 }
 
 // Deprecated fields: nickname, roles
@@ -99,17 +103,6 @@ pub struct Tag {
     pub guild_id: i64,
     pub name: String,
     pub data: String,
-}
-
-#[derive(Queryable, Identifiable, AsChangeset, Debug)]
-#[table_name="premium"]
-pub struct PremiumSettings {
-    pub id: i64,
-    pub tier: i32,
-    pub register_member_role: Option<i64>,
-    pub register_cooldown_role: Option<i64>,
-    pub register_cooldown_duration: Option<i32>,
-    pub cooldown_restricted_roles: Vec<i64>,
 }
 
 // This one would be the same for insertable or queryable, so it has both
@@ -180,12 +173,6 @@ pub struct NewTag {
     pub guild_id: i64,
     pub name: String,
     pub data: String,
-}
-
-#[derive(Insertable, Debug)]
-#[table_name="premium"]
-pub struct NewPremium {
-    pub id: i64,
 }
 
 // END INSERTABLES

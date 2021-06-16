@@ -36,6 +36,10 @@ table! {
         welcome_type -> Text,
         commands -> Array<Text>,
         logging -> Array<Text>,
+        register_member_role -> Nullable<Int8>,
+        register_cooldown_role -> Nullable<Int8>,
+        register_cooldown_duration -> Nullable<Int4>,
+        cooldown_restricted_roles -> Array<Int8>,
     }
 }
 

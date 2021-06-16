@@ -426,48 +426,6 @@ impl DatabaseConnection {
             .get_result(self.conn().deref())
     }
 
-    // Premium Tools
-    /// Add premium with a given guild ID.
-    /// Returns the PremiumSettings on success.
-    pub fn new_premium(&self, id: i64) -> QueryResult<PremiumSettings> {
-        let prem = NewPremium {
-            id,
-        };
-        diesel::insert_into(premium::table)
-            .values(&prem)
-            .get_result(self.conn().deref())
-    }
-    /// Delete premium by a guild ID.
-    /// Returns the ID on success.
-    pub fn del_premium(&self, g_id: i64) -> QueryResult<i64> {
-        use crate::db::schema::premium::columns::id;
-        diesel::delete(premium::table)
-            .filter(id.eq(&g_id))
-            .returning(id)
-            .get_result(self.conn().deref())
-    }
-    /// Select PremiumSettings by guild ID
-    /// Returns the settings on success
-    /// Will return Err if the guild is not premium
-    pub fn get_premium(&self, g_id: i64) -> QueryResult<PremiumSettings> {
-        premium::table.find(&g_id)
-            .first(self.conn().deref())
-    }
-    /// Update PremiumSettings
-    /// Returns the new settings on success
-    pub fn update_premium(&self, g_id: i64, settings: PremiumSettings) -> QueryResult<PremiumSettings> {
-        let target = premium::table.find(&g_id);
-        diesel::update(target)
-            .set(&settings)
-            .get_result(self.conn().deref())
-    }
-    /// Get the count of guilds with premium in the database
-    pub fn count_premium(&self) -> QueryResult<i64> {
-        use diesel::dsl::count_star;
-        premium::table.select(count_star())
-            .get_result(self.conn().deref())
-    }
-
     // Tag Tools
     /// Add a Hackban
     /// Returns the Hackban on success
