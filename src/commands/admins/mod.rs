@@ -1,14 +1,14 @@
 pub mod config;
 // pub mod ignore;
 pub mod management;
-// pub mod premium;
+pub mod register_control;
 pub mod roles;
 // pub mod tests;
 
 use self::config::*;
 // use self::ignore::*;
 use self::management::*;
-// use self::premium::*;
+use self::register_control::*;
 use self::roles::*;
 // use self::tests::*;
 use momiji::framework::command::{CommandOrAlias::*, ModuleBuilder};
@@ -32,6 +32,14 @@ pub fn init_config(module: ModuleBuilder) -> ModuleBuilder {
         .add_command("introduction", Command(Arc::new(ConfigIntroduction)))
         .add_command("cmd", Command(Arc::new(ConfigCommands)))
         .add_command("log", Command(Arc::new(ConfigLogs)))
+        .add_command("register_member", Command(Arc::new(RegisterMember)))
+        .add_command("register_cooldown", Command(Arc::new(RegisterCooldown)))
+        .add_command("register_duration", Command(Arc::new(RegisterDuration)))
+        .add_command("register_roles", Command(Arc::new(RegisterRestrictions)))
+        .add_command("reg_member", Alias("register_member".to_string()))
+        .add_command("reg_cooldown", Alias("register_cooldown".to_string()))
+        .add_command("reg_duration", Alias("register_duration".to_string()))
+        .add_command("reg_roles", Alias("register_roles".to_string()))
 }
 
 // pub fn init_ignore(module: ModuleBuilder) -> ModuleBuilder {
@@ -55,17 +63,6 @@ pub fn init_management(module: ModuleBuilder) -> ModuleBuilder {
         .add_command("purge", Alias("prune".to_string()))
         // .add_command("cleanup", Command(Arc::new(Cleanup)))
 }
-
-// pub fn init_premium(module: ModuleBuilder) -> ModuleBuilder {
-//     module
-//         .guild_only(true)
-//         .help_available(true)
-//         .prefixes(vec!["p", "premium", "prem"])
-//         .add_command("register_member", Command(Arc::new(PRegisterMember)))
-//         .add_command("register_cooldown", Command(Arc::new(PRegisterCooldown)))
-//         .add_command("register_duration", Command(Arc::new(PRegisterDuration)))
-//         .add_command("register_roles", Command(Arc::new(PRegisterRestrictions)))
-// }
 
 pub fn init_roles(module: ModuleBuilder) -> ModuleBuilder {
     module

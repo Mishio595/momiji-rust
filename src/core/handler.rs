@@ -56,7 +56,7 @@ async fn handle_event(
     match event {
         Event::MessageCreate(message) => {
             if let Err(e) = (*framework).handle_command(message.0, ctx.clone()).await {
-                event!(Level::DEBUG, "{}", e);
+                event!(Level::DEBUG, "{:?}", e);
             }
         }
         Event::MessageDelete(message) => {
@@ -232,7 +232,7 @@ async fn handle_event(
                         let embed = EmbedBuilder::new()
                             .title("Member Left")
                             .color(colors::RED)
-                            // .thumbnail()
+                            .thumbnail(ImageSource::url(user_avatar_url(&member.user))?)
                             .timestamp(Utc::now().to_rfc3339())
                             .description(format!("<@{}>\n{}#{}\n{}", member.user.id.0, member.user.name, member.user.discriminator , member.user.id))
                             .build()?;

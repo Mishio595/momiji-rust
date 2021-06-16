@@ -4,7 +4,7 @@ use momiji::core::consts::*;
 use momiji::core::utils::*;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
-use tracing::debug;
+use tracing::{event, Level};
 use twilight_model::channel::Message;
 use twilight_model::guild::{PartialMember, Permissions};
 use twilight_model::id::{ChannelId, RoleId};
@@ -28,34 +28,33 @@ impl Command for Register {
     async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
         let db = ctx.db.clone();
         let http = ctx.http.clone();
-        debug!("REGISTER TRACE: Begin register for user: {}", message.author.id.0);
+        event!(Level::DEBUG, "REGISTER TRACE: Begin register");
         if let Some(guild_id) = message.guild_id {
-            let settings = db.get_premium(guild_id.0 as i64).map_err(|_| "Premium is required to use this command.")?;
             let guild_data = db.get_guild(guild_id.0 as i64)?;
             let roles = db.get_roles(guild_id.0 as i64)?;
-            debug!("REGISTER TRACE: Settings obtained");
+            event!(Level::DEBUG, "REGISTER TRACE: Settings obtained");
             match parse_user(args.single::<String>().unwrap_or(String::new()), guild_id, &ctx.cache) {
-                Some((user_id, mut member)) => {
-                    debug!("REGISTER TRACE: User matched");
-                    let channel = if guild_data.modlog {
+                Some((user_id, member)) => {
+                    event!(Level::DEBUG, "REGISTER TRACE: User matched");
+                    let channel_id = if guild_data.modlog {
                         ChannelId(guild_data.modlog_channel as u64)
                     } else { message.channel_id };
                     let list = args.rest().split(",").map(|s| s.trim().to_string());
                     let mut to_add = Vec::new();
                     for r1 in list {
                         if let Some((r, _)) = parse_role(r1.clone(), guild_id, &ctx.cache) {
-                            if settings.cooldown_restricted_roles.contains(&(r.0 as i64)) { continue; }
+                            if guild_data.cooldown_restricted_roles.contains(&(r.0 as i64)) { continue; }
                             to_add.push(r);
                         } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
-                            if settings.cooldown_restricted_roles.contains(&(roles[i].id)) { continue; }
+                            if guild_data.cooldown_restricted_roles.contains(&(roles[i].id)) { continue; }
                             to_add.push(RoleId(roles[i].id as u64));
                         }
                     }
-                    debug!("REGISTER TRACE: Resolved roles");
+                    event!(Level::DEBUG, "REGISTER TRACE: Resolved roles");
                     // let author = message.member.ok_or_else(|| "Member unavailable")?;
                     // TODO implement hierarchy filter
                     // let mut to_add = filter_roles(to_add, author);
-                    debug!("REGISTER TRACE: Filtered roles");
+                    event!(Level::DEBUG, "REGISTER TRACE: Filtered roles");
                     for (i, role_id) in to_add.clone().iter().enumerate() {
                         if member.roles.contains(role_id) {
                             to_add.remove(i);
@@ -65,13 +64,13 @@ impl Command for Register {
                             to_add.remove(i);
                         };
                     }
-                    debug!("REGISTER TRACE: Roles added");
-                    if let Some(role) = settings.register_cooldown_role {
+                    event!(Level::DEBUG, "REGISTER TRACE: Roles added");
+                    if let Some(role) = guild_data.register_cooldown_role {
                         http.add_guild_member_role(guild_id, user_id, RoleId(role as u64)).await?;
-                        debug!("REGISTER TRACE: Added cooldown role");
-                        if let Some(member_role) = settings.register_member_role {
-                            debug!("REGISTER TRACE: Added member role");
-                            let dur = match settings.register_cooldown_duration {
+                        event!(Level::DEBUG, "REGISTER TRACE: Added cooldown role");
+                        if let Some(member_role) = guild_data.register_member_role {
+                            event!(Level::DEBUG, "REGISTER TRACE: Added member role");
+                            let dur = match guild_data.register_cooldown_duration {
                                 Some(dur) => dur,
                                 None => DAY as i32,
                             };
@@ -84,11 +83,11 @@ impl Command for Register {
                             let end_time = start_time + dur as i64;
                             db.new_timer(start_time, end_time, data)?;
                             ctx.tc.request();
-                            debug!("REGISTER TRACE: Timer registered");
+                            event!(Level::DEBUG, "REGISTER TRACE: Timer registered");
                         }
-                    } else if let Some(role) = settings.register_member_role {
+                    } else if let Some(role) = guild_data.register_member_role {
                         http.add_guild_member_role(guild_id, user_id, RoleId(role as u64)).await?;
-                        debug!("REGISTER TRACE: Added member role (No cooldown role)");
+                        event!(Level::DEBUG, "REGISTER TRACE: Added member role (No cooldown role)");
                     }
                     let desc = if !to_add.is_empty() {
                         to_add.iter().map(|r| match ctx.cache.role(*r) {
@@ -98,7 +97,6 @@ impl Command for Register {
                         .collect::<Vec<String>>()
                         .join("\n")
                     } else { String::new() };
-                    debug!("REGISTER TRACE: Built log message");
                     let embed = EmbedBuilder::new()
                         .title(format!(
                             "Registered {}#{} with the following roles:",
@@ -107,10 +105,11 @@ impl Command for Register {
                         ))
                         .description(desc)
                         .color(colors::MAIN)
-                        .timestamp(Utc::now().to_string())
+                        .timestamp(Utc::now().to_rfc3339())
                         .build()?;
-                    http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
-                    debug!("REGISTER TRACE: Sent log message");
+                    event!(Level::DEBUG, "REGISTER TRACE: Built log message. Log Channel: {:?}", channel_id);
+                    http.create_message(channel_id).embed(embed)?.await?;
+                    event!(Level::DEBUG, "REGISTER TRACE: Sent log message");
                     if guild_data.introduction && guild_data.introduction_channel>0 {
                         let channel = ChannelId(guild_data.introduction_channel as u64);
                         if guild_data.introduction_type == "embed" {
@@ -119,13 +118,13 @@ impl Command for Register {
                         } else {
                             http.create_message(channel).content(parse_welcome_items(guild_data.introduction_message, &member, &ctx.cache))?.await?;
                         }
-                        debug!("REGISTER TRACE: Sent introduction message");
+                        event!(Level::DEBUG, "REGISTER TRACE: Sent introduction message");
                     }
                 },
-                None => { http.create_message(message.channel_id).content("I couldn't find that user.")?.await?; }
+                None => { http.create_message(message.channel_id).reply(message.id).content("I couldn't find that user.")?.await?; }
             }
         }
-        debug!("REGISTER TRACE: Register completed successfully");
+        event!(Level::DEBUG, "REGISTER TRACE: Register completed successfully");
         Ok(())
     }
 }

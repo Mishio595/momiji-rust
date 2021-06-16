@@ -189,7 +189,7 @@ pub struct UserUpdate {
 
 impl Display for Guild {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "**Admin Roles:** {}\n**Audit:** {}\n**Audit Channel:** {}\n**Audit Threshold:** {}\n**Autorole:** {}\n**Autoroles:** {}\n**Ignored Channels:** {}\n**Ignore Level:** {}\n**Introduction:** {}\n**Introduction Channel:** {}\n**Introduction Type:** {}\n**Introduction Message:** {}\n**Mod Roles: ** {}\n**Modlog:** {}\n**Modlog Channel:** {}\n**Mute Setup:** {}\n**Prefix:** {}\n**Welcome:** {}\n**Welcome Channel:** {}\n**Welcome Type:** {}\n**Welcome Message:** {}\n**Disabled Commands:** {}\n**Disabled Log Types:** {}",
+        write!(f, "**Admin Roles:** {}\n**Audit:** {}\n**Audit Channel:** {}\n**Audit Threshold:** {}\n**Autorole:** {}\n**Autoroles:** {}\n**Ignored Channels:** {}\n**Ignore Level:** {}\n**Introduction:** {}\n**Introduction Channel:** {}\n**Introduction Type:** {}\n**Introduction Message:** {}\n**Mod Roles: ** {}\n**Modlog:** {}\n**Modlog Channel:** {}\n**Mute Setup:** {}\n**Prefix:** {}\n**Welcome:** {}\n**Welcome Channel:** {}\n**Welcome Type:** {}\n**Welcome Message:** {}\n**Disabled Commands:** {}\n**Disabled Log Types:** {}\n**Register Member Role:** {}\n**Register Cooldown Role:** {}\n**Register Duration:** {}\n**Cooldown Restricted Roles:** {}",
             self.admin_roles.iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", "),
             self.audit,
             format!("<#{}>", self.audit_channel),
@@ -212,7 +212,11 @@ impl Display for Guild {
             self.welcome_type,
             self.welcome_message,
             self.commands.join(", "),
-            self.logging.join(", ")
+            self.logging.join(", "),
+            self.register_member_role.map(|e| e.to_string()).unwrap_or("Not set".to_string()),
+            self.register_cooldown_role.map(|e| e.to_string()).unwrap_or("Not set".to_string()),
+            self.register_cooldown_duration.map(|e| e.to_string()).unwrap_or("Not set".to_string()),
+            self.cooldown_restricted_roles.iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", ")
     )}
 }
 

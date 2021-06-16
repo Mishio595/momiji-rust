@@ -34,7 +34,7 @@ impl Command for AddSelfRole {
         if let Some(guild_id) = message.guild_id {
             if let Some(member) = message.member {
                 let roles = db.get_roles(guild_id.0 as i64)?;
-                let (restricted_roles, has_cooldown) = match db.get_premium(guild_id.0 as i64) {
+                let (restricted_roles, has_cooldown) = match db.get_guild(guild_id.0 as i64) {
                     Ok(data) => {
                         let has_cooldown = if let Some(cooldown_role) = data.register_cooldown_role {
                             member.roles.contains(&RoleId(cooldown_role as u64))
