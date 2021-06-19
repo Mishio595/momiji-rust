@@ -22,6 +22,7 @@ impl Command for Prune {
             usage: Some("<count> [filter]".to_string()),
             examples: vec!["20 bot".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)

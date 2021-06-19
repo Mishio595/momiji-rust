@@ -2,7 +2,7 @@ use crate::commands;
 use momiji::Context;
 use momiji::framework::{Config, Framework};
 use momiji::framework::parser::Parser;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use twilight_model::id::{GuildId, UserId};
 
 pub struct StandardFramework(Framework);

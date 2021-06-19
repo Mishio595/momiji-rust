@@ -1,17 +1,16 @@
 use crate::Context;
+use crate::core::consts::colors;
 use std::collections::HashMap;
 use std::{fmt, fmt::{Debug, Formatter}};
 use std::error::Error as StdError;
 use std::sync::Arc;
 use super::args::Args;
+use tracing::{event, Level};
 use twilight_model::channel::Message;
 use twilight_model::guild::Permissions;
+use twilight_embed_builder::{EmbedBuilder, EmbedFieldBuilder};
 
 pub(crate) type InternalCommand = Arc<dyn Command>;
-pub type HelpFunction = fn(&Message, &HelpOptions, HashMap<String, Arc<Module>>, &Args)
-                   -> Result<(), Error>;
-
-pub struct Help(pub HelpFunction, pub Arc<HelpOptions>);
 
 #[derive(Clone, Debug)]
 pub struct Error(pub String);
@@ -23,6 +22,9 @@ impl<D: fmt::Display> From<D> for Error {
     }
 }
 
+#[derive(Clone)]
+pub struct Help(pub HashMap<String, Arc<Module>>, pub Arc<HelpOptions>);
+
 impl Debug for Help {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_struct("Help")
@@ -31,9 +33,171 @@ impl Debug for Help {
     }
 }
 
-impl HelpCommand for Help {
-    fn execute(&self, m: &Message, ho: &HelpOptions,hm: HashMap<String, Arc<Module>>, a: &Args) -> Result<(), Error> {
-        (self.0)(m, ho, hm, a)
+impl Help {
+    fn individual_help(&self, input: &String, cmd: Arc<dyn Command>, module: Arc<Module>) -> Option<EmbedBuilder> {
+        let options = &self.1;
+
+        let cmd_options = cmd.options();
+        let mut aliases = Vec::new();
+        let mut name = input.clone();
+        
+        for (k, v) in module.commands.iter() {
+            match v {
+                CommandOrAlias::Alias(alias) => {
+                    if alias == &input.to_lowercase() {
+                        aliases.push(k);
+                    }
+                },
+                CommandOrAlias::Command(_) => {
+                    if k == &input.to_lowercase() {
+                        name = k.clone();
+                    }
+                },
+            }
+        }
+
+        if !cmd_options.help_available { return None }
+
+        let mut embed = EmbedBuilder::new()
+            .title(name.clone())
+            .color(colors::MAIN);
+
+        if let Some(description) = &cmd_options.description {
+            embed = embed.field(EmbedFieldBuilder::new(options.description_label.clone(), description).build());
+        }
+
+        let restrictions = format!("Guild Only: {}\nOwner Only: {}",
+            cmd_options.guild_only,
+            cmd_options.owner_only);
+        embed = embed.field(EmbedFieldBuilder::new(options.restrictions_label.clone(), restrictions).inline().build());
+
+        if !cmd_options.required_permissions.is_empty() {
+            embed = embed.field(EmbedFieldBuilder::new(options.required_permissions_label.clone(), format!("{:?}", cmd_options.required_permissions)).inline().build());
+        }
+
+        if let Some(usage) = &cmd_options.usage {
+            embed = embed.field(EmbedFieldBuilder::new(options.usage_label.clone(), usage).build());
+        }
+
+        
+        if !aliases.is_empty() {
+            let aliases = aliases.iter().map(|e| e.as_str()).collect::<Vec<&str>>().join(", ");
+            embed = embed.field(EmbedFieldBuilder::new(options.aliases_label.clone(), aliases).build());
+        }
+
+        if !cmd_options.examples.is_empty() {
+            let examples = format!("{} {}",
+                name.clone(),
+                cmd_options.examples.iter()
+                    .map(|e| e.as_str()).collect::<Vec<&str>>()
+                    .join(format!("\n{}", name).as_str())
+            );
+            embed = embed.field(EmbedFieldBuilder::new(options.examples_label.clone(), examples).build());
+        }
+
+        Some(embed)
+    }
+}
+
+#[async_trait]
+impl Command for Help {
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn StdError + Send + Sync>> {
+        let modules = &self.0;
+        let options = &self.1;
+
+        if let Ok(input) = args.single::<String>() {
+            let mut found = false;
+
+            for (module_name, module) in modules.iter() {
+                // TODO add module prefix catching
+                if let Some(ref prefix) = module.prefix {
+                    if prefix == &input.to_lowercase() {
+                        if let Ok(subcmd) = args.single::<String>() {
+                            if let Some(cmd) = super::command_crawl(subcmd, module) {
+                                if let Some(embed) = self.individual_help(&input, cmd, module.clone()) {
+                                    ctx.http.create_message(message.channel_id)
+                                        .reply(message.id)
+                                        .embed(embed.build()?)?
+                                        .await?;
+
+                                    found = true;
+                                }
+                            }
+                        } else {
+                            //module matches, no subcommand
+                            let mut commands = module.commands.iter()
+                                .filter_map(|(name, cmd)| { match cmd {
+                                    CommandOrAlias::Command(_) => Some(name.as_str()),
+                                    CommandOrAlias::Alias(_) => None
+                                }}).collect::<Vec<&str>>();
+                            commands.sort();
+
+                            let embed = EmbedBuilder::new()
+                                .title(module_name.clone())
+                                .color(colors::MAIN)
+                                .field(EmbedFieldBuilder::new("Sub-commands", commands.join("\n ")).build())
+                                .build()?;
+
+                            ctx.http.create_message(message.channel_id).reply(message.id)
+                                .embed(embed)?
+                                .await?;
+
+                            found = true;
+                        }
+                    }
+                }
+                if let Some(cmd) = super::command_crawl(input.clone(), module) {
+                    if let Some(embed) = self.individual_help(&input, cmd, module.clone()) {
+                        ctx.http.create_message(message.channel_id)
+                            .reply(message.id)
+                            .embed(embed.build()?)?
+                            .await?;
+
+                        found = true;
+                    }
+                }
+            }
+
+            if !found {
+                ctx.http.create_message(message.channel_id)
+                    .reply(message.id)
+                    .content(options.command_not_found_text.clone())?
+                    .await?;
+            }
+        } else {
+            let mut embed = EmbedBuilder::new()
+                .description(options.individual_command_tip.clone())
+                .color(colors::MAIN);
+
+            for (name, module) in modules.iter() {
+                let name = if let Some(ref prefix) = module.prefix {
+                    format!("{} (prefix: `{}`)", name, prefix)
+                } else { name.clone() };
+
+                let mut commands: Vec<&str> = module.commands.iter()
+                    .filter_map(|(k, v)|  match v {
+                        CommandOrAlias::Command(cmd) => { if cmd.options().help_available {
+                            Some(k.as_str()) } else { None }
+                        }
+                        CommandOrAlias::Alias(_) => { None }
+                    })
+                    .collect();
+                commands.sort();
+                
+                if commands.is_empty() { continue; }
+
+                let field = EmbedFieldBuilder::new(name, format!("`{}`", commands.join("`, `")));
+
+                embed = embed.field(field);
+            }
+
+            ctx.http.create_message(message.channel_id)
+                .reply(message.id)
+                .embed(embed.build()?)?
+                .await?;
+        }
+
+        Ok(())
     }
 }
 
@@ -42,20 +206,18 @@ pub struct HelpOptions {
     pub suggestion_text: String,
     pub no_help_available_text: String,
     pub usage_label: String,
-    pub usage_sample_label: String,
-    pub ungrouped_label: String,
+    pub examples_label: String,
     pub description_label: String,
-    pub grouped_label: String,
     pub aliases_label: String,
     pub guild_only_text: String,
-    pub dm_only_text: String,
-    pub dm_and_guild_text: String,
     pub available_text: String,
     pub command_not_found_text: String,
     pub individual_command_tip: String,
     pub striked_commands_tip_in_dm: Option<String>,
     pub striked_commands_tip_in_guild: Option<String>,
     pub group_prefix: String,
+    pub restrictions_label: String,
+    pub required_permissions_label: String,
     // pub lacking_role: HelpBehaviour,
     // pub lacking_permissions: HelpBehaviour,
     // pub wrong_channel: HelpBehaviour,
@@ -64,34 +226,18 @@ pub struct HelpOptions {
     pub max_levenshtein_distance: usize,
 }
 
-pub trait HelpCommand: Send + Sync + 'static {
-    fn execute(&self, _: &Message, _: &HelpOptions, _: HashMap<String, Arc<Module>>, _: &Args) -> Result<(), Error>;
-
-    fn options(&self) -> Arc<Options> {
-        Arc::clone(&DEFAULT_OPTIONS)
-    }
-}
-
-impl HelpCommand for Arc<dyn HelpCommand> {
-    fn execute(&self, m: &Message, ho: &HelpOptions, hm: HashMap<String, Arc<Module>>, a: &Args) -> Result<(), Error> {
-        (**self).execute(m, ho, hm, a)
-    }
-}
-
 impl Default for HelpOptions {
     fn default() -> HelpOptions {
         HelpOptions {
             suggestion_text: "Did you mean `{}`?".to_string(),
             no_help_available_text: "**Error**: No help available.".to_string(),
             usage_label: "Usage".to_string(),
-            usage_sample_label: "Sample usage".to_string(),
-            ungrouped_label: "Ungrouped".to_string(),
-            grouped_label: "Group".to_string(),
+            examples_label: "Examples".to_string(),
             aliases_label: "Aliases".to_string(),
             description_label: "Description".to_string(),
             guild_only_text: "Only in guilds".to_string(),
-            dm_only_text: "Only in DM".to_string(),
-            dm_and_guild_text: "In DM and guilds".to_string(),
+            restrictions_label: "Restrictions".to_string(),
+            required_permissions_label: "Required Permissions".to_string(),
             available_text: "Available".to_string(),
             command_not_found_text: "**Error**: Command `{}` not found.".to_string(),
             individual_command_tip: "To get help with an individual command, pass its \
@@ -245,6 +391,7 @@ pub struct Options {
     pub required_permissions: Permissions,
     pub guild_only: bool,
     pub owner_only: bool,
+    pub help_available: bool,
 }
 
 impl Default for Options {
@@ -256,6 +403,7 @@ impl Default for Options {
             required_permissions: Permissions::empty(),
             guild_only: false,
             owner_only: false,
+            help_available: true,
         }
     }
 }

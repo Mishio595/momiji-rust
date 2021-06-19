@@ -16,7 +16,7 @@ pub struct Register;
 impl Command for Register {
     fn options(&self) -> Arc<Options> {
         let options = Options {
-            description: Some("A premium command that adds roles to a user (from the self roles list only), and depending on the settings for the command, will apply either a member role or a cooldown role with a timer. When the timer ends, cooldown is removed and member is added. In order for the switch to occur automatically, this command must be used. See the premium commands for more information on configuring this command.".to_string()),
+            description: Some("A command that adds roles to a user (from the self roles list only), and depending on the settings for the command, will apply either a member role or a cooldown role with a timer. When the timer ends, cooldown is removed and member is added. In order for the switch to occur automatically, this command must be used. See the premium commands for more information on configuring this command.".to_string()),
             usage: Some("<user_resolvable> <role_resolvables as CSV>".to_string()),
             examples: vec!["@Adelyn gamer, techie".to_string()],
             required_permissions: Permissions::MANAGE_ROLES,

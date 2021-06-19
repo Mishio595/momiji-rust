@@ -3,6 +3,7 @@ pub mod command;
 pub mod parser;
 
 use crate::Context;
+use self::command::{Help, HelpOptions};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt;
@@ -175,11 +176,18 @@ impl From<&ConfigBuilder> for Config {
 
 pub struct FrameworkBuilder {
     config: Config,
-    modules: HashMap<String, Module>,
+    modules: HashMap<String, Arc<Module>>,
+    help_options: HelpOptions,
 }
 
 impl FrameworkBuilder {
-    pub fn build(self) -> Framework {
+    pub fn build(mut self) -> Framework {
+        let help_command = Help(self.modules.clone(), Arc::new(self.help_options));
+        let help_module = Module::builder()
+            .add_command("help", Command(Arc::new(help_command)))
+            .build();
+        self.modules.insert("Help Command".to_string(), Arc::new(help_module));
+
         Framework {
             config: self.config,
             modules: self.modules,
@@ -193,7 +201,7 @@ impl FrameworkBuilder {
     }
 
     pub fn raw_add_module<S: ToString>(mut self, name: S, module: Module) -> Self {
-        self.modules.insert(name.to_string(), module);
+        self.modules.insert(name.to_string(), Arc::new(module));
 
         self
     }
@@ -210,6 +218,7 @@ impl Default for FrameworkBuilder {
         Self {
             config: Config::new(),
             modules: HashMap::new(),
+            help_options: HelpOptions::default(),
         }
     }
 }
@@ -219,7 +228,7 @@ pub struct Framework {
     //TODO add before/after checks for all commands. Dispatch errors?
     //TODO help command?
     config: Config,
-    modules: HashMap<String, Module>,
+    modules: HashMap<String, Arc<Module>>,
 }
 
 impl Framework {
@@ -234,46 +243,12 @@ impl Framework {
         };
         //TODO add before and after hooks, add dispatch error hook
         if let Some((command, args)) = ctx.parser.parse_with_prefix(prefix.as_str(), message.content.as_str(), &self.config.delimiters[..]) {
-            let res= self.get_command(command, args);
-            if let Some((c, args)) = res {
+            if let Some((c, args)) = get_command(&self.modules, command, args) {
                 self.execute_command_with_hooks(c, message, args, ctx).await?;
             }
         };
 
         Ok(())
-    }
-
-    fn get_command(&self, c: String, mut a: Args) -> Option<(Arc<dyn CommandTrait>, Args)> {
-        for (_, module) in self.modules.iter() {
-            if let Some(module_prefix) = &module.prefix {
-                if module_prefix == &c {
-                    match a.single::<String>() {
-                        Ok(sub_comm) => {
-                            return command_crawl(sub_comm.clone(), module)
-                                .or_else(|| {
-                                    a.restore();
-                                    module.default_command.as_ref().and_then(|c_or_a| match c_or_a {
-                                        Command(c) => Some(c.clone()),
-                                        Alias(a) => command_crawl(a.clone(), module),
-                                    })
-                                })
-                                .zip(Some(a))
-                        },
-                        _ => {
-                            return module.default_command.as_ref().and_then(|c_or_a| match c_or_a {
-                                Command(c) => Some(c.clone()),
-                                Alias(a) => command_crawl(a.clone(), module),
-                            }).zip(Some(a))
-                        },
-                    }
-                }
-            } else {
-                let comm = command_crawl(c.clone(), module);
-                if comm.is_some() { return comm.zip(Some(a)) }
-            }
-        }
-
-        None
     }
 
     async fn execute_command_with_hooks(&self, comm: Arc<dyn CommandTrait>, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -315,7 +290,40 @@ impl Framework {
     }
 }
 
-fn command_crawl(comm: String, module: &Module) -> Option<Arc<dyn CommandTrait>> {
+pub(crate) fn get_command(modules: &HashMap<String, Arc<Module>>, input: String, mut args: Args) -> Option<(Arc<dyn CommandTrait>, Args)> {
+    for module in modules.values() {
+        if let Some(module_prefix) = &module.prefix {
+            if module_prefix == &input {
+                match args.single::<String>() {
+                    Ok(sub_comm) => {
+                        return command_crawl(sub_comm.clone(), module)
+                            .or_else(|| {
+                                args.restore();
+                                module.default_command.as_ref().and_then(|c_or_a| match c_or_a {
+                                    Command(c) => Some(c.clone()),
+                                    Alias(a) => command_crawl(a.clone(), module),
+                                })
+                            })
+                            .zip(Some(args))
+                    },
+                    _ => {
+                        return module.default_command.as_ref().and_then(|c_or_a| match c_or_a {
+                            Command(c) => Some(c.clone()),
+                            Alias(a) => command_crawl(a.clone(), module),
+                        }).zip(Some(args))
+                    },
+                }
+            }
+        } else {
+            let comm = command_crawl(input.clone(), module);
+            if comm.is_some() { return comm.zip(Some(args)) }
+        }
+    }
+
+    None
+}
+
+pub(crate) fn command_crawl(comm: String, module: &Module) -> Option<Arc<dyn CommandTrait>> {
     match module.commands.get(&comm) {
         None => None,
         Some(Command(c)) => Some(c.clone()),
