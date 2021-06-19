@@ -125,11 +125,11 @@ impl Command for Help {
                             }
                         } else {
                             //module matches, no subcommand
-                            let mut commands = module.commands.iter()
+                            let mut commands: Vec<&str> = module.commands.iter()
                                 .filter_map(|(name, cmd)| { match cmd {
                                     CommandOrAlias::Command(_) => Some(name.as_str()),
                                     CommandOrAlias::Alias(_) => None
-                                }}).collect::<Vec<&str>>();
+                                }}).collect();
                             commands.sort();
 
                             let embed = EmbedBuilder::new()
@@ -161,7 +161,7 @@ impl Command for Help {
             if !found {
                 ctx.http.create_message(message.channel_id)
                     .reply(message.id)
-                    .content(options.command_not_found_text.clone())?
+                    .content(format!("**Error**: Command `{}` not found.", input))?
                     .await?;
             }
         } else {
@@ -180,8 +180,7 @@ impl Command for Help {
                             Some(k.as_str()) } else { None }
                         }
                         CommandOrAlias::Alias(_) => { None }
-                    })
-                    .collect();
+                    }).collect();
                 commands.sort();
                 
                 if commands.is_empty() { continue; }
