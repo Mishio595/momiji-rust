@@ -20,6 +20,7 @@ impl Command for Register {
             usage: Some("<user_resolvable> <role_resolvables as CSV>".to_string()),
             examples: vec!["@Adelyn gamer, techie".to_string()],
             required_permissions: Permissions::MANAGE_ROLES,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -138,6 +139,7 @@ impl Command for Register {
 //             usage: Some("<user_resolvable> <role_resolvables as CSV>".to_string()),
 //             examples: vec!["@Adelyn red, green".to_string()],
 //             required_permissions: Permissions::MANAGE_ROLES,
+//             guild_only: true,
 //             ..Options::default()
 //         };
 //         Arc::new(options)
@@ -213,6 +215,7 @@ impl Command for Register {
 //             usage: Some("<user_resolvable> <role_resolvables as CSV>".to_string()),
 //             examples: vec!["@Adelyn red, green".to_string()],
 //             required_permissions: Permissions::MANAGE_ROLES,
+//             guild_only: true,
 //             ..Options::default()
 //         };
 //         Arc::new(options)
@@ -287,6 +290,7 @@ impl Command for Register {
 //             usage: Some("<role_resolvable> <colour>".to_string()),
 //             examples: vec!["418130449089691658 00ff00".to_string()],
 //             required_permissions: Permissions::MANAGE_ROLES,
+//             guild_only: true,
 //             ..Options::default()
 //         };
 //         Arc::new(options)

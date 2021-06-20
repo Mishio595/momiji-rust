@@ -16,6 +16,7 @@ impl Command for RegisterMember {
             usage: Some("<role_resolvable>".to_string()),
             examples: vec!["member".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -47,6 +48,7 @@ impl Command for RegisterCooldown {
             usage: Some("<role_resolvable>".to_string()),
             examples: vec!["cooldown".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -75,6 +77,7 @@ impl Command for RegisterDuration {
             usage: Some("<time_resolvable>".to_string()),
             examples: vec!["24h".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -104,6 +107,7 @@ impl Command for RegisterRestrictions {
             usage: Some("<option> [values]".to_string()),
             examples: vec!["set selfies, nsfw".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)

@@ -12,6 +12,7 @@ impl Command for CacheStats {
     fn options(&self) -> Arc<Options> {
         let options = Options {
             owner_only: true,
+            help_available: false,
             ..Options::default()
         };
         Arc::new(options)

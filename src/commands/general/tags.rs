@@ -16,6 +16,7 @@ impl Command for TagList {
     fn options(&self) -> Arc<Options> {
         let options = Options {
             description: Some("Alias to `tag list`".to_string()),
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -42,6 +43,7 @@ impl Command for TagSingle {
             description: Some("View a tag.".to_string()),
             usage: Some("<tag name>".to_string()),
             examples: vec!["foobar".to_string()],
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -81,6 +83,7 @@ impl Command for TagAdd {
             description: Some("Create a new tag.".to_string()),
             usage: Some("<tag name, quoted> <tag value>".to_string()),
             examples: vec![r#""my new tag" look, I made a tag!"#.to_string()],
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -105,6 +108,7 @@ impl Command for TagRemove {
             description: Some("Delete a tag.".to_string()),
             usage: Some("<tag name>".to_string()),
             examples: vec!["foobar".to_string()],
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)

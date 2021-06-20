@@ -23,6 +23,7 @@ impl Command for AddSelfRole {
             description: Some("Add roles to yourself provided they are on the self role list.".to_string()),
             usage: Some("<role_resolvables as CSV>".to_string()),
             examples: vec!["red, green".to_string()],
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -135,6 +136,7 @@ impl Command for RemoveSelfRole {
             description: Some("Remove roles from yourself provided they are on the self role list.".to_string()),
             usage: Some("<role_resolvables as CSV>".to_string()),
             examples: vec!["red, green".to_string()],
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -218,6 +220,7 @@ impl Command for ListSelfRoles {
         let options = Options {
             description: Some("List all the self roles for the current server. Optionally, you can view a single category.".to_string()),
             usage: Some("[category]".to_string()),
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)

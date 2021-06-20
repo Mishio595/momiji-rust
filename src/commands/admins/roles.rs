@@ -21,6 +21,7 @@ impl Command for CreateSelfRole {
             usage: Some("<role_resolvable> [/c category] [/a aliases as CSV]".to_string()),
             examples: vec!["NSFW /c Opt-in /a porn, lewd".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..default
         };
         Arc::new(options)
@@ -81,6 +82,7 @@ impl Command for DeleteSelfRole {
             usage: Some("<role_resolvable>".to_string()),
             examples: vec!["NSFW".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..default
         };
         Arc::new(options)
@@ -109,6 +111,7 @@ impl Command for EditSelfRole {
             usage: Some("<role_resolvable> [/c category] [/a aliases as CSV] [/replace]".to_string()),
             examples: vec!["NSFW /c Opt-in /a porn, lewd /replace".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..default
         };
         Arc::new(options)

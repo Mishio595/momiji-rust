@@ -17,6 +17,7 @@ impl Command for ConfigRaw {
         let options = Options {
             description: Some("Lists current configuration as raw output.".to_string()),
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -40,6 +41,7 @@ impl Command for ConfigList {
         let options = Options {
             description: Some("Lists current configuration.".to_string()),
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -72,6 +74,7 @@ impl Command for ConfigPrefix {
             usage: Some("<prefix>".to_string()),
             examples: vec!["!!".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -106,6 +109,7 @@ impl Command for ConfigAutorole {
             usage: Some("<add|remove|enable|disable> <role_resolvable|_>".to_string()),
             examples: vec!["add member".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -180,6 +184,7 @@ impl Command for ConfigAdmin {
             usage: Some("<add|remove> <role_resolvable>".to_string()),
             examples: vec!["add admin".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -248,6 +253,7 @@ impl Command for ConfigMod {
             usage: Some("<add|remove> <role_resolvable>".to_string()),
             examples: vec!["add staff".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -316,6 +322,7 @@ impl Command for ConfigAudit {
             usage: Some("<enable|disable|channel> <channel_resolvable>".to_string()),
             examples: vec!["channel #audit-logs".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -387,6 +394,7 @@ impl Command for ConfigModlog {
             usage: Some("<enable|disable|channel> <channel_resolvable>".to_string()),
             examples: vec!["channel #mod-logs".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -449,6 +457,7 @@ impl Command for ConfigWelcome {
             usage: Some("<option> <value>".to_string()),
             examples: vec!["message Welcome to {guild}, {user}!".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -517,6 +526,7 @@ impl Command for ConfigIntroduction {
             usage: Some("<option> <value>".to_string()),
             examples: vec!["message Hey there {user}, mind introducting yourself?".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -585,6 +595,7 @@ impl Command for ConfigCommands {
             usage: Some("<enable|disable> <command_name>".to_string()),
             examples: vec!["disable e621".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
@@ -640,6 +651,7 @@ impl Command for ConfigLogs {
             usage: Some("<enable|disable|types> [type]".to_string()),
             examples: vec!["disable message_edit".to_string()],
             required_permissions: Permissions::MANAGE_GUILD,
+            guild_only: true,
             ..Options::default()
         };
         Arc::new(options)
