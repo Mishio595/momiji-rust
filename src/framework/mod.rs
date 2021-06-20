@@ -238,7 +238,7 @@ impl Framework {
                 self.execute_command_with_hooks(c, message, args, ctx).await?;
             }
         } else if self.config.on_mention {
-            event!(Level::DEBUG, "Trying self mention");
+            //TODO maybe look for mention anywhere in message, not just as prefix?
             let mention = format!("<@!{}>", ctx.user.id.0);
             if let Some((command, args)) = ctx.parser.parse_with_prefix(mention.as_str(), message.content.as_str(), &self.config.delimiters[..]) {
                 if let Some((c, args)) = get_command(&self.modules, command, args) {
