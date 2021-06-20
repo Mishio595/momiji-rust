@@ -233,7 +233,13 @@ impl Framework {
             None => self.config.prefix.clone(),
         };
         //TODO add before and after hooks, add dispatch error hook
-        if let Some((command, args)) = ctx.parser.parse_with_prefix(prefix.as_str(), message.content.as_str(), &self.config.delimiters[..]) {
+        if message.guild_id.is_none() {
+            if let Some((command, args)) = ctx.parser.parse(message.content.as_str(), &self.config.delimiters[..]) {
+                if let Some((c, args)) = get_command(&self.modules, command, args) {
+                    self.execute_command_with_hooks(c, message, args, ctx).await?;
+                }
+            }
+        } else if let Some((command, args)) = ctx.parser.parse_with_prefix(prefix.as_str(), message.content.as_str(), &self.config.delimiters[..]) {
             if let Some((c, args)) = get_command(&self.modules, command, args) {
                 self.execute_command_with_hooks(c, message, args, ctx).await?;
             }
