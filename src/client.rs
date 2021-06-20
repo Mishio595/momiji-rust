@@ -5,7 +5,6 @@ use momiji::core::timers::TimerClient;
 use momiji::db::DatabaseConnection;
 use momiji::{core::handler::EventHandler};
 use momiji::framework::parser::Parser;
-use std::collections::HashSet;
 use twilight_cache_inmemory::InMemoryCache;
 use twilight_gateway::cluster::Cluster;
 use twilight_http::Client as HttpClient;
@@ -14,6 +13,8 @@ use twilight_model::gateway::{
     payload::update_status::UpdateStatusInfo,
     presence::{Activity, ActivityType, Status}
 };
+use std::collections::HashMap;
+use std::sync::Arc;
 
 #[non_exhaustive]
 pub struct Client {
@@ -28,9 +29,12 @@ impl Client {
         let db = DatabaseConnection::connect();
         let parser = Parser;
         
-        let owner = http.current_user_application().await.expect("Unable to retrieve application info.").owner.id;
-        let mut owners = HashSet::new();
-        owners.insert(owner);
+        let app_info = http.current_user_application().await.expect("Unable to retrieve application info.");
+        let user = http.current_user().await.expect("Unable to retrieve current user.");
+
+        let owner = app_info.owner;
+        let mut owners = HashMap::new();
+        owners.insert(owner.id, Arc::new(owner));
 
         let cluster = Cluster::builder(token, intents)
             .http_client(http.clone())
@@ -49,10 +53,12 @@ impl Client {
             db,
             http,
             parser,
-            tc
+            tc,
+            owners,
+            user
         };
 
-        let framework = StandardFramework::new(owners, ctx.clone());
+        let framework = StandardFramework::new(ctx.clone());
         let handler = EventHandler::new(framework, ctx.clone());
 
         Self {

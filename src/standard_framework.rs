@@ -8,7 +8,7 @@ use twilight_model::id::{GuildId, UserId};
 pub struct StandardFramework(Framework);
 
 impl StandardFramework {
-    pub fn new(owners: HashSet<UserId>, ctx: Context) -> Framework {
+    pub fn new(ctx: Context) -> Framework {
         let parser = Parser;
         
         let config = Config::builder()
@@ -25,7 +25,6 @@ impl StandardFramework {
 
                 None
             })
-            .owners(owners)
             .build();
 
         Framework::builder()

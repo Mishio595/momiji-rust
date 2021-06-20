@@ -4,7 +4,7 @@ pub mod parser;
 
 use crate::Context;
 use self::command::{Help, HelpOptions};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
@@ -15,8 +15,8 @@ use self::command::{
     Module,
     ModuleBuilder
 };
+use tracing::{event, Level};
 use twilight_model::{channel::Message, guild::Permissions};
-use twilight_model::id::UserId;
 
 #[derive(Debug)]
 pub enum DispatchError {
@@ -54,7 +54,6 @@ pub struct Config {
     ignore_bots: bool,
     on_dm: bool,
     on_mention: bool,
-    owners: HashSet<UserId>,
     prefix: String,
     before: Arc<dyn Fn(&Message, &str, Context) -> bool + Send + Sync>,
     after: Arc<dyn Fn(&Message, &str, Context,  Box<dyn Error>) + Send + Sync>,
@@ -69,7 +68,6 @@ pub struct ConfigBuilder {
     ignore_bots: bool,
     on_dm: bool,
     on_mention: bool,
-    owners: HashSet<UserId>,
     prefix: String,
     before: Arc<dyn Fn(&Message, &str, Context) -> bool + Send + Sync>,
     after: Arc<dyn Fn(&Message, &str, Context,  Box<dyn Error>) + Send + Sync>,
@@ -84,8 +82,7 @@ impl Default for ConfigBuilder {
             ignore_bots: true,
             on_dm: true,
             on_mention: true,
-            owners: HashSet::new(),
-            prefix: "!".to_string(),
+            prefix: "m!".to_string(),
             before: Arc::new(|_,_,_| true),
             after: Arc::new(|_,_,_,_| {}),
         }
@@ -134,12 +131,6 @@ impl ConfigBuilder {
         self
     }
 
-    pub fn owners(&mut self, owners: HashSet<UserId>) -> &mut Self {
-        self.owners = owners;
-
-        self
-    }
-
     pub fn prefix<S: ToString>(&mut self, p: S) -> &mut Self {
         self.prefix = p.to_string();
 
@@ -166,7 +157,6 @@ impl From<&ConfigBuilder> for Config {
             ignore_bots: builder.ignore_bots,
             on_dm: builder.on_dm,
             on_mention: builder.on_mention,
-            owners: builder.owners.clone(),
             prefix: builder.prefix.clone(),
             before: builder.before.clone(),
             after: builder.after.clone(),
@@ -226,7 +216,6 @@ impl Default for FrameworkBuilder {
 #[non_exhaustive]
 pub struct Framework {
     //TODO add before/after checks for all commands. Dispatch errors?
-    //TODO help command?
     config: Config,
     modules: HashMap<String, Arc<Module>>,
 }
@@ -237,6 +226,8 @@ impl Framework {
     }
 
     pub async fn handle_command(&self, message: Message, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if message.content.is_empty() { return Ok(()) }
+
         let prefix = match (*self.config.dynamic_prefix)(&message, ctx.clone()) {
             Some(p) => p,
             None => self.config.prefix.clone(),
@@ -246,7 +237,15 @@ impl Framework {
             if let Some((c, args)) = get_command(&self.modules, command, args) {
                 self.execute_command_with_hooks(c, message, args, ctx).await?;
             }
-        };
+        } else if self.config.on_mention {
+            event!(Level::DEBUG, "Trying self mention");
+            let mention = format!("<@!{}>", ctx.user.id.0);
+            if let Some((command, args)) = ctx.parser.parse_with_prefix(mention.as_str(), message.content.as_str(), &self.config.delimiters[..]) {
+                if let Some((c, args)) = get_command(&self.modules, command, args) {
+                    self.execute_command_with_hooks(c, message, args, ctx).await?;
+                }
+            }
+        }
 
         Ok(())
     }
@@ -258,7 +257,7 @@ impl Framework {
             return Err(Box::new(DispatchError::InvalidChannelType));
         }
     
-        if !self.config.owners.contains(&message.author.id) {
+        if !ctx.owners.contains_key(&message.author.id) {
             if let Some(m) = &message.member {
                 let p = m.roles.iter().fold(Permissions::empty(), |p, r| {
                     ctx.cache.role(*r)

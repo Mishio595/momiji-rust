@@ -1,5 +1,6 @@
 use super::args::Args;
 use peg;
+use tracing::{event, Level};
 
 peg::parser! { grammar command_parser() for str {
     pub rule command(del: &[String]) -> (String, Args)
@@ -20,6 +21,8 @@ impl Parser {
     }
 
     pub fn parse_with_prefix<'a>(&self, prefix: &'a str, body: &'a str, possible_delimiters: &[String]) -> Option<(String, Args)> {
-        body.strip_prefix(prefix).and_then(|body| self.parse(body, possible_delimiters))
+        event!(Level::DEBUG, "prefix: {} | body: {}", prefix, body);
+        body.strip_prefix(prefix)
+            .and_then(|body| self.parse(body.trim(), possible_delimiters))
     }
 }
