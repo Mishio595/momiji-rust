@@ -55,10 +55,10 @@ pub fn init_roles(module: ModuleBuilder) -> ModuleBuilder {
         .help_available(true)
         .add_command("register", Command(Arc::new(Register)))
         .add_command("reg", Alias("register".to_string()))
-        // .add_command("ar", Command(Arc::new(AddRole)))
-        // .add_command("addrole", Alias("ar".to_string()))
-        // .add_command("rr", Command(Arc::new(RemoveRole)))
-        // .add_command("removerole", Alias("rr".to_string()))
+        .add_command("ar", Command(Arc::new(AddRole)))
+        .add_command("addrole", Alias("ar".to_string()))
+        .add_command("rr", Command(Arc::new(RemoveRole)))
+        .add_command("removerole", Alias("rr".to_string()))
         // .add_command("rolecolour", Command(Arc::new(RoleColour)))
 }
 
