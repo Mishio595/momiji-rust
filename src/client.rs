@@ -54,8 +54,8 @@ impl Client {
             http,
             parser,
             tc,
-            owners,
-            user
+            owners: Arc::new(owners),
+            user: Arc::new(user)
         };
 
         let framework = StandardFramework::new(ctx.clone());

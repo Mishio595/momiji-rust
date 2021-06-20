@@ -26,6 +26,6 @@ pub struct Context {
     pub http: HttpClient,
     pub parser: Parser,
     pub tc: TimerClient,
-    pub user: CurrentUser,
-    pub owners: HashMap<UserId, Arc<User>>,
+    pub user: Arc<CurrentUser>,
+    pub owners: Arc<HashMap<UserId, Arc<User>>>,
 }
