@@ -109,12 +109,12 @@ impl Command for Help {
             let mut found = false;
 
             for (module_name, module) in modules.iter() {
-                // TODO add module prefix catching
                 if let Some(ref prefix) = module.prefix {
                     if prefix == &input.to_lowercase() {
                         if let Ok(subcmd) = args.single::<String>() {
+                            let name = format!("{} {}", input, &subcmd);
                             if let Some(cmd) = super::command_crawl(subcmd, module) {
-                                if let Some(embed) = self.individual_help(&input, cmd, module.clone()) {
+                                if let Some(embed) = self.individual_help(&name, cmd, module.clone()) {
                                     ctx.http.create_message(message.channel_id)
                                         .reply(message.id)
                                         .embed(embed.build()?)?
