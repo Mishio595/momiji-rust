@@ -21,7 +21,7 @@ impl Command for Prune {
             description: Some("Bulk delete messages. Filter is one of bot, attachment, !pin, mention, or a user_resolvable.\n`bot` will prune only messages from bots.\n`attachment` will prune only messages with attachments.\n`!pin` will prune all but pinned messages.\n`mention` will prune only messages that mention a user or everyone.\nMentioning a user will prune only that user's messages.".to_string()),
             usage: Some("<count> [filter]".to_string()),
             examples: vec!["20 bot".to_string()],
-            required_permissions: Permissions::MANAGE_GUILD,
+            required_permissions: Permissions::MANAGE_MESSAGES,
             guild_only: true,
             ..Options::default()
         };
