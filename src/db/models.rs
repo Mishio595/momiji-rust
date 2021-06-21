@@ -215,7 +215,7 @@ impl Display for Guild {
             self.logging.join(", "),
             self.register_member_role.map(|e| e.to_string()).unwrap_or("Not set".to_string()),
             self.register_cooldown_role.map(|e| e.to_string()).unwrap_or("Not set".to_string()),
-            self.register_cooldown_duration.map(|e| e.to_string()).unwrap_or("Not set".to_string()),
+            self.register_cooldown_duration.map(|e| crate::core::utils::seconds_to_hrtime(e as usize).to_string()).unwrap_or("Not set".to_string()),
             self.cooldown_restricted_roles.iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", ")
     )}
 }
