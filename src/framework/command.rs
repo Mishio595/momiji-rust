@@ -63,26 +63,26 @@ impl Help {
             .color(colors::MAIN);
 
         if let Some(description) = &cmd_options.description {
-            embed = embed.field(EmbedFieldBuilder::new(options.description_label.clone(), description).build());
+            embed = embed.field(EmbedFieldBuilder::new(options.description_label.clone(), description));
         }
 
         let restrictions = format!("Guild Only: {}\nOwner Only: {}",
             cmd_options.guild_only,
             cmd_options.owner_only);
-        embed = embed.field(EmbedFieldBuilder::new(options.restrictions_label.clone(), restrictions).inline().build());
+        embed = embed.field(EmbedFieldBuilder::new(options.restrictions_label.clone(), restrictions).inline());
 
         if !cmd_options.required_permissions.is_empty() {
-            embed = embed.field(EmbedFieldBuilder::new(options.required_permissions_label.clone(), format!("{:?}", cmd_options.required_permissions)).inline().build());
+            embed = embed.field(EmbedFieldBuilder::new(options.required_permissions_label.clone(), format!("{:?}", cmd_options.required_permissions)).inline());
         }
 
         if let Some(usage) = &cmd_options.usage {
-            embed = embed.field(EmbedFieldBuilder::new(options.usage_label.clone(), usage).build());
+            embed = embed.field(EmbedFieldBuilder::new(options.usage_label.clone(), usage));
         }
 
         
         if !aliases.is_empty() {
             let aliases = aliases.iter().map(|e| e.as_str()).collect::<Vec<&str>>().join(", ");
-            embed = embed.field(EmbedFieldBuilder::new(options.aliases_label.clone(), aliases).build());
+            embed = embed.field(EmbedFieldBuilder::new(options.aliases_label.clone(), aliases));
         }
 
         if !cmd_options.examples.is_empty() {
@@ -92,7 +92,7 @@ impl Help {
                     .map(|e| e.as_str()).collect::<Vec<&str>>()
                     .join(format!("\n{}", name).as_str())
             );
-            embed = embed.field(EmbedFieldBuilder::new(options.examples_label.clone(), examples).build());
+            embed = embed.field(EmbedFieldBuilder::new(options.examples_label.clone(), examples));
         }
 
         Some(embed)
@@ -135,7 +135,7 @@ impl Command for Help {
                             let embed = EmbedBuilder::new()
                                 .title(module_name.clone())
                                 .color(colors::MAIN)
-                                .field(EmbedFieldBuilder::new("Sub-commands", commands.join("\n ")).build())
+                                .field(EmbedFieldBuilder::new("Sub-commands", commands.join("\n ")))
                                 .build()?;
 
                             ctx.http.create_message(message.channel_id).reply(message.id)
