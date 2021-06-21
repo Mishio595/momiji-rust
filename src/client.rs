@@ -1,5 +1,5 @@
 use crate::standard_framework::StandardFramework;
-use tracing::debug;
+use tracing::{event, Level};
 use momiji::Context;
 use momiji::core::timers::TimerClient;
 use momiji::db::DatabaseConnection;
@@ -28,7 +28,7 @@ impl Client {
         let cache = InMemoryCache::new();
         let db = DatabaseConnection::connect();
         let parser = Parser;
-        
+
         let app_info = http.current_user_application().await.expect("Unable to retrieve application info.");
         let user = http.current_user().await.expect("Unable to retrieve current user.");
 
@@ -71,19 +71,19 @@ impl Client {
         let cluster_spawn = self.ctx.cluster.clone();
         let timers = self.ctx.tc.clone();
 
-        debug!("Starting Cluster");
+        event!(Level::DEBUG, "Starting Cluster");
         let cluster_handle = tokio::spawn(async move {
             cluster_spawn.up().await;
         });
 
-        debug!("Starting Event Handler");
+        event!(Level::DEBUG, "Starting Event Handler");
         let handler_handle = tokio::spawn(async move {
             self.start_handler().await;
         });
 
         //TODO add signal handling with signal-hook crate
 
-        debug!("Starting Timer Client");
+        event!(Level::DEBUG, "Starting Timer Client");
         timers.start().await;
     }
 

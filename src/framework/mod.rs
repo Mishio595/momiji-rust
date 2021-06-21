@@ -15,7 +15,7 @@ use self::command::{
     Module,
     ModuleBuilder
 };
-use tracing::{event, Level};
+// use tracing::{event, Level};
 use twilight_model::{channel::Message, guild::Permissions};
 
 #[derive(Debug)]

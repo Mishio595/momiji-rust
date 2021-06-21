@@ -2,7 +2,6 @@ use chrono::Utc;
 use crate::Context;
 use crate::core::consts::*;
 use crate::core::utils::*;
-use crate::core::utils::user_tag;
 use crate::framework::Framework;
 use futures::stream::StreamExt;
 use levenshtein::levenshtein;
@@ -10,8 +9,9 @@ use tracing::{event, Level};
 use twilight_mention::Mention;
 use std::error::Error;
 use std::sync::Arc;
+use twilight_cache_inmemory::model::{CachedMember, CachedMessage};
 use twilight_embed_builder::{EmbedBuilder, EmbedFooterBuilder, ImageSource};
-use twilight_gateway::{Event, EventType};
+use twilight_gateway::Event;
 use twilight_model::id::{ChannelId, GuildId, RoleId, UserId};
 
 use super::utils::build_welcome_embed;
@@ -33,12 +33,30 @@ impl EventHandler {
     pub async fn start(&self) {
         let mut events = self.ctx.cluster.events();
         while let Some((shard_id, event)) = events.next().await {
-            // Bypass cache update for message delete to enable logging
-            if event.kind() != EventType::MessageDelete {
-                self.ctx.cache.update(&event);
+            let mut old_message = None;
+            let mut old_member = None;
+            match &event {
+                Event::MessageDelete(message) => {
+                    if let Some(message) = self.ctx.cache.message(message.channel_id, message.id) {
+                        old_message = Some(message);
+                    }
+                },
+                Event::MessageUpdate(message) => {
+                    if let Some(message) = self.ctx.cache.message(message.channel_id, message.id) {
+                        old_message = Some(message);
+                    }
+                },
+                Event::MemberUpdate(member) => {
+                    if let Some(member) = self.ctx.cache.member(member.guild_id, member.user.id) {
+                        old_member = Some(member);
+                    }
+                },
+                _ => {}
             }
+
+            self.ctx.cache.update(&event);
     
-            tokio::spawn(handle_event(shard_id, event, self.ctx.clone(), self.framework.clone()));
+            tokio::spawn(handle_event(shard_id, event, self.ctx.clone(), self.framework.clone(), old_message, old_member));
         }
     }
 }
@@ -48,6 +66,8 @@ async fn handle_event(
     event: Event,
     ctx: Context,
     framework: Arc<Framework>,
+    old_message: Option<Arc<CachedMessage>>,
+    old_member: Option<Arc<CachedMember>>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let (cache, db, http) = {
         let c = ctx.clone();
@@ -66,7 +86,7 @@ async fn handle_event(
                 if guild_data.logging.contains(&String::from("message_delete")) { return Ok(()); }
                 let audit_channel = ChannelId(guild_data.audit_channel as u64);
                 if guild_data.audit && audit_channel.0 > 0 {
-                    if let Some(cached_message) = cache.message(message.channel_id, message.id) {
+                    if let Some(cached_message) = old_message {
                         if let Some(author) = cache.user(cached_message.author) {
                             if author.bot { return Ok(()); }
                             let embed = EmbedBuilder::new()
@@ -104,57 +124,56 @@ async fn handle_event(
                 }
             }
         }
-        //TODO establish method for getting old message content
-        // Event::MessageUpdate(message) => {
-        //     if message.author.clone().map(|u| u.bot).unwrap_or(false) { return Ok(()) }
-        //     if let None = message.edited_timestamp { return Ok(()) }
-        //     if let Some(old_message) = cache.message(message.channel_id, message.id) {
-        //         if let Some(guild_id) = message.guild_id {
-        //             let channel_name = cache.guild_channel(message.channel_id)
-        //                 .map(|c| c.name().to_string())
-        //                 .unwrap_or("unknown".to_string());
-        //             match db.get_guild(guild_id.0 as i64) {
-        //                 Ok(guild_data) => {
-        //                     if guild_data.logging.contains(&String::from("message_edit")) { return Ok(()) }
-        //                     let audit_channel = ChannelId(guild_data.audit_channel as u64);
-        //                     let new_content = message.content.unwrap_or("".to_string());
-        //                     let distance = levenshtein(old_message.content.as_str(), new_content.as_str());
-        //                     if guild_data.audit && audit_channel.0 > 0 && distance >= guild_data.audit_threshold as usize {
-        //                         let (author_tag, author_mention) = if let Some(user) = message.author {
-        //                             let tag = format!("{}#{}", user.name, user.discriminator);
-        //                             (tag, user.mention().to_string())
-        //                         } else if let Some(user) = cache.user(old_message.author) {
-        //                             let tag = format!("{}#{}", user.name, user.discriminator);
-        //                             (tag, user.mention().to_string())
-        //                         } else {
-        //                             ("Unknown".to_string(), "Unknown".to_string())
-        //                         };
-        //                         let embed = EmbedBuilder::new()
-        //                             .title("Message Edited")
-        //                             .color(colors::MAIN)
-        //                             .timestamp(Utc::now().to_rfc3339())
-        //                             .footer(EmbedFooterBuilder::new(format!("ID: {}", message.id.0)))
-        //                             .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - <#{}>\n**Old Content:**\n{}\n**New Content:**\n{}",
-        //                                 author_tag,
-        //                                 old_message.author.0,
-        //                                 author_mention,
-        //                                 channel_name,
-        //                                 message.channel_id.0,
-        //                                 message.channel_id.0,
-        //                                 old_message.content,
-        //                                 new_content
-        //                                 ))
-        //                             .build()?;
-        //                             http.create_message(audit_channel)
-        //                                 .embed(embed)?
-        //                                 .await?;
-        //                     }
-        //                 }
-        //                 _ => {}
-        //             }
-        //         }
-        //     }
-        // }
+        Event::MessageUpdate(message) => {
+            if message.author.clone().map(|u| u.bot).unwrap_or(false) { return Ok(()) }
+            if let None = message.edited_timestamp { return Ok(()) }
+            if let Some(old_message) = old_message {
+                if let Some(guild_id) = message.guild_id {
+                    let channel_name = cache.guild_channel(message.channel_id)
+                        .map(|c| c.name().to_string())
+                        .unwrap_or("unknown".to_string());
+                    match db.get_guild(guild_id.0 as i64) {
+                        Ok(guild_data) => {
+                            if guild_data.logging.contains(&String::from("message_edit")) { return Ok(()) }
+                            let audit_channel = ChannelId(guild_data.audit_channel as u64);
+                            let new_content = message.content.unwrap_or("".to_string());
+                            let distance = levenshtein(old_message.content.as_str(), new_content.as_str());
+                            if guild_data.audit && audit_channel.0 > 0 && distance >= guild_data.audit_threshold as usize {
+                                let (author_tag, author_mention) = if let Some(user) = message.author {
+                                    let tag = format!("{}#{}", user.name, user.discriminator);
+                                    (tag, user.mention().to_string())
+                                } else if let Some(user) = cache.user(old_message.author) {
+                                    let tag = format!("{}#{}", user.name, user.discriminator);
+                                    (tag, user.mention().to_string())
+                                } else {
+                                    ("Unknown".to_string(), "Unknown".to_string())
+                                };
+                                let embed = EmbedBuilder::new()
+                                    .title("Message Edited")
+                                    .color(colors::MAIN)
+                                    .timestamp(Utc::now().to_rfc3339())
+                                    .footer(EmbedFooterBuilder::new(format!("ID: {}", message.id.0)))
+                                    .description(format!("**Author:** {} ({}) - {}\n**Channel:** {} ({}) - <#{}>\n**Old Content:**\n{}\n**New Content:**\n{}",
+                                        author_tag,
+                                        old_message.author.0,
+                                        author_mention,
+                                        channel_name,
+                                        message.channel_id.0,
+                                        message.channel_id.0,
+                                        old_message.content,
+                                        new_content
+                                        ))
+                                    .build()?;
+                                    http.create_message(audit_channel)
+                                        .embed(embed)?
+                                        .await?;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
         Event::ShardConnected(_) => {
             event!(Level::DEBUG, "Connected on shard {}", shard_id);
         }
@@ -244,7 +263,74 @@ async fn handle_event(
             }
         }
         Event::MemberUpdate(member) => {
-            //TODO Figure out how to get old member data
+            if let Some(old_member) = old_member {
+                match ctx.db.get_guild(member.guild_id.0 as i64) {
+                    Ok(guild_data) => {
+                        if guild_data.audit && guild_data.audit_channel > 0 {
+                            let audit_channel = ChannelId(guild_data.audit_channel as u64);
+                            if !guild_data.logging.contains(&String::from("nickname_change")) {
+                                if member.nick != old_member.nick {
+                                    let old_nick = old_member.nick.clone().unwrap_or("None".to_string());
+                                    let new_nick = member.nick.clone().unwrap_or("None".to_string());
+                                    let embed = EmbedBuilder::new()
+                                        .title("Nickname Changed")
+                                        .color(colors::MAIN)
+                                        .thumbnail(ImageSource::url(user_avatar_url(&member.user))?)
+                                        .description(format!("**User: ** {}#{}\n**Old:** {}\n**New:** {}",
+                                            member.user.name,
+                                            member.user.discriminator,
+                                            old_nick,
+                                            new_nick
+                                        )).build()?;
+
+                                    ctx.http.create_message(audit_channel).embed(embed)?.await?;
+                                }
+                                if !guild_data.logging.contains(&String::from("role_change")) {
+                                    let mut roles_added = member.roles.clone();
+                                    roles_added.retain(|r| !old_member.roles.contains(r));
+                                    if !roles_added.is_empty() {
+                                        let guild_roles = ctx.http.roles(member.guild_id).await?;
+                                        let roles_added: Vec<String> = guild_roles.into_iter()
+                                            .filter_map(|role| if roles_added.contains(&role.id) { Some(role.name) } else { None })
+                                            .collect();
+                                        let embed = EmbedBuilder::new()
+                                            .title("Roles Changed")
+                                            .color(colors::MAIN)
+                                            .thumbnail(ImageSource::url(user_avatar_url(&member.user))?)
+                                            .description(format!("**User: ** {}#{}\n**Added:** {}",
+                                                member.user.name,
+                                                member.user.discriminator,
+                                                roles_added.join(", ")
+                                            )).build()?;
+                                        
+                                        ctx.http.create_message(audit_channel).embed(embed)?.await?;
+                                    }
+                                    let mut roles_removed = old_member.roles.clone();
+                                    roles_removed.retain(|r| !member.roles.contains(r));
+                                    if !roles_removed.is_empty() {
+                                        let guild_roles = ctx.http.roles(member.guild_id).await?;
+                                        let roles_removed: Vec<String> = guild_roles.into_iter()
+                                            .filter_map(|role| if roles_removed.contains(&role.id) { Some(role.name) } else { None })
+                                            .collect();
+                                        let embed = EmbedBuilder::new()
+                                            .title("Roles Changed")
+                                            .color(colors::MAIN)
+                                            .thumbnail(ImageSource::url(user_avatar_url(&member.user))?)
+                                            .description(format!("**User: ** {}#{}\n**Removed:** {}",
+                                                member.user.name,
+                                                member.user.discriminator,
+                                                roles_removed.join(", ")
+                                            )).build()?;
+                                        
+                                        ctx.http.create_message(audit_channel).embed(embed)?.await?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
         Event::BanAdd(ban) => {
             use twilight_model::guild::audit_log::AuditLogEvent;
