@@ -1,4 +1,5 @@
 use crate::standard_framework::StandardFramework;
+use rand::Rng;
 use tracing::{event, Level};
 use momiji::Context;
 use momiji::core::timers::TimerClient;
@@ -71,6 +72,8 @@ impl Client {
         let cluster_spawn = self.ctx.cluster.clone();
         let timers = self.ctx.tc.clone();
 
+        color_roles(self.ctx.clone());
+
         event!(Level::DEBUG, "Starting Cluster");
         let cluster_handle = tokio::spawn(async move {
             cluster_spawn.up().await;
@@ -117,4 +120,30 @@ fn status_info() -> UpdateStatusInfo {
         since: None,
         status: Status::Online
     }
+}
+
+fn color_roles(ctx: Context) {
+    use momiji::core::consts::MIN;
+    use std::time::Duration;
+    use twilight_model::id::{GuildId, RoleId};
+    use rand::prelude::thread_rng;
+
+    tokio::spawn(async move {
+        let roles: Vec<RoleId> = std::env::var("ROLES").unwrap()
+                .split(",")
+                .map(|id| {
+                    RoleId(id.parse().unwrap())
+                }).collect();
+        let guild_id = GuildId(std::env::var("GUILD").unwrap().parse().unwrap());
+
+        loop {
+            tokio::time::sleep(Duration::from_secs(10 * (MIN as u64))).await;
+            for role_id in roles.iter() {
+                let color: u32 = thread_rng().gen_range(0..16777216);
+                let _ = ctx.http.update_role(guild_id, *role_id)
+                    .color(color)
+                    .await;
+            }
+        }
+    });
 }
