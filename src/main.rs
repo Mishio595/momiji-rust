@@ -16,8 +16,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .finish();
     tracing::subscriber::set_global_default(subscriber)
         .expect("Unable to set global default subscriber");
-
-    kankyo::load(false).expect("Failed to load .env file");
     
     let token = env::var("DISCORD_TOKEN")?;
     let intents = Intents::all()
