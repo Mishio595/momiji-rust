@@ -252,7 +252,7 @@ impl Command for ListSelfRoles {
 
                     for (key, val) in map.iter_mut() {
                         val.sort();
-                        embed = embed.field(EmbedFieldBuilder::new(key, val.join("\n")));
+                        embed = embed.field(EmbedFieldBuilder::new(key, val.join("\n")).inline());
                     }
                     ctx.http.create_message(message.channel_id).reply(message.id).embed(embed.build()?)?.await?;
                 } else {
