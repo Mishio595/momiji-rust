@@ -1,9 +1,10 @@
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use momiji::Context;
 use momiji::core::consts::*;
 use momiji::core::utils::*;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
+use twilight_embed_builder::EmbedFooterBuilder;
 // use tracing::{event, Level};
 use twilight_model::channel::Message;
 use twilight_model::guild::{Member, Role};
@@ -63,6 +64,7 @@ impl Command for Register {
                             to_add.remove(i);
                         };
                     }
+                    let mut cooldown_end_time = None;
                     if let Some(role) = guild_data.register_cooldown_role {
                         http.add_guild_member_role(guild_id, user_id, RoleId(role as u64)).await?;
                         if let Some(member_role) = guild_data.register_member_role {
@@ -75,9 +77,10 @@ impl Command for Register {
                                 guild_id.0,
                                 member_role,
                                 role);
-                            let start_time = Utc::now().timestamp();
-                            let end_time = start_time + dur as i64;
-                            db.new_timer(start_time, end_time, data)?;
+                            let start_time = Utc::now();
+                            let end_time = start_time.timestamp() + dur as i64;
+                            cooldown_end_time = start_time.checked_add_signed(Duration::seconds(dur as i64));
+                            db.new_timer(start_time.timestamp(), end_time, data)?;
                             ctx.tc.request();
                         }
                     } else if let Some(role) = guild_data.register_member_role {
@@ -90,8 +93,8 @@ impl Command for Register {
                         })
                         .collect::<Vec<String>>()
                         .join("\n")
-                    } else { String::new() };
-                    let embed = EmbedBuilder::new()
+                    } else { "No roles added".to_string() };
+                    let mut embed = EmbedBuilder::new()
                         .title(format!(
                             "Registered {}#{} with the following roles:",
                             member.user.name,
@@ -99,9 +102,12 @@ impl Command for Register {
                         ))
                         .description(desc)
                         .color(colors::MAIN)
-                        .timestamp(Utc::now().to_rfc3339())
-                        .build()?;
-                    http.create_message(channel_id).embed(embed)?.await?;
+                        .timestamp(Utc::now().to_rfc3339());
+                    if let Some(time) = cooldown_end_time {
+                        let footer = EmbedFooterBuilder::new(format!("Cooldown ends {} @ {}", time.format("%d %b %Y"), time.format("%X %Z")));
+                        embed = embed.footer(footer);
+                    }
+                    http.create_message(channel_id).embed(embed.build()?)?.await?;
                     if guild_data.introduction && guild_data.introduction_channel>0 {
                         let channel = ChannelId(guild_data.introduction_channel as u64);
                         if guild_data.introduction_type == "embed" {

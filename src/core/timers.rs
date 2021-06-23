@@ -8,7 +8,6 @@ use futures::{StreamExt, channel::mpsc::{
     channel
 }};
 use futures::future;
-use tracing::debug;
 use parking_lot::Mutex;
 use twilight_embed_builder::EmbedBuilder;
 use twilight_mention::Mention;
@@ -149,7 +148,6 @@ impl TimerClient {
     async fn cooldown(&self, user_id: UserId, guild_id: GuildId, mrole_id: RoleId, crole_id: RoleId) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.http.add_guild_member_role(guild_id, user_id, mrole_id).await?;
         self.http.remove_guild_member_role(guild_id, user_id, crole_id).await?;
-        debug!("Member removed from cooldown. User ID: {:?}, Guild: {:?}", user_id, guild_id);
 
         Ok(())
     }
