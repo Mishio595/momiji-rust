@@ -59,7 +59,8 @@ pub fn init_roles(module: ModuleBuilder) -> ModuleBuilder {
         .add_command("addrole", Alias("ar".to_string()))
         .add_command("rr", Command(Arc::new(RemoveRole)))
         .add_command("removerole", Alias("rr".to_string()))
-        // .add_command("rolecolour", Command(Arc::new(RoleColour)))
+        .add_command("rolecolor", Command(Arc::new(RoleColour)))
+        .add_command("rc", Alias("rolecolor".to_string()))
 }
 
 // pub fn init_watchlist(module: ModuleBuilder) -> ModuleBuilder {

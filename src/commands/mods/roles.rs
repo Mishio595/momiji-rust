@@ -277,39 +277,43 @@ impl Command for RemoveRole {
     }
 }
 
-// pub struct RoleColour;
-// #[async_trait]
-// impl Command for RoleColour {
-//     fn options(&self) -> Arc<Options> {
-//         let options = Options {
-//             description: Some("Change the colour of a role.".to_string()),
-//             usage: Some("<role_resolvable> <colour>".to_string()),
-//             examples: vec!["418130449089691658 00ff00".to_string()],
-//             required_permissions: Permissions::MANAGE_ROLES,
-//             guild_only: true,
-//             ..Options::default()
-//         };
-//         Arc::new(options)
-//     }
+pub struct RoleColour;
+#[async_trait]
+impl Command for RoleColour {
+    fn options(&self) -> Arc<Options> {
+        let options = Options {
+            description: Some("Change the colour of a role.".to_string()),
+            usage: Some("<role_resolvable> <colour>".to_string()),
+            examples: vec!["418130449089691658 00ff00".to_string()],
+            required_permissions: Permissions::MANAGE_ROLES,
+            guild_only: true,
+            ..Options::default()
+        };
+        Arc::new(options)
+    }
 
-//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
-//         if let Some(guild_id) = message.guild_id {
-//             match parse_role(args.single_quoted::<String>().unwrap_or(String::new()), guild_id, &ctx.cache) {
-//                 Some((_, mut role)) => {
-//                     let input = args.single::<String>()?;
-//                     let colour_as_hex = if input.starts_with("#") {
-//                         &input[1..]
-//                     } else { input.as_str() };
-//                     let colour = u64::from_str_radix(colour_as_hex, 16)?;
-//                     role.edit(|r| r.colour(colour))?;
-//                     message.channel_id.say(format!("Colour of `{}` changed to `#{:06X}`", role.name, colour))?;
-//                 },
-//                 None => { message.channel_id.say("I couldn't find that role")?; },
-//             }
-//         }
-//         Ok(())
-//     }
-// }
+    async fn run(&self, message: Message, mut args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if let Some(guild_id) = message.guild_id {
+            match parse_role(args.single_quoted::<String>().unwrap_or(String::new()), guild_id, ctx.clone()) {
+                Some((role_id, role)) => {
+                    let input = args.single::<String>()?;
+                    let color_as_hex = if input.starts_with("#") {
+                        &input[1..]
+                    } else { input.as_str() };
+                    let color = u32::from_str_radix(color_as_hex, 16)?;
+                    ctx.http.update_role(guild_id, role_id).color(color).await?;
+                    ctx.http.create_message(message.channel_id).reply(message.id)
+                        .content(format!("Colour of `{}` changed to `#{:06X}`", role.name, color))?
+                        .await?;
+                },
+                None => { ctx.http.create_message(message.channel_id).reply(message.id)
+                    .content("I couldn't find that role")?.await?;
+                },
+            }
+        }
+        Ok(())
+    }
+}
 
 fn filter_roles(roles: Vec<Arc<Role>>, highest: i64, member: Arc<Member>, ctx: Context) -> Vec<Arc<Role>> {
     roles.into_iter()
