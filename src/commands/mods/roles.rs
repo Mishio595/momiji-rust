@@ -10,7 +10,7 @@ use twilight_model::channel::Message;
 use twilight_model::guild::{Member, Role};
 use twilight_model::guild::Permissions;
 use twilight_model::id::{ChannelId, RoleId};
-use twilight_embed_builder::{EmbedBuilder, EmbedFieldBuilder};
+use twilight_embed_builder::{EmbedBuilder, EmbedFieldBuilder, ImageSource};
 use twilight_mention::Mention;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -86,7 +86,7 @@ impl Command for Register {
                     } else if let Some(role) = guild_data.register_member_role {
                         http.add_guild_member_role(guild_id, user_id, RoleId(role as u64)).await?;
                     }
-                    let desc = if !to_add.is_empty() {
+                    let roles = if !to_add.is_empty() {
                         to_add.iter().map(|r| match ctx.cache.role(*r) {
                             Some(role) => role.name.clone(),
                             None => r.0.to_string(),
@@ -96,16 +96,19 @@ impl Command for Register {
                     } else { "No roles added".to_string() };
                     let mut embed = EmbedBuilder::new()
                         .title(format!(
-                            "Registered {}#{} with the following roles:",
+                            "Registered {}#{}",
                             member.user.name,
                             member.user.discriminator,
                         ))
-                        .description(desc)
+                        .field(EmbedFieldBuilder::new("Roles Added", roles))
                         .color(colors::MAIN)
-                        .timestamp(Utc::now().to_rfc3339());
+                        .thumbnail(ImageSource::url(user_avatar_url(&member.user))?);
                     if let Some(time) = cooldown_end_time {
-                        let footer = EmbedFooterBuilder::new(format!("Cooldown ends {} @ {}", time.format("%d %b %Y"), time.format("%X %Z")));
-                        embed = embed.footer(footer);
+                        let footer = EmbedFooterBuilder::new("Cooldown ends at");
+                        let timestamp = time.to_rfc3339();
+                        embed = embed.footer(footer).timestamp(timestamp);
+                    } else {
+                        embed = embed.timestamp(Utc::now().to_rfc3339())
                     }
                     http.create_message(channel_id).embed(embed.build()?)?.await?;
                     if guild_data.introduction && guild_data.introduction_channel>0 {
