@@ -14,7 +14,8 @@ pub fn init_misc(module: ModuleBuilder) -> ModuleBuilder {
     module
         .help_available(true)
         // .add_command("anime", Command(Arc::new(Anime)))
-        // .add_command("botinfo", Command(Arc::new(BotInfo)))
+        .add_command("botinfo", Command(Arc::new(BotInfo)))
+        .add_command("bi", Alias("botinfo".to_string()))
         // .add_command("cat", Command(Arc::new(Cat)))
         // .add_command("dog", Command(Arc::new(Dog)))
         // .add_command("joke", Command(Arc::new(DadJoke)))

@@ -65,9 +65,8 @@ impl Command for CreateSelfRole {
                     }
                 ))?.await?;
             } else { ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }
@@ -94,9 +93,8 @@ impl Command for DeleteSelfRole {
                 ctx.db.del_role(role_id.0 as i64, guild_id.0 as i64)?;
                 ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Successfully deleted role {}", role.name))?.await?;
             } else { ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }
@@ -154,9 +152,8 @@ impl Command for EditSelfRole {
                     }
                 ))?.await?;
             } else { ctx.http.create_message(message.channel_id).reply(message.id).content("I couldn't find that role.")?.await?; }
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }

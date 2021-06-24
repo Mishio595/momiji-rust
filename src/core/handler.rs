@@ -181,7 +181,7 @@ async fn handle_event(
         Event::GuildCreate(guild) => {
             event!(Level::DEBUG, "Guild received: {} ({})", guild.name, guild.id);
             match db.new_guild(guild.id.0 as i64) {
-                Err(why) => { event!(Level::DEBUG, "{}: {}", DB_GUILD_ENTRY_FAIL, why); }
+                Err(why) => { event!(Level::DEBUG, "Failed to create guild: {}", why); }
                 _ => {}
             }
         }

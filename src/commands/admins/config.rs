@@ -27,9 +27,8 @@ impl Command for ConfigRaw {
         if let Some(guild_id) = message.guild_id {
             let guild_data = ctx.db.get_guild(guild_id.0 as i64)?;
             ctx.http.create_message(message.channel_id).reply(message.id).content(format!("{:?}", guild_data))?.await?;
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+
         Ok(())
     }
 }
@@ -57,8 +56,6 @@ impl Command for ConfigList {
                 .build()?;
 
             ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
 
         Ok(())
@@ -93,9 +90,8 @@ impl Command for ConfigPrefix {
                     ctx.http.create_message(message.channel_id).reply(message.id).content("Failed to change prefix")?.await?;
                 },
             }
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }
@@ -168,9 +164,8 @@ impl Command for ConfigAutorole {
                 .build()?;
 
             ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }
@@ -237,9 +232,8 @@ impl Command for ConfigAdmin {
                 .build()?;
             
             ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }
@@ -306,9 +300,8 @@ impl Command for ConfigMod {
                 .build()?;
 
             ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }
@@ -378,9 +371,8 @@ impl Command for ConfigAudit {
                 .build()?;
             
             ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }
@@ -441,9 +433,8 @@ impl Command for ConfigModlog {
                 .build()?;
 
             ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }
@@ -510,9 +501,8 @@ impl Command for ConfigWelcome {
                 .build()?;
             
             ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }
@@ -579,9 +569,8 @@ impl Command for ConfigIntroduction {
                 .build()?;
             
             ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }
@@ -635,9 +624,8 @@ impl Command for ConfigCommands {
                 .build()?;
 
             ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }
@@ -699,9 +687,8 @@ impl Command for ConfigLogs {
                 .build()?;
 
             ctx.http.create_message(message.channel_id).reply(message.id).embed(embed)?.await?;
-        } else {
-            debug!("{}", GUILDID_FAIL);
         }
+        
         Ok(())
     }
 }

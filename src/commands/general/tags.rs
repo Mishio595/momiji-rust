@@ -1,9 +1,8 @@
 use fuzzy_match::algorithms::*;
 use momiji::Context;
-use momiji::core::{consts::*, utils::get_permissions_for_member};
+use momiji::core::utils::get_permissions_for_member;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
-use tracing::debug;
 use twilight_model::channel::Message;
 use twilight_model::guild::Permissions;
 use std::cmp::Ordering;
@@ -30,7 +29,7 @@ impl Command for TagList {
             } else {
                 ctx.http.create_message(message.channel_id).reply(message.id).content("No tags founds.")?.await?;
             }
-        } else { debug!("{}", GUILDID_FAIL); }
+        }
         Ok(())
     }
 }
@@ -70,7 +69,7 @@ impl Command for TagSingle {
                     ctx.http.create_message(message.channel_id).reply(message.id).content(format!("No tag found. Did you mean...\n{}", matches.join("\n")))?.await?;
                 }
             } else { ctx.http.create_message(message.channel_id).reply(message.id).content("There are no tags yet.")?.await?; }
-        } else { debug!("{}", GUILDID_FAIL); }
+        }
         Ok(())
     }
 }
@@ -95,7 +94,7 @@ impl Command for TagAdd {
             let value = args.rest().to_string();
             let tag = ctx.db.new_tag(message.author.id.0 as i64, guild_id.0 as i64, tag_input.clone(), value)?;
             ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Successfully created tag `{}`", tag.name))?.await?;
-        } else { debug!("{}", GUILDID_FAIL); }
+        }
         Ok(())
     }
 }
@@ -126,7 +125,7 @@ impl Command for TagRemove {
                 let tag = ctx.db.del_tag(guild_id.0 as i64, tag_input.clone())?;
                 ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Successfully deleted tag `{}`", tag.name))?.await?;
             } else { ctx.http.create_message(message.channel_id).reply(message.id).content("You must own this tag in order to delete it.")?.await?; }
-        } else { debug!("{}", GUILDID_FAIL); }
+        }
         Ok(())
     }
 }
@@ -158,7 +157,7 @@ impl Command for TagEdit {
                 let t = ctx.db.update_tag(guild_id.0 as i64, tag_input.clone(), tag)?;
                 ctx.http.create_message(message.channel_id).reply(message.id).content(format!("Successfully edited tag `{}`", t.name))?.await?;
             } else { ctx.http.create_message(message.channel_id).reply(message.id).content("You must own this tag in order to edit it.")?.await?; }
-        } else { debug!("{}", GUILDID_FAIL); }
+        }
         Ok(())
     }
 }

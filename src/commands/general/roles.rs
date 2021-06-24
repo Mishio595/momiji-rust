@@ -4,7 +4,6 @@ use momiji::core::consts::*;
 use momiji::core::utils::*;
 use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
-use tracing::debug;
 use twilight_embed_builder::{EmbedBuilder, EmbedFieldBuilder};
 use twilight_http::request::AuditLogReason;
 use twilight_model::{
@@ -122,8 +121,8 @@ impl Command for AddSelfRole {
                 } else {
                     ctx.http.create_message(message.channel_id).reply(message.id).content("There are no self roles.")?.await?;
                 }
-            } else { debug!("{}", MEMBER_FAIL); }
-        } else { debug!("{}", GUILDID_FAIL); }
+            }
+        }
         Ok(())
     }
 }
@@ -207,8 +206,8 @@ impl Command for RemoveSelfRole {
                 } else {
                     ctx.http.create_message(message.channel_id).reply(message.id).content("There are no self roles.")?.await?;
                 }
-            } else { debug!("{}", MEMBER_FAIL); }
-        } else { debug!("{}", GUILDID_FAIL); }
+            }
+        }
         Ok(())
     }
 }
@@ -282,7 +281,7 @@ impl Command for ListSelfRoles {
             } else {
                 ctx.http.create_message(message.channel_id).reply(message.id).content("There are no self roles.")?.await?;
             }
-        } else { debug!("{}", GUILDID_FAIL); }
+        }
         Ok(())
     }
 }
