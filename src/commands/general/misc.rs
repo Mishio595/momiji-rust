@@ -6,81 +6,66 @@ use momiji::framework::args::Args;
 use momiji::framework::command::{Command, Options};
 use std::error::Error;
 use std::sync::Arc;
-use twilight_embed_builder::{EmbedBuilder, EmbedFieldBuilder};
+use sysinfo::{System, SystemExt, ProcessExt};
+use twilight_embed_builder::{EmbedBuilder, EmbedFieldBuilder, ImageSource};
 use twilight_model::channel::Message;
 
 // lazy_static! {
 //     static ref DICE_MATCH: Regex = Regex::new(r"(?P<count>\d+)d?(?P<sides>\d*)").expect("Failed to create Regex");
 // }
 
-// pub struct BotInfo;
-// impl Command for BotInfo {
-//     fn options(&self) -> Arc<Options> {
-//         let default = Options::default();
-//         let options = Options {
-//             description: Some("Information about the bot.".to_string()),
-//             usage: Some("".to_string()),
-//             aliases: vec!["bi", "binfo"].iter().map(|e| e.to_string()).collect(),
-//             ..Options::default()
-//         };
-//         Arc::new(options)
-//     }
+pub struct BotInfo;
+#[async_trait]
+impl Command for BotInfo {
+    fn options(&self) -> Arc<Options> {
+        let options = Options {
+            description: Some("Information about the bot.".to_string()),
+            usage: Some("".to_string()),
+            ..Options::default()
+        };
+        Arc::new(options)
+    }
 
-//     async fn run(&self, message: Message, args: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
-//         use serenity::builder::CreateEmbed;
+    async fn run(&self, message: Message, _: Args, ctx: Context) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let guild_count = ctx.cache.stats().guilds();
+        let shard_count = ctx.cluster.shards().len();
+        let mut owners = String::new();
+        for owner in ctx.owners.values() {
+            owners = format!("{}\nName: {}#{} ({})", owners, owner.name, owner.discriminator, owner.id.0);
+        }
+        let sys = System::new_all();
+        let system_info = format!(
+            "Type: {} {}\nUptime: {}",
+            sys.get_name().unwrap_or(String::from("OS Not Found")),
+            sys.get_os_version().unwrap_or(String::from("Release Not Found")),
+            seconds_to_hrtime(sys.get_uptime() as usize));
+        let mut embed = EmbedBuilder::new()
+            .description("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Twilight](https://github.com/twilight-rs/twilight/).")
+            .thumbnail(ImageSource::url(avatar_url_from_parts(&ctx.user.avatar, ctx.user.id, ctx.user.discriminator.as_str()))?)
+            .color(colors::MAIN)
+            .field(EmbedFieldBuilder::new("Owners", owners))
+            .field(EmbedFieldBuilder::new("Counts", format!("Guilds: {}\nShards: {}", guild_count, shard_count)).inline())
+            .field(EmbedFieldBuilder::new("Links", format!("[Support Server]({})\n[Invite]({})\n[GitLab]({})\n", SUPPORT_SERV_INVITE, BOT_INVITE, GITLAB_LINK)).inline())
+            .field(EmbedFieldBuilder::new("System Info", system_info).inline());
+        if let Ok(pid) = sysinfo::get_current_pid() {
+            if let Some(process) = sys.get_process(pid) {
+                let process_info = format!(
+                    "Memory Usage: {} MB\nCPU Usage: {}%\nUptime: {}",
+                    process.memory()/1000,
+                    (process.cpu_usage()*100.0).round()/100.0,
+                    seconds_to_hrtime(((Utc::now().timestamp() as u64) - process.start_time()) as usize));
+                embed = embed
+                    .field(EmbedFieldBuilder::new("Process Info", process_info).inline());
+            }
+        }
 
-//         let data = ctx.data.lock();
-//         let (guild_count, shard_count, thumbnail) = {
-//             let cache = CACHE.read();
-//             (cache.guilds.len(), cache.shard_count, cache.user.face())
-//         };
-//         let owner = data.get::<Owner>().expect("Failed to get owner").to_user()?;
-//         let sys = System::new();
-//         let embed = CreateEmbed::default()
-//                 .descriptionription("Hi! I'm Momiji, a general purpose bot created in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity).")
-//                 .field("Owner", format!(
-//                     "Name: {}\nID: {}"
-//                     ,owner.tag()
-//                     ,owner.id)
-//                     ,true)
-//                 .field("Links", format!(
-//                     "[Support Server]({})\n[Invite]({})\n[GitLab]({})\n[Patreon]({})"
-//                     ,SUPPORT_SERV_INVITE
-//                     ,BOT_INVITE
-//                     ,GITLAB_LINK
-//                     ,PATREON_LINK)
-//                     ,true)
-//                 .field("Counts", format!(
-//                     "Guilds: {}\nShards: {}"
-//                     ,guild_count
-//                     ,shard_count)
-//                     ,false)
-//                 .thumbnail(thumbnail)
-//                 .colour(*colours::MAIN);
-//         if let Some(process) = sys.get_process(get_current_pid()) {
-//             message.channel_id.send_message(|m| m
-//                 .embed(|_| embed
-//                     .field("System Info", format!(
-//                         "Type: {} {}\nUptime: {}"
-//                         ,sys_info::os_type().unwrap_or(String::from("OS Not Found"))
-//                         ,sys_info::os_release().unwrap_or(String::from("Release Not Found"))
-//                         ,seconds_to_hrtime(sys.get_uptime() as usize))
-//                         ,true)
-//                     .field("Process Info", format!(
-//                         "Memory Usage: {} MB\nCPU Usage {}%\nUptime: {}"
-//                         ,process.memory()/1000 // convert to MB
-//                         ,(process.cpu_usage()*100.0).round()/100.0 // round to 2 decimals
-//                         ,seconds_to_hrtime((sys.get_uptime() - process.start_time()) as usize))
-//                         ,true)
-//             ))?;
-//         } else {
-//             message.channel_id.send_message(|m| m
-//                 .embed(|_| embed
-//             ))?;
-//         }
-//         Ok(())
-//     }
-// }
+        ctx.http.create_message(message.channel_id).reply(message.id)
+            .embed(embed.build()?)?
+            .await?;
+
+        Ok(())
+    }
+}
 
 // pub struct Cat;
 // impl Command for Cat {

@@ -344,13 +344,17 @@ pub(crate) fn user_tag(user: Arc<User>) -> String {
     format!("{}#{}", user.name, user.discriminator)
 }
 
-pub(crate) fn user_avatar_url(user: &User) -> String {
-    match user.avatar {
-        Some(ref hash) => format!("https://cdn.discordapp.com/avatars/{}/{}.png", user.id.0, hash),
-        None => format!("https://cdn.discordapp.com/embed/avatars/{}.png", user.discriminator.parse::<usize>().unwrap() % 5)
+pub fn user_avatar_url(user: &User) -> String {
+    avatar_url_from_parts(&user.avatar, user.id, user.discriminator.as_str())
+}
+
+pub fn avatar_url_from_parts(hash: &Option<String>, id: UserId, discriminator: &str) -> String {
+    match hash {
+        Some(ref hash) => format!("https://cdn.discordapp.com/avatars/{}/{}.png", id.0, hash),
+        None => format!("https://cdn.discordapp.com/embed/avatars/{}.png", discriminator.parse::<usize>().unwrap() % 5)
     }
 }
 
-pub(crate) fn guild_icon_url(id: GuildId, hash: String) -> String {
+pub fn guild_icon_url(id: GuildId, hash: String) -> String {
     format!("https://cdn.discordapp.com/icons/{}/{}.png", id.0, hash)
 }
