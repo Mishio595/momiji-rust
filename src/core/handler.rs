@@ -424,7 +424,7 @@ async fn handle_event(
         Event::Resumed => {
             event!(Level::DEBUG, "Session resumed");
         }
-        _ => { event!(Level::DEBUG, "Unhandled event: {:?}", event.kind()); }
+        _ => { #[cfg(debug_assertions)] { event!(Level::DEBUG, "Unhandled event: {:?}", event.kind()); }}
     }
 
     Ok(())
