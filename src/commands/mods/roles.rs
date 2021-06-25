@@ -104,7 +104,7 @@ impl Command for Register {
                         .color(colors::MAIN)
                         .thumbnail(ImageSource::url(user_avatar_url(&member.user))?);
                     if let Some(time) = cooldown_end_time {
-                        let footer = EmbedFooterBuilder::new("Cooldown ends at");
+                        let footer = EmbedFooterBuilder::new("Cooldown ends");
                         let timestamp = time.to_rfc3339();
                         embed = embed.footer(footer).timestamp(timestamp);
                     } else {
