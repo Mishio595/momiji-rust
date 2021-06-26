@@ -16,7 +16,7 @@ pub struct Parser;
 
 impl Parser {
     pub fn parse(&self, body: &str, possible_delimiters: &[String]) -> Option<(String, Args)> {
-        command_parser::command(body, possible_delimiters).ok()
+        command_parser::command(body.to_lowercase().as_str(), possible_delimiters).ok()
     }
 
     pub fn parse_with_prefix<'a>(&self, prefix: &'a str, body: &'a str, possible_delimiters: &[String]) -> Option<(String, Args)> {
