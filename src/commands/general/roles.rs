@@ -64,17 +64,16 @@ impl Command for AddSelfRole {
                             if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
                                 to_add.push(r);
                             } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
-                        } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1.to_lowercase())) {
-                            if has_cooldown && restricted_roles.contains(&(roles[i].id)) {
-                                let rid = RoleId(roles[i].id as u64);
+                        } else if let Some(id) = parse_role_alias(&r1, &roles) {
+                            if has_cooldown && restricted_roles.contains(&(id.0 as i64)) {
                                 failed.push(format!("{} is not available on cooldown", cache
                                     .guild_roles(guild_id)
-                                    .and_then(|set| set.get(&rid).cloned())
-                                    .unwrap_or(rid)
+                                    .and_then(|set| set.get(&id).cloned())
+                                    .unwrap_or(id)
                                 ));
                                 continue;
                             }
-                            to_add.push(RoleId(roles[i].id as u64));
+                            to_add.push(id);
                         } else {
                             failed.push(format!("Failed to find match \"{}\". {}", r1,
                                 if let Some(i) = fuzzy_match::<usize, Vec<(&str, usize)>>(&r1, role_names.iter().enumerate().map(|(i,r)| (r.name.as_str(), i)).collect()) {
@@ -160,8 +159,8 @@ impl Command for RemoveSelfRole {
                             if let Some(_) = roles.iter().find(|e| e.id == r.0 as i64) {
                                 to_remove.push(r);
                             } else { failed.push(format!("{} is a role, but it isn't self-assignable", r2.name)); }
-                        } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1.to_lowercase())) {
-                            to_remove.push(RoleId(roles[i].id as u64));
+                        } else if let Some(id) = parse_role_alias(&r1, &roles) {
+                            to_remove.push(id);
                         } else {
                             failed.push(format!("Failed to find match \"{}\". {}", r1,
                                 if let Some(i) = fuzzy_match::<usize, Vec<(&str, usize)>>(&r1, role_names.iter().enumerate().map(|(i,r)| (r.name.as_str(), i)).collect()) {

@@ -47,14 +47,11 @@ impl Command for Register {
                         if let Some((r, _)) = parse_role(r1.clone(), guild_id, ctx.clone()) {
                             if guild_data.cooldown_restricted_roles.contains(&(r.0 as i64)) { continue; }
                             to_add.push(r);
-                        } else if let Some(i) = roles.iter().position(|r| r.aliases.contains(&r1)) {
-                            if guild_data.cooldown_restricted_roles.contains(&(roles[i].id)) { continue; }
-                            to_add.push(RoleId(roles[i].id as u64));
+                        } else if let Some(id) = parse_role_alias(&r1, &roles) {
+                            if guild_data.cooldown_restricted_roles.contains(&(id.0 as i64)) { continue; }
+                            to_add.push(id);
                         }
                     }
-                    // let author = message.member.ok_or_else(|| "Member unavailable")?;
-                    // TODO implement hierarchy filter
-                    // let mut to_add = filter_roles(to_add, author);
                     for (i, role_id) in to_add.clone().iter().enumerate() {
                         if member.roles.contains(role_id) {
                             to_add.remove(i);
@@ -166,7 +163,7 @@ impl Command for AddRole {
                             failed.push(format!("Could not locate {}", r1));
                         }
                     }
-                    let mut to_add = filter_roles(to_add, author_highest_role, member.clone(), ctx.clone());
+                    let mut to_add = filter_roles(to_add, author_highest_role);
                     for (i, role) in to_add.clone().iter().enumerate() {
                         if member.roles.contains(&role.id) {
                             to_add.remove(i);
@@ -245,7 +242,7 @@ impl Command for RemoveRole {
                             failed.push(format!("Could not locate {}", r1));
                         }
                     }
-                    let mut to_remove = filter_roles(to_remove, author_highest_role, member.clone(), ctx.clone());
+                    let mut to_remove = filter_roles(to_remove, author_highest_role);
                     for (i, role) in to_remove.clone().iter().enumerate() {
                         if !member.roles.contains(&role.id) {
                             to_remove.remove(i);
@@ -324,7 +321,7 @@ impl Command for RoleColour {
     }
 }
 
-fn filter_roles(roles: Vec<Arc<Role>>, highest: i64, member: Arc<Member>, ctx: Context) -> Vec<Arc<Role>> {
+fn filter_roles(roles: Vec<Arc<Role>>, highest: i64) -> Vec<Arc<Role>> {
     roles.into_iter()
         .filter_map(|role| {
             match role.position >= highest {
