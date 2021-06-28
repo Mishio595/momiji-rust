@@ -1,4 +1,5 @@
 use crate::Context;
+use crate::db::models::Role as SelfRole;
 use super::consts::*;
 use regex::Regex;
 use std::collections::HashMap;
@@ -25,10 +26,14 @@ lazy_static::lazy_static! {
     static ref USER_MATCH: Regex    = Regex::new(r"(?:<@)?!?(\d{17,})>*?").expect("Failed to create Regex");
 }
 
+pub fn parse_role<T: Into<String>>(input: T, guild_id: GuildId, ctx: Context) -> Option<(RoleId, Arc<Role>)> {
+    _parse_role(input.into(), guild_id, ctx)
+}
+
 /// Attempts to parse a role ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached roles
 /// This method is case insensitive
-pub fn parse_role(input: String, guild_id: GuildId, ctx: Context) -> Option<(RoleId, Arc<Role>)> {
+fn _parse_role(input: String, guild_id: GuildId, ctx: Context) -> Option<(RoleId, Arc<Role>)> {
     match ROLE_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = s[1].parse::<u64>() {
@@ -63,10 +68,26 @@ pub fn parse_role(input: String, guild_id: GuildId, ctx: Context) -> Option<(Rol
     }
 }
 
+pub fn parse_role_alias<T: Into<String>>(input: T, roles: &Vec<SelfRole>) -> Option<RoleId> {
+    _parse_role_alias(input.into(), roles)
+}
+
+fn _parse_role_alias(input: String, roles: &Vec<SelfRole>) -> Option<RoleId> {
+    if let Some(i) = roles.iter().position(|r| r.aliases.contains(&input.to_lowercase())) {
+        return Some(RoleId(roles[i].id as u64))
+    }
+
+    None
+}
+
+pub async fn parse_user<T: Into<String>>(input: T, guild_id: GuildId, ctx: Context) -> Option<(UserId, Arc<Member>)> {
+    _parse_user(input.into(), guild_id, ctx).await
+}
+
 /// Attempts to parse a user ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached users
 /// This method is case insensitive
-pub async fn parse_user(input: String, guild_id: GuildId, ctx: Context) -> Option<(UserId, Arc<Member>)> {
+async fn _parse_user(input: String, guild_id: GuildId, ctx: Context) -> Option<(UserId, Arc<Member>)> {
     match USER_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = s[1].parse::<u64>() {
@@ -100,10 +121,14 @@ pub async fn parse_user(input: String, guild_id: GuildId, ctx: Context) -> Optio
     }
 }
 
+pub fn parse_channel<T: Into<String>>(input: T, guild_id: GuildId, ctx: Context) -> Option<(ChannelId, Arc<GuildChannel>)> {
+    _parse_channel(input.into(), guild_id, ctx)
+}
+
 /// Attempts to parse a channel ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached GuildChannels
 /// This method is case insensitive
-pub fn parse_channel(input: String, guild_id: GuildId, ctx: Context) -> Option<(ChannelId, Arc<GuildChannel>)> {
+fn _parse_channel(input: String, guild_id: GuildId, ctx: Context) -> Option<(ChannelId, Arc<GuildChannel>)> {
     match CHANNEL_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = s[1].parse::<u64>() {
@@ -134,10 +159,14 @@ pub fn parse_channel(input: String, guild_id: GuildId, ctx: Context) -> Option<(
     }
 }
 
+pub fn parse_guild<T: Into<String>>(input: T, ctx: Context) -> Option<(GuildId, Arc<CachedGuild>)> {
+    _parse_guild(input.into(), ctx)
+}
+
 /// Attempts to parse a guild ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached guild
 /// This method is case insensitive
-pub fn parse_guild(input: String, ctx: Context) -> Option<(GuildId, Arc<CachedGuild>)> {
+fn _parse_guild(input: String, ctx: Context) -> Option<(GuildId, Arc<CachedGuild>)> {
     match GUILD_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = s[0].parse::<u64>() {
