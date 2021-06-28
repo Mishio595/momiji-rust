@@ -41,9 +41,10 @@ impl Command for Prune {
                     .await?;
                 let mut next_deletions;
                 let mut deleted_messages = Vec::new();
-                while deleted_messages.len() < count {
+                // TODO add response for deletions < 2. This is the discord minimum for bulk-delete
+                while deleted_messages.len() < count && deletions.len() > 0 {
                     next_deletions = ctx.http.channel_messages(message.channel_id)
-                        .before(deletions[deletions.len() - 1].id)
+                        .before(deletions.last().unwrap().id)
                         .limit(u64::min(100, (count - deleted_messages.len()) as u64))?
                         .await?;
                     deletions.retain(|m| filter(m) && is_deletable(m));
@@ -69,10 +70,7 @@ impl Command for Prune {
                     }
                 }
                 if deleted_messages.len() > 0 {
-                    if guild_data.modlog {
-                        let channel_name = ctx.cache.guild_channel(message.channel_id)
-                            .map(|c| c.name().to_string())
-                            .unwrap_or(message.channel_id.to_string());
+                    if guild_data.modlog && guild_data.modlog_channel > 0 {
                         let embed = EmbedBuilder::new()
                             .title("Messages Pruned")
                             .description(format!(
@@ -80,7 +78,7 @@ impl Command for Prune {
                                 deleted_messages.len(),
                                 message.author.mention(),
                                 format!("{}#{}", message.author.name, message.author.discriminator),
-                                channel_name))
+                                message.channel_id.mention()))
                             .timestamp(Utc::now().to_rfc3339())
                             .color(colors::RED)
                             .build()?;
@@ -98,8 +96,7 @@ impl Command for Prune {
                                 m.timestamp,
                                 format!("{}#{}", m.author.name, m.author.discriminator),
                                 m.author.id.0,
-                                m.content
-                                ))
+                                m.content))
                             .collect::<Vec<String>>()
                             .join("\r\n");
                         ctx.http.create_message(ChannelId(guild_data.audit_channel as u64))
