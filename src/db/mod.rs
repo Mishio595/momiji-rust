@@ -16,15 +16,17 @@ use self::models::*;
 use self::schema::*;
 use std::env;
 use std::ops::Deref;
+use std::sync::Arc;
 
 /// While the struct itself and the connection are public, Database cannot be manually
 /// instantiated. Use Database::connect() to start it.
-pub struct Database {
-    pub pool: Pool<ConnectionManager<PgConnection>>,
-    _hidden: (),
+#[derive(Clone)]
+#[non_exhaustive]
+pub struct DatabaseConnection {
+    pub pool: Arc<Pool<ConnectionManager<PgConnection>>>,
 }
 
-impl Database {
+impl DatabaseConnection {
     /// Create a new database with a connection.
     /// Returns a new Database.
     pub fn connect() -> Self {
@@ -35,9 +37,8 @@ impl Database {
             .build(manager)
             .expect("Failed to make connection pool");
 
-        Database {
-            pool,
-            _hidden: (),
+        Self {
+            pool: Arc::new(pool),
         }
     }
 
@@ -422,48 +423,6 @@ impl Database {
     pub fn count_tags(&self) -> QueryResult<i64> {
         use diesel::dsl::count_star;
         tags::table.select(count_star())
-            .get_result(self.conn().deref())
-    }
-
-    // Premium Tools
-    /// Add premium with a given guild ID.
-    /// Returns the PremiumSettings on success.
-    pub fn new_premium(&self, id: i64) -> QueryResult<PremiumSettings> {
-        let prem = NewPremium {
-            id,
-        };
-        diesel::insert_into(premium::table)
-            .values(&prem)
-            .get_result(self.conn().deref())
-    }
-    /// Delete premium by a guild ID.
-    /// Returns the ID on success.
-    pub fn del_premium(&self, g_id: i64) -> QueryResult<i64> {
-        use crate::db::schema::premium::columns::id;
-        diesel::delete(premium::table)
-            .filter(id.eq(&g_id))
-            .returning(id)
-            .get_result(self.conn().deref())
-    }
-    /// Select PremiumSettings by guild ID
-    /// Returns the settings on success
-    /// Will return Err if the guild is not premium
-    pub fn get_premium(&self, g_id: i64) -> QueryResult<PremiumSettings> {
-        premium::table.find(&g_id)
-            .first(self.conn().deref())
-    }
-    /// Update PremiumSettings
-    /// Returns the new settings on success
-    pub fn update_premium(&self, g_id: i64, settings: PremiumSettings) -> QueryResult<PremiumSettings> {
-        let target = premium::table.find(&g_id);
-        diesel::update(target)
-            .set(&settings)
-            .get_result(self.conn().deref())
-    }
-    /// Get the count of guilds with premium in the database
-    pub fn count_premium(&self) -> QueryResult<i64> {
-        use diesel::dsl::count_star;
-        premium::table.select(count_star())
             .get_result(self.conn().deref())
     }
 

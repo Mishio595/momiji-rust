@@ -1,32 +1,31 @@
-#![recursion_limit="128"]
-#![allow(proc_macro_derive_resolution_fallback)]
-
 #[macro_use] extern crate diesel;
-#[macro_use] extern crate lazy_static;
-#[macro_use] extern crate log;
-#[macro_use] extern crate serde_derive;
-extern crate serenity;
-extern crate chrono;
-extern crate forecast;
-extern crate fuzzy_match;
-extern crate geocoding;
-extern crate kitsu;
-extern crate levenshtein;
-extern crate rand;
-extern crate regex;
-extern crate reqwest;
-extern crate serde;
-extern crate serde_json;
-extern crate sys_info;
-extern crate sysinfo;
-extern crate threadpool;
-extern crate typemap;
-extern crate urbandictionary;
+#[macro_use] extern crate async_trait;
 
-pub mod macros;
 pub mod core;
 pub mod db;
-pub mod modules;
-pub mod momiji_client;
+pub mod framework;
 
-pub use crate::momiji_client::MomijiClient;
+use crate::core::timers::TimerClient;
+use db::DatabaseConnection;
+use framework::parser::Parser;
+use twilight_cache_inmemory::InMemoryCache;
+use twilight_gateway::Cluster;
+use twilight_http::Client as HttpClient;
+use twilight_model::{
+    id::UserId,
+    user::{CurrentUser, User}
+};
+use std::sync::Arc;
+use std::collections::HashMap;
+
+#[derive(Clone)]
+pub struct Context {
+    pub cache: InMemoryCache,
+    pub cluster: Cluster,
+    pub db: DatabaseConnection,
+    pub http: HttpClient,
+    pub parser: Parser,
+    pub tc: TimerClient,
+    pub user: Arc<CurrentUser>,
+    pub owners: Arc<HashMap<UserId, Arc<User>>>,
+}

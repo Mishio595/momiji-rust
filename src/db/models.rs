@@ -1,5 +1,5 @@
 use chrono::{DateTime, TimeZone, Utc};
-use serenity::model::id::{UserId, RoleId};
+use twilight_model::id::UserId;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use super::schema::*;
 
@@ -32,6 +32,10 @@ pub struct Guild {
     pub welcome_type: String,
     pub commands: Vec<String>,
     pub logging: Vec<String>,
+    pub register_member_role: Option<i64>,
+    pub register_cooldown_role: Option<i64>,
+    pub register_cooldown_duration: Option<i32>,
+    pub cooldown_restricted_roles: Vec<i64>,
 }
 
 // Deprecated fields: nickname, roles
@@ -99,17 +103,6 @@ pub struct Tag {
     pub guild_id: i64,
     pub name: String,
     pub data: String,
-}
-
-#[derive(Queryable, Identifiable, AsChangeset, Debug)]
-#[table_name="premium"]
-pub struct PremiumSettings {
-    pub id: i64,
-    pub tier: i32,
-    pub register_member_role: Option<i64>,
-    pub register_cooldown_role: Option<i64>,
-    pub register_cooldown_duration: Option<i32>,
-    pub cooldown_restricted_roles: Vec<i64>,
 }
 
 // This one would be the same for insertable or queryable, so it has both
@@ -182,12 +175,6 @@ pub struct NewTag {
     pub data: String,
 }
 
-#[derive(Insertable, Debug)]
-#[table_name="premium"]
-pub struct NewPremium {
-    pub id: i64,
-}
-
 // END INSERTABLES
 // OTHER STUFF
 
@@ -202,29 +189,20 @@ pub struct UserUpdate {
 
 impl Display for Guild {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "**Admin Roles:** {}\n**Audit:** {}\n**Audit Channel:** {}\n**Audit Threshold:** {}\n**Autorole:** {}\n**Autoroles:** {}\n**Ignored Channels:** {}\n**Ignore Level:** {}\n**Introduction:** {}\n**Introduction Channel:** {}\n**Introduction Type:** {}\n**Introduction Message:** {}\n**Mod Roles: ** {}\n**Modlog:** {}\n**Modlog Channel:** {}\n**Mute Setup:** {}\n**Prefix:** {}\n**Welcome:** {}\n**Welcome Channel:** {}\n**Welcome Type:** {}\n**Welcome Message:** {}\n**Disabled Commands:** {}\n**Disabled Log Types:** {}",
-            self.admin_roles.iter().map(|e| match RoleId(*e as u64).to_role_cached() {
-                Some(role) => role.name,
-                None => format!("{}", e),
-            }).collect::<Vec<String>>().join(", "),
+        write!(f, "**Admin Roles:** {}\n**Audit:** {}\n**Audit Channel:** {}\n**Audit Threshold:** {}\n**Autorole:** {}\n**Autoroles:** {}\n**Ignored Channels:** {}\n**Ignore Level:** {}\n**Introduction:** {}\n**Introduction Channel:** {}\n**Introduction Type:** {}\n**Introduction Message:** {}\n**Mod Roles: ** {}\n**Modlog:** {}\n**Modlog Channel:** {}\n**Mute Setup:** {}\n**Prefix:** {}\n**Welcome:** {}\n**Welcome Channel:** {}\n**Welcome Type:** {}\n**Welcome Message:** {}\n**Disabled Commands:** {}\n**Disabled Log Types:** {}\n**Register Member Role:** {}\n**Register Cooldown Role:** {}\n**Register Duration:** {}\n**Cooldown Restricted Roles:** {}",
+            self.admin_roles.iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", "),
             self.audit,
             format!("<#{}>", self.audit_channel),
             self.audit_threshold,
             self.autorole,
-            self.autoroles.iter().map(|e| match RoleId(*e as u64).to_role_cached() {
-                Some(role) => role.name,
-                None => format!("{}", e),
-            }).collect::<Vec<String>>().join(", "),
+            self.autoroles.iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", "),
             self.ignored_channels.iter().map(|e| format!("<#{}>", e)).collect::<Vec<String>>().join(", "),
             self.ignore_level,
             self.introduction,
             format!("<#{}>", self.introduction_channel),
             self.introduction_type,
             self.introduction_message,
-            self.mod_roles.iter().map(|e| match RoleId(*e as u64).to_role_cached() {
-                Some(role) => role.name,
-                None => format!("{}", e),
-            }).collect::<Vec<String>>().join(", "),
+            self.mod_roles.iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", "),
             self.modlog,
             format!("<#{}>", self.modlog_channel),
             self.mute_setup,
@@ -234,17 +212,18 @@ impl Display for Guild {
             self.welcome_type,
             self.welcome_message,
             self.commands.join(", "),
-            self.logging.join(", ")
+            self.logging.join(", "),
+            self.register_member_role.map(|e| e.to_string()).unwrap_or("Not set".to_string()),
+            self.register_cooldown_role.map(|e| e.to_string()).unwrap_or("Not set".to_string()),
+            self.register_cooldown_duration.map(|e| crate::core::utils::seconds_to_hrtime(e as usize).to_string()).unwrap_or("Not set".to_string()),
+            self.cooldown_restricted_roles.iter().map(|e| e.to_string()).collect::<Vec<String>>().join(", ")
     )}
 }
 
 impl Display for Note<Utc> {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{} wrote on {} (ID: {})\n`{}`",
-            match UserId(self.moderator as u64).to_user() {
-                Ok(user) => user.tag(),
-                Err(_) => format!("{}", self.moderator),
-            },
+            UserId(self.moderator as u64),
             self.timestamp.format("%a, %d %h %Y @ %H:%M:%S").to_string(),
             self.id,
             self.note)

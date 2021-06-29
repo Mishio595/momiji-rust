@@ -1,24 +1,19 @@
-use crate::core::consts::*;
+use crate::Context;
+use crate::db::models::Role as SelfRole;
+use super::consts::*;
 use regex::Regex;
-use serenity::CACHE;
-use serenity::Error;
-use serenity::model::channel::{
-    GuildChannel,
-    Message
-};
-use serenity::model::guild::{
-    Guild,
-    Role,
-    Member
-};
-use serenity::model::id::*;
-use serenity::model::misc::Mentionable;
-use serenity::prelude::RwLock;
 use std::collections::HashMap;
-use std::str::FromStr;
+use std::error::Error;
 use std::sync::Arc;
+use twilight_cache_inmemory::{model::CachedMember, model::CachedGuild};
+use twilight_embed_builder::{EmbedBuilder, ImageSource};
+use twilight_model::channel::GuildChannel;
+use twilight_model::guild::{Member, Role, Permissions};
+use twilight_model::id::{ChannelId, GuildId, RoleId, UserId};
+use twilight_model::user::User;
+use twilight_mention::Mention;
 
-lazy_static! {
+lazy_static::lazy_static! {
     static ref CHANNEL_MATCH: Regex = Regex::new(r"(?:<#)?(\d{17,})>*?").expect("Failed to create Regex");
     static ref EMBED_ITEM: Regex    = Regex::new(r"\$[^\$]*").expect("Failed to create Regex");
     static ref EMBED_PARTS: Regex   = Regex::new(r"\$?(?P<field>\S+):(?P<value>.*)").expect("Failed to create Regex");
@@ -31,96 +26,132 @@ lazy_static! {
     static ref USER_MATCH: Regex    = Regex::new(r"(?:<@)?!?(\d{17,})>*?").expect("Failed to create Regex");
 }
 
+pub fn parse_role<T: Into<String>>(input: T, guild_id: GuildId, ctx: Context) -> Option<(RoleId, Arc<Role>)> {
+    _parse_role(input.into(), guild_id, ctx)
+}
+
 /// Attempts to parse a role ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached roles
 /// This method is case insensitive
-pub fn parse_role(input: String, guild_id: GuildId) -> Option<(RoleId, Role)> {
+fn _parse_role(input: String, guild_id: GuildId, ctx: Context) -> Option<(RoleId, Arc<Role>)> {
     match ROLE_MATCH.captures(input.as_str()) {
         Some(s) => {
-            if let Ok(id) = RoleId::from_str(&s[1]) {
-                if let Some(role) = id.to_role_cached() {
-                    return Some((id, role.clone()));
+            if let Ok(id) = s[1].parse::<u64>() {
+                let rid = RoleId(id);
+                if let Some(role) = ctx.cache.role(rid) {
+                    return Some((rid, role.clone()));
+                // } else {
+                //     let roles = ctx.http.roles(guild_id).await.unwrap_or(Vec::new());
+                //     for r in roles.iter() {
+                //         if r.id == rid {
+                //             return Some((rid, Arc::new(r.clone())))
+                //         }
+                //     }
                 }
             }
             None
         },
         None => {
-            let guild_lock = CACHE.read().guild(&guild_id);
-            if let Some(guild_lock) = guild_lock {
-                let guild = guild_lock.read();
-                for (id, role) in guild.roles.iter() {
-                    if role.name.to_lowercase() == input.to_lowercase() {
-                        return Some((*id, role.clone()));
-                    }
+            if let Some(roles) = ctx.cache.guild_roles(guild_id) {
+                for id in roles.iter() {
+                    let r = ctx.cache.role(*id)
+                        .and_then(|role| {
+                            if role.name.to_lowercase() == input.to_lowercase() { Some((*id, role.clone())) }
+                            else { None }
+                        });
+                    
+                    if r.is_some() { return r; }
                 }
             }
             None
         },
     }
+}
+
+pub fn parse_role_alias<T: Into<String>>(input: T, roles: &Vec<SelfRole>) -> Option<RoleId> {
+    _parse_role_alias(input.into(), roles)
+}
+
+fn _parse_role_alias(input: String, roles: &Vec<SelfRole>) -> Option<RoleId> {
+    if let Some(i) = roles.iter().position(|r| r.aliases.contains(&input.to_lowercase())) {
+        return Some(RoleId(roles[i].id as u64))
+    }
+
+    None
+}
+
+pub async fn parse_user<T: Into<String>>(input: T, guild_id: GuildId, ctx: Context) -> Option<(UserId, Arc<Member>)> {
+    _parse_user(input.into(), guild_id, ctx).await
 }
 
 /// Attempts to parse a user ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached users
 /// This method is case insensitive
-pub fn parse_user(input: String, guild_id: GuildId) -> Option<(UserId, Member)> {
+async fn _parse_user(input: String, guild_id: GuildId, ctx: Context) -> Option<(UserId, Arc<Member>)> {
     match USER_MATCH.captures(input.as_str()) {
         Some(s) => {
-            if let Ok(id) = UserId::from_str(&s[1]) {
-                match CACHE.read().member(&guild_id, &id) {
-                    Some(member) => {
-                        return Some((id, member.clone()));
-                    },
-                    None => {
-                        if let Ok(member) = guild_id.member(id) {
-                            return Some((id, member));
-                        }
-                    },
-                }
-            }
-            None
-        },
-        None => {
-            let guild_lock = CACHE.read().guild(&guild_id);
-            if let Some(guild_lock) = guild_lock {
-                let guild = guild_lock.read();
-                for (id, member) in guild.members.iter() {
-                    let user = member.user.read();
-                    if user.name.to_lowercase() == input.to_lowercase()
-                    || user.tag().to_lowercase() == input.to_lowercase()
-                    || member.display_name().to_lowercase() == input.to_lowercase() {
-                        return Some((*id, member.clone()));
+            if let Ok(id) = s[1].parse::<u64>() {
+                let uid = UserId(id);
+                if let Some(member) = ctx.cache.member(guild_id, uid) {
+                    let member = cached_member_to_member(member);
+                    return Some((uid, Arc::new(member)))
+                } else {
+                    if let Ok(Some(member)) = ctx.http.guild_member(guild_id, uid).await {
+                        return Some((uid, Arc::new(member)))
                     }
                 }
             }
             None
         },
+        None => {
+            if let Some(members) = ctx.cache.guild_members(guild_id) {
+                for user_id in members.iter() {
+                    return ctx.cache.member(guild_id, *user_id)
+                        .and_then(|m| {
+                            if m.user.name.to_lowercase() == input.to_lowercase()
+                                || member_tag(m.clone()) == input.to_lowercase()
+                                || display_name(m.clone()).to_lowercase() == input.to_lowercase() {
+                                    Some((*user_id, Arc::new(cached_member_to_member(m))))
+                                } else { None }
+                        });
+                }
+            }
+            None
+        },
     }
+}
+
+pub fn parse_channel<T: Into<String>>(input: T, guild_id: GuildId, ctx: Context) -> Option<(ChannelId, Arc<GuildChannel>)> {
+    _parse_channel(input.into(), guild_id, ctx)
 }
 
 /// Attempts to parse a channel ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached GuildChannels
 /// This method is case insensitive
-pub fn parse_channel(input: String, guild_id: GuildId) -> Option<(ChannelId, GuildChannel)> {
+fn _parse_channel(input: String, guild_id: GuildId, ctx: Context) -> Option<(ChannelId, Arc<GuildChannel>)> {
     match CHANNEL_MATCH.captures(input.as_str()) {
         Some(s) => {
-            if let Ok(id) = ChannelId::from_str(&s[1]) {
-                let ch_lock = CACHE.read().guild_channel(&id);
-                if let Some(ch_lock) = ch_lock {
-                    let ch = ch_lock.read();
-                    return Some((id, ch.clone()));
-                }
+            if let Ok(id) = s[1].parse::<u64>() {
+                let channel_id = ChannelId(id);
+                return ctx.cache.guild_channel(channel_id)
+                    .and_then(|channel| {
+                        Some((channel_id, channel))
+                    });
             }
+
             None
         },
         None => {
-            let guild_lock = CACHE.read().guild(&guild_id);
-            if let Some(guild_lock) = guild_lock {
-                let guild = guild_lock.read();
-                for (id, ch_lock) in guild.channels.iter() {
-                    let ch = ch_lock.read();
-                    if ch.name.to_lowercase() == input.to_lowercase() {
-                        return Some((*id, ch.clone()));
-                    }
+            if let Some(channels) = ctx.cache.guild_channels(guild_id) {
+                for channel_id in channels.iter() {
+                    return ctx.cache.guild_channel(*channel_id)
+                        .and_then(|channel| {
+                            if channel.name().to_lowercase() == input.to_lowercase() {
+                                Some((*channel_id, channel.clone()))
+                            } else {
+                                None
+                            }
+                        });
                 }
             }
             None
@@ -128,27 +159,31 @@ pub fn parse_channel(input: String, guild_id: GuildId) -> Option<(ChannelId, Gui
     }
 }
 
+pub fn parse_guild<T: Into<String>>(input: T, ctx: Context) -> Option<(GuildId, Arc<CachedGuild>)> {
+    _parse_guild(input.into(), ctx)
+}
+
 /// Attempts to parse a guild ID out of a string
 /// If the string does not contain a valid snowflake, attempt to match as name to cached guild
 /// This method is case insensitive
-pub fn parse_guild(input: String) -> Option<(GuildId, Arc<RwLock<Guild>>)> {
+fn _parse_guild(input: String, ctx: Context) -> Option<(GuildId, Arc<CachedGuild>)> {
     match GUILD_MATCH.captures(input.as_str()) {
         Some(s) => {
             if let Ok(id) = s[0].parse::<u64>() {
                 let id = GuildId(id);
-                if let Some(g_lock) = id.to_guild_cached() {
-                    return Some((id, g_lock));
+                if let Some(guild) = ctx.cache.guild(id) {
+                    return Some((id, guild));
                 }
             }
             None
         },
         None => {
-            let guilds = &CACHE.read().guilds;
-            for (id, g_lock) in guilds.iter() {
-                if g_lock.read().name.to_lowercase() == input.to_lowercase() {
-                    return Some((*id, Arc::clone(g_lock)));
-                }
-            }
+            // TODO need a way to iterate over cached guilds
+            // for (id, g_lock) in guilds.iter() {
+            //     if g_lock.read().name.to_lowercase() == input.to_lowercase() {
+            //         return Some((*id, Arc::clone(g_lock)));
+            //     }
+            // }
             None
         },
     }
@@ -236,29 +271,28 @@ pub fn seconds_to_hrtime(secs: usize) -> String {
         .join(", ")
 }
 
-pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member) -> String {
+pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member, ctx: Context) -> String {
     let input = input.into();
     let mut ret = input.clone();
-    let user = member.user.read();
     for word in PLAIN_PARTS.captures_iter(input.as_str()) {
         match word[0].to_lowercase().as_str() {
             "{user}" => {
-                ret = ret.replace(&word[0], user.mention().as_str());
+                ret = ret.replace(&word[0], member.user.mention().to_string().as_str());
             },
             "{usertag}" => {
-                ret = ret.replace(&word[0], user.tag().as_str());
+                ret = ret.replace(&word[0], format!("{}#{}", member.user.name, member.user.discriminator).as_str());
             },
             "{username}" => {
-                ret = ret.replace(&word[0], user.name.as_str());
+                ret = ret.replace(&word[0], member.user.name.as_str());
             },
             "{guild}" => {
-                if let Ok(guild) = member.guild_id.to_partial_guild() {
+                if let Some(guild) = ctx.cache.guild(member.guild_id) {
                     ret = ret.replace(&word[0], guild.name.as_str());
                 }
             },
             "{membercount}" => {
-                if let Some(guild) = member.guild_id.to_guild_cached() {
-                    ret = ret.replace(&word[0], guild.read().member_count.to_string().as_str());
+                if let Some(guild) = ctx.cache.guild(member.guild_id) {
+                    ret = ret.replace(&word[0], guild.member_count.unwrap_or(0).to_string().as_str());
                 }
             },
             _ => {},
@@ -267,43 +301,89 @@ pub fn parse_welcome_items<S: Into<String>>(input: S, member: &Member) -> String
     ret
 }
 
-pub fn send_welcome_embed(input: String, member: &Member, channel: ChannelId) -> Result<Message, Error> {
-    let user = member.user.read();
-    channel.send_message(|m| { m .embed(|mut e| {
-        for item in EMBED_ITEM.captures_iter(input.as_str()) {
-            if let Some(caps) = EMBED_PARTS.captures(&item[0]) {
-                match caps["field"].to_lowercase().as_str() {
-                    "title" => {
-                        e = e.title(parse_welcome_items(&caps["value"], member));
-                    },
-                    "description" => {
-                        e = e.description(parse_welcome_items(&caps["value"], member));
-                    },
-                    "thumbnail" => {
-                        match caps["value"].to_lowercase().trim() {
-                            "user" => {
-                                e = e.thumbnail(user.face());
-                            },
-                            "member" => {
-                                e = e.thumbnail(user.face());
-                            },
-                            "guild" => {
-                                if let Ok(guild) = member.guild_id.to_partial_guild() {
-                                    if let Some(ref s) = guild.icon_url() {
-                                        e = e.thumbnail(s);
-                                    }
+pub fn build_welcome_embed(input: String, member: &Member, ctx: Context) -> Result<EmbedBuilder, Box<dyn Error+ Send + Sync>> {
+    let mut embed = EmbedBuilder::new();
+    for item in EMBED_ITEM.captures_iter(input.as_str()) {
+        if let Some(caps) = EMBED_PARTS.captures(&item[0]) {
+            match caps["field"].to_lowercase().as_str() {
+                "title" => {
+                    embed = embed.title(parse_welcome_items(&caps["value"], &member, ctx.clone()));
+                },
+                "description" => {
+                    embed = embed.description(parse_welcome_items(&caps["value"], &member, ctx.clone()));
+                },
+                "thumbnail" => {
+                    match caps["value"].to_lowercase().trim() {
+                        "user" | "member" => {
+                            embed = embed.thumbnail(ImageSource::url(user_avatar_url(&member.user))?);
+                        },
+                        "guild" => {
+                            if let Some(guild) = ctx.cache.guild((&member).guild_id.clone()) {
+                                if let Some(ref s) = guild.icon {
+                                    embed = embed.thumbnail(ImageSource::url(guild_icon_url(guild.id, s.clone()))?);
                                 }
-                            },
-                            _ => {},
-                        }
-                    },
-                    "color" | "colour" => {
-                        e = e.colour(u64::from_str_radix(&caps["value"].trim().replace("#",""), 16).unwrap_or(0));
-                    },
-                    _ => {},
-                }
+                            }
+                        },
+                        _ => {},
+                    }
+                },
+                "color" | "colour" => {
+                    embed = embed.color(u64::from_str_radix(&caps["value"].trim().replace("#",""), 16).unwrap_or(0) as u32);
+                },
+                _ => {},
             }
         }
-        e
-    })})
+    }
+
+    Ok(embed)
+}
+
+pub fn get_permissions_for_member(m: Arc<CachedMember>, ctx: Context) -> Permissions {
+    m.roles.iter().fold(Permissions::empty(), |p, role_id| {
+        p | ctx.cache.role(*role_id).and_then(|role| {
+            Some(role.permissions)
+        }).unwrap_or(Permissions::empty())
+    })
+}
+
+fn cached_member_to_member(m: Arc<CachedMember>) -> Member {
+    Member {
+        deaf: m.deaf,
+        guild_id: m.guild_id,
+        hoisted_role: None,
+        joined_at: m.joined_at.clone(),
+        mute: m.mute,
+        nick: m.nick.clone(),
+        pending: m.pending,
+        premium_since: m.premium_since.clone(),
+        roles: m.roles.clone(),
+        user: (*m.user).clone(),
+    }
+}
+
+pub(crate) fn display_name(m: Arc<CachedMember>) -> String {
+    format!("{}", m.nick.clone().unwrap_or(m.user.name.clone()))
+}
+
+pub(crate) fn member_tag(m: Arc<CachedMember>) -> String {
+    format!("{}#{}", m.user.name, m.user.discriminator)
+}
+
+pub(crate) fn user_tag(user: Arc<User>) -> String {
+    format!("{}#{}", user.name, user.discriminator)
+}
+
+pub fn user_avatar_url(user: &User) -> String {
+    avatar_url_from_parts(&user.avatar, user.id, user.discriminator.as_str())
+}
+
+pub fn avatar_url_from_parts(hash: &Option<String>, id: UserId, discriminator: &str) -> String {
+    match hash {
+        Some(ref hash) => format!("https://cdn.discordapp.com/avatars/{}/{}.png", id.0, hash),
+        None => format!("https://cdn.discordapp.com/embed/avatars/{}.png", discriminator.parse::<usize>().unwrap() % 5)
+    }
+}
+
+pub fn guild_icon_url(id: GuildId, hash: String) -> String {
+    format!("https://cdn.discordapp.com/icons/{}/{}.png", id.0, hash)
 }
